@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"http://localhost:8000/api/maintenance.php?action=list\")",
+      "Bash(curl -s \"http://localhost:8000/api/maintenance.php?action=stats\")",
+      "Bash(rm:*)",
+      "Bash(php -r \"\n$pdo = new PDO(''mysql:host=localhost;dbname=property_custodian_db'', ''root'', '''');\n$stmt = $pdo->query(''DESCRIBE maintenance_schedules'');\n$columns = $stmt->fetchAll(PDO::FETCH_COLUMN);\nif (in_array(''estimated_duration'', $columns)) {\n    echo ''estimated_duration column exists'';\n} else {\n    echo ''estimated_duration column does not exist'';\n    $pdo->exec(''ALTER TABLE maintenance_schedules ADD COLUMN estimated_duration DECIMAL(4,2) AFTER estimated_cost'');\n    echo '' - column added'';\n}\n\")",
+      "Bash(php:*)",
+      "Bash(curl -s \"http://localhost:8000/api/maintenance.php?action=details&id=1\")",
+      "Bash(curl -s -X PUT \"http://localhost:8000/api/maintenance.php?action=update\" -H \"Content-Type: application/json\" -d \"{\"\"id\"\":\"\"1\"\",\"\"description\"\":\"\"Updated routine maintenance check\"\",\"\"estimated_duration\"\":\"\"3.5\"\",\"\"notes\"\":\"\"Added some notes during editing\"\"}\")",
+      "Bash(curl -s -X PUT \"http://localhost:8000/api/maintenance.php?action=update\" -H \"Content-Type: application/json\" -d \"{\"\"id\"\":\"\"4\"\",\"\"priority\"\":\"\"critical\"\",\"\"estimated_cost\"\":\"\"200.00\"\",\"\"notes\"\":\"\"Customer reported urgent issue with multiple keys not working\"\"}\")",
+      "Bash(curl -s \"http://localhost:8000/api/damaged_items.php?action=stats\")",
+      "Bash(curl -s \"http://localhost:8000/api/damaged_items.php?action=list\")",
+      "Bash(curl -s \"http://localhost:8000/api/damaged_items.php?action=search_asset&asset_code=PC-2024-002\")",
+      "Bash(curl -s -X POST \"http://localhost:8000/api/damaged_items.php?action=create\" -H \"Content-Type: application/json\" -d \"{\"\"asset_code\"\":\"\"PC-2024-002\"\",\"\"damage_type\"\":\"\"physical\"\",\"\"severity_level\"\":\"\"moderate\"\",\"\"damage_date\"\":\"\"2024-01-15\"\",\"\"reported_by\"\":\"\"John Doe\"\",\"\"current_location\"\":\"\"Computer Lab 1\"\",\"\"estimated_repair_cost\"\":\"\"150.00\"\",\"\"damage_description\"\":\"\"Screen cracked on the left corner\"\"}\")",
+      "Bash(curl -s \"http://localhost:8000/api/property_audit.php?action=stats\")",
+      "Bash(curl -s \"http://localhost:8000/api/property_audit.php?action=list\")",
+      "Bash(curl -s -X POST \"http://localhost:8000/api/property_audit.php?action=create\" -H \"Content-Type: application/json\" -d \"{\"\"audit_type\"\":\"\"physical_inventory\"\",\"\"start_date\"\":\"\"2024-01-15\"\",\"\"department\"\":\"\"IT Department\"\",\"\"summary\"\":\"\"Quarterly physical inventory audit for IT equipment\"\"}\")",
+      "Bash(curl -s \"http://localhost:8000/api/property_audit.php?action=details&id=1\")",
+      "Bash(curl:*)",
+      "WebFetch(domain:localhost)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
