@@ -9,7 +9,7 @@ require_once 'includes/auth_check.php';
 // If user is already logged in, redirect to dashboard
 redirectIfLoggedIn();
 
-$pageTitle = "Login - Property Custodian Management";
+$pageTitle = "Login - roperty Custodian Management";
 
 ob_start();
 ?>
