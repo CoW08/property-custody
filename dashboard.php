@@ -27,7 +27,7 @@ if ($userInitials === '' && !empty($currentUser['username'])) {
 
 $userInitials = substr($userInitials ?: 'U', 0, 2);
 
-$pageTitle = "Dashboard - roperty Custodian Management";
+$pageTitle = "Dashboard - Property Custodian Management";
 
 ob_start();
 ?>
