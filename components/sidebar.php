@@ -54,7 +54,7 @@
     </div>
 
     <div class="mt-4">
-        <?php $operationsActive = in_array(basename($_SERVER['PHP_SELF']), ['property-issuance.php','custodian-assignment.php','procurement.php','maintenance.php']); ?>
+        <?php $operationsActive = in_array(basename($_SERVER['PHP_SELF']), ['property-issuance.php','custodian-assignment.php','procurement.php','purchase-orders.php','maintenance.php']); ?>
         <button type="button" class="dropdown-toggle w-full flex items-center justify-between px-6 py-2 text-xs font-semibold uppercase tracking-wide <?php echo $operationsActive ? 'text-blue-600' : 'text-gray-500'; ?> hover:text-blue-600 transition" data-target="operationsMenu" data-opened="<?php echo $operationsActive ? 'true' : 'false'; ?>">
             <span>Operations & Requests</span>
             <i class="fas fa-chevron-right text-xs chevron transition-transform duration-200"></i>
@@ -75,6 +75,12 @@
             <?php if (checkMenuAccess('procurement')): ?>
             <li><a href="procurement.php" class="menu-item flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 <?php echo (basename($_SERVER['PHP_SELF']) == 'procurement.php') ? 'border-r-4 border-blue-600 bg-blue-50 text-blue-600' : ''; ?>">
                 <i class="fas fa-shopping-cart mr-3"></i> Procurement
+            </a></li>
+            <?php endif; ?>
+
+            <?php if (checkMenuAccess('purchase_orders')): ?>
+            <li><a href="purchase-orders.php" class="menu-item flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 <?php echo (basename($_SERVER['PHP_SELF']) == 'purchase-orders.php') ? 'border-r-4 border-blue-600 bg-blue-50 text-blue-600' : ''; ?>">
+                <i class="fas fa-file-invoice-dollar mr-3"></i> Purchase Orders
             </a></li>
             <?php endif; ?>
 

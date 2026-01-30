@@ -111,7 +111,7 @@ ob_start();
 
                         <select id="typeFilter" class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base">
                             <option value="">All Types</option>
-                            <option value="asset">Asset</option>
+                            <option value="asset">Item</option>
                             <option value="supply">Supply</option>
                             <option value="service">Service</option>
                         </select>
@@ -231,7 +231,7 @@ ob_start();
                         <select id="requestType" name="request_type" required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">Select Type</option>
-                            <option value="asset">Asset</option>
+                            <option value="asset">Item</option>
                             <option value="supply">Supply</option>
                             <option value="service">Service</option>
                         </select>

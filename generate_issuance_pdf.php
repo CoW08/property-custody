@@ -124,6 +124,12 @@ class IssuanceReceiptPDF {
             width: 45%;
             text-align: center;
         }
+        .signature-image {
+            width: 360px;
+            max-width: 100%;
+            height: 160px;
+            object-fit: contain;
+        }
         .signature-line {
             border-top: 2px solid #000;
             margin-top: 60px;
@@ -251,13 +257,13 @@ class IssuanceReceiptPDF {
         // Recipient signature (uploaded or drawn)
         if (!empty($this->data['recipient_signature'])) {
             $html .= '<div style="text-align: center; margin-bottom: 10px;">
-                <img src="' . htmlspecialchars($this->data['recipient_signature']) . '" alt="Recipient Signature" style="max-width: 220px; height: auto;">
+                <img src="' . htmlspecialchars($this->data['recipient_signature']) . '" alt="Recipient Signature" class="signature-image">
             </div>';
         } else {
             $staffSignaturePath = __DIR__ . '/signatures/staff_signature.png';
             if (file_exists($staffSignaturePath)) {
                 $html .= '<div style="text-align: center; margin-bottom: 10px;">
-                    <img src="signatures/staff_signature.png" alt="Signature" style="max-width: 150px; height: auto;">
+                    <img src="signatures/staff_signature.png" alt="Signature" class="signature-image">
                 </div>';
             }
         }
@@ -274,7 +280,7 @@ class IssuanceReceiptPDF {
         $custodianSignaturePath = __DIR__ . '/signatures/custodian_signature.png';
         if (file_exists($custodianSignaturePath)) {
             $html .= '<div style="text-align: center; margin-bottom: 10px;">
-                <img src="signatures/custodian_signature.png" alt="Signature" style="max-width: 200px; height: auto;">
+                <img src="signatures/custodian_signature.png" alt="Signature" class="signature-image">
             </div>';
         }
         
@@ -320,6 +326,7 @@ if (isset($_GET['issuance_id'])) {
                 pi.asset_id,
                 pi.employee_id,
                 pi.recipient_name,
+                pi.recipient_signature,
                 pi.issue_date,
                 pi.expected_return_date,
                 pi.purpose,

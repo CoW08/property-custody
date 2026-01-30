@@ -351,6 +351,7 @@ INSERT INTO `procurement_request_items` (`id`, `request_id`, `item_name`, `descr
 -- --------------------------------------------------------
 
 --
+--
 -- Table structure for table `property_assignments`
 --
 
@@ -700,6 +701,27 @@ ALTER TABLE `procurement_request_items`
   ADD KEY `request_id` (`request_id`);
 
 --
+-- Indexes for table `purchase_orders`
+--
+
+ALTER TABLE `purchase_orders`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `po_number` (`po_number`),
+  ADD KEY `request_id` (`request_id`),
+  ADD KEY `created_by` (`created_by`),
+  ADD KEY `approved_by` (`approved_by`),
+  ADD KEY `status` (`status`);
+
+--
+-- Indexes for table `purchase_order_items`
+--
+
+ALTER TABLE `purchase_order_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `purchase_order_id` (`purchase_order_id`),
+  ADD KEY `request_item_id` (`request_item_id`);
+
+--
 -- Indexes for table `property_assignments`
 --
 ALTER TABLE `property_assignments`
@@ -817,6 +839,20 @@ ALTER TABLE `procurement_request_items`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
+-- AUTO_INCREMENT for table `purchase_orders`
+--
+
+ALTER TABLE `purchase_orders`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `purchase_order_items`
+--
+
+ALTER TABLE `purchase_order_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `property_assignments`
 --
 ALTER TABLE `property_assignments`
@@ -921,7 +957,22 @@ ALTER TABLE `procurement_requests`
 -- Constraints for table `procurement_request_items`
 --
 ALTER TABLE `procurement_request_items`
-  ADD CONSTRAINT `procurement_request_items_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `procurement_requests` (`id`);
+  ADD CONSTRAINT `procurement_request_items_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `procurement_requests` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `purchase_orders`
+--
+ALTER TABLE `purchase_orders`
+  ADD CONSTRAINT `purchase_orders_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `procurement_requests` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `purchase_orders_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `purchase_orders_ibfk_3` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `purchase_order_items`
+--
+ALTER TABLE `purchase_order_items`
+  ADD CONSTRAINT `purchase_order_items_ibfk_1` FOREIGN KEY (`purchase_order_id`) REFERENCES `purchase_orders` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `purchase_order_items_ibfk_2` FOREIGN KEY (`request_item_id`) REFERENCES `procurement_request_items` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `property_assignments`

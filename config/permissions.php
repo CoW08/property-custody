@@ -23,6 +23,7 @@ $adminPermissions = [
     'damaged_items',
     'property_audit',
     'procurement',
+    'purchase_orders',
     'generate_reports',
     'ai_demand_forecasting',
     'waste_management',
@@ -49,7 +50,8 @@ $propertyCustodianPermissions = [
     'waste_management',
     'track_request_status',
     'report_lost_damaged',
-    'generate_reports'
+    'generate_reports',
+    'purchase_orders'
 ];
 
 $staffPermissions = [
@@ -108,6 +110,7 @@ define('MENU_PERMISSIONS', [
     'property_audit' => ['property_audit'],
     'ai_demand_forecasting' => ['ai_demand_forecasting'],
     'procurement' => ['procurement', 'review_procurement'],
+    'purchase_orders' => ['purchase_orders', 'procurement', 'review_procurement'],
     'reports_analytics' => ['generate_reports', 'view_financial_reports'],
     'waste_management' => ['waste_management'],
     'user_roles_access' => ['user_roles_access', 'manage_users_access']

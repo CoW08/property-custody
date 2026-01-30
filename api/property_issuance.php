@@ -285,9 +285,9 @@ function createIssuance($db, $input = null) {
         $issuance_id = $db->lastInsertId();
 
         // Update asset status to assigned
-        $updateAssetQuery = "UPDATE assets SET status = 'assigned', assigned_to = ? WHERE id = ?";
+        $updateAssetQuery = "UPDATE assets SET status = 'assigned', assigned_to = NULL WHERE id = ?";
         $updateAssetStmt = $db->prepare($updateAssetQuery);
-        $updateAssetStmt->execute([$data->employee_id, $data->asset_id]);
+        $updateAssetStmt->execute([$data->asset_id]);
 
         $db->commit();
 

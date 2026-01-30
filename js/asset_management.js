@@ -226,7 +226,7 @@ function renderAssetsTable() {
     }
 
     tbody.innerHTML = currentAssets.map(asset => `
-        <tr class="hover:bg-gray-50">
+        <tr class="hover:bg-gray-50" data-asset-id="${asset.id}">
             <td class="px-6 py-4 whitespace-nowrap">
                 <input type="checkbox" name="assetSelect" value="${asset.id}" class="rounded" onchange="updateBulkSelectionState()">
             </td>
@@ -432,8 +432,8 @@ App.openAssetModal = function(assetId = null) {
 
     if (assetId) {
         // Edit mode
-        document.getElementById('assetModalTitle').textContent = 'Edit Asset';
-        document.getElementById('assetSubmitText').textContent = 'Update Asset';
+        document.getElementById('assetModalTitle').textContent = 'Edit Item';
+        document.getElementById('assetSubmitText').textContent = 'Update Item';
 
         // Clear form first to show loading state
         document.getElementById('assetForm').reset();
@@ -443,8 +443,9 @@ App.openAssetModal = function(assetId = null) {
         loadAssetForEdit(assetId);
     } else {
         // Add mode
-        document.getElementById('assetModalTitle').textContent = 'Add Asset';
-        document.getElementById('assetSubmitText').textContent = 'Save Asset';
+        document.getElementById('assetModalTitle').textContent = 'Add Item';
+        document.getElementById('assetSubmitText').textContent = 'Save Item';
+
         document.getElementById('assetForm').reset();
         document.getElementById('assetId').value = '';
         updateSelectedTagsDisplay();

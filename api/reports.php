@@ -237,7 +237,9 @@ function exportToExcel($data, $filename, $dateFrom = null, $dateTo = null) {
 function getAssetsReport($db, $dateFrom = null, $dateTo = null, $exportFormat = null) {
     try {
         $report = array();
+        $notes = array();
         $dateCondition = buildDateCondition($dateFrom, $dateTo, 'created_at');
+        $dateFilterApplied = !empty(trim($dateCondition));
 
         $checkAssets = $db->query("SHOW TABLES LIKE 'assets'");
         if($checkAssets->rowCount() == 0) {
@@ -252,17 +254,50 @@ function getAssetsReport($db, $dateFrom = null, $dateTo = null, $exportFormat = 
         $stmt->execute();
         $report['by_category'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        if ($dateFilterApplied && empty($report['by_category'])) {
+            $query = "SELECT category, COUNT(*) as count FROM assets GROUP BY category ORDER BY count DESC";
+            $stmt = $db->prepare($query);
+            $stmt->execute();
+            $fallbackData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (!empty($fallbackData)) {
+                $report['by_category'] = $fallbackData;
+                $notes[] = 'No item category data matched the selected date range. Showing overall totals instead.';
+            }
+        }
+
         // Asset distribution by status
         $query = "SELECT status, COUNT(*) as count FROM assets WHERE 1=1 {$dateCondition} GROUP BY status";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $report['by_status'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        if ($dateFilterApplied && empty($report['by_status'])) {
+            $query = "SELECT status, COUNT(*) as count FROM assets GROUP BY status";
+            $stmt = $db->prepare($query);
+            $stmt->execute();
+            $fallbackData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (!empty($fallbackData)) {
+                $report['by_status'] = $fallbackData;
+                $notes[] = 'No item status data matched the selected date range. Showing overall totals instead.';
+            }
+        }
+
         // Asset distribution by location
-        $query = "SELECT location, COUNT(*) as count FROM assets WHERE location IS NOT NULL GROUP BY location ORDER BY count DESC";
+        $query = "SELECT location, COUNT(*) as count FROM assets WHERE location IS NOT NULL {$dateCondition} GROUP BY location ORDER BY count DESC";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $report['by_location'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($dateFilterApplied && empty($report['by_location'])) {
+            $query = "SELECT location, COUNT(*) as count FROM assets WHERE location IS NOT NULL GROUP BY location ORDER BY count DESC";
+            $stmt = $db->prepare($query);
+            $stmt->execute();
+            $fallbackData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (!empty($fallbackData)) {
+                $report['by_location'] = $fallbackData;
+                $notes[] = 'No item location data matched the selected date range. Showing overall totals instead.';
+            }
+        }
 
         // Monthly asset additions (last 12 months)
         $query = "SELECT
@@ -275,6 +310,10 @@ function getAssetsReport($db, $dateFrom = null, $dateTo = null, $exportFormat = 
         $stmt = $db->prepare($query);
         $stmt->execute();
         $report['monthly_additions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($notes)) {
+            $report['notes'] = $notes;
+        }
 
         // Handle export format
         if ($exportFormat === 'excel') {

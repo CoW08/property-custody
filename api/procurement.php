@@ -199,9 +199,9 @@ function createProcurementRequest($pdo) {
 
         // Insert procurement request with auto-fetched user data
         $sql = "INSERT INTO procurement_requests (request_code, request_type, requestor_id, department,
-                request_date, required_date, justification, estimated_cost, priority, notes, created_by)
+                request_date, required_date, justification, estimated_cost, priority, notes)
                 VALUES (:request_code, :request_type, :requestor_id, :department, :request_date,
-                :required_date, :justification, :estimated_cost, :priority, :notes, :created_by)";
+                :required_date, :justification, :estimated_cost, :priority, :notes)";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -214,8 +214,7 @@ function createProcurementRequest($pdo) {
             ':justification' => $input['justification'],
             ':estimated_cost' => $input['estimated_cost'] ?? 0,
             ':priority' => $input['priority'] ?? 'medium',
-            ':notes' => $input['notes'] ?? null,
-            ':created_by' => $requestorId      // Track who created the request
+            ':notes' => $input['notes'] ?? null
         ]);
 
         $requestId = $pdo->lastInsertId();
@@ -293,9 +292,9 @@ function updateProcurementRequest($pdo) {
             return;
         }
 
-        if (in_array($request['status'], ['approved', 'ordered', 'received'])) {
+        if (in_array($request['status'], ['ordered', 'received'])) {
             http_response_code(400);
-            echo json_encode(['error' => 'Cannot edit approved or processed requests']);
+            echo json_encode(['error' => 'Cannot edit requests that are already ordered or received']);
             return;
         }
 
