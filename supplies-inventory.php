@@ -868,6 +868,293 @@ function updateSummaryCards() {
     document.getElementById('expiringSoonItems').textContent = '₱' + totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 });
 }
 
+// Gemini AI Forecasting integration
+function initializeForecastIntegration() {
+    if (!forecastIntegrationElements.section) {
+        return;
+    }
+
+    if (forecastIntegrationElements.refreshBtn) {
+        forecastIntegrationElements.refreshBtn.addEventListener('click', () => {
+            loadForecastIntegrationData(true);
+        });
+    }
+
+    loadForecastIntegrationData();
+}
+
+async function loadForecastIntegrationData(force = false) {
+    if (!forecastIntegrationElements.section) {
+        return;
+    }
+
+    setForecastIntegrationLoading(true);
+
+    try {
+        const [overviewResponse, reorderResponse, alertsResponse] = await Promise.all([
+            API.getForecastOverview().catch(() => null),
+            API.getForecastReorders().catch(() => []),
+            API.getForecastAlerts().catch(() => [])
+        ]);
+
+        const overview = overviewResponse?.data ?? overviewResponse ?? null;
+        const reorders = reorderResponse?.data ?? reorderResponse ?? [];
+        const alerts = alertsResponse?.data ?? alertsResponse ?? [];
+
+        forecastIntegrationState.overview = overview;
+        forecastIntegrationState.reorders = Array.isArray(reorders) ? reorders : [];
+        forecastIntegrationState.alerts = Array.isArray(alerts) ? alerts : [];
+
+        const hasData = hasForecastData();
+
+        if (hasData || !forecastIntegrationElements.section.classList.contains('hidden')) {
+            forecastIntegrationElements.section.classList.remove('hidden');
+        }
+
+        renderForecastIntegrationHighlights(forecastIntegrationState.overview);
+        renderForecastIntegrationReorders(forecastIntegrationState.reorders);
+        renderForecastIntegrationAlerts(forecastIntegrationState.alerts);
+        updateForecastIntegrationGeneratedAt(forecastIntegrationState.overview);
+
+        if (!hasData) {
+            showForecastIntegrationEmptyState();
+        }
+    } catch (error) {
+        console.error('Failed to load Gemini AI forecasting data', error);
+        showNotification('Unable to load Gemini AI forecasting data.', 'warning');
+        showForecastIntegrationErrorState();
+    } finally {
+        setForecastIntegrationLoading(false);
+    }
+}
+
+function hasForecastData() {
+    const overviewHasSummary = Boolean(forecastIntegrationState.overview?.summary) && Object.keys(forecastIntegrationState.overview.summary).length > 0;
+    const reordersHasItems = Array.isArray(forecastIntegrationState.reorders) && forecastIntegrationState.reorders.length > 0;
+    const alertsHasItems = Array.isArray(forecastIntegrationState.alerts) && forecastIntegrationState.alerts.length > 0;
+    return overviewHasSummary || reordersHasItems || alertsHasItems;
+}
+
+function setForecastIntegrationLoading(isLoading) {
+    const button = forecastIntegrationElements.refreshBtn;
+    if (!button) return;
+
+    button.disabled = isLoading;
+    button.classList.toggle('opacity-60', isLoading);
+    button.classList.toggle('cursor-not-allowed', isLoading);
+
+    const icon = button.querySelector('i');
+    if (icon) {
+        icon.classList.toggle('fa-spin', isLoading);
+    }
+}
+
+function renderForecastIntegrationHighlights(overview) {
+    const container = forecastIntegrationElements.highlights;
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!overview || !overview.summary || Object.keys(overview.summary).length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full rounded-2xl border border-indigo-200 bg-indigo-50/40 p-6 text-center text-sm text-slate-500">
+                Record supply transactions to unlock AI-generated insights.
+            </div>
+        `;
+        return;
+    }
+
+    const summary = overview.summary;
+    const cards = [
+        {
+            title: 'Supplies tracked',
+            value: summary.total_supplies ?? 0,
+            icon: 'boxes-stacked',
+            accent: 'bg-indigo-100 text-indigo-700'
+        },
+        {
+            title: '30-day demand',
+            value: summary.forecasted_usage ?? 0,
+            format: 'number',
+            icon: 'chart-line',
+            accent: 'bg-emerald-100 text-emerald-700'
+        },
+        {
+            title: 'Critical low stock',
+            value: summary.critical_low_stock ?? 0,
+            icon: 'triangle-exclamation',
+            accent: 'bg-rose-100 text-rose-700'
+        },
+        {
+            title: 'Seasonal trends',
+            value: summary.seasonal_trends ?? 0,
+            icon: 'calendar-alt',
+            accent: 'bg-sky-100 text-sky-700'
+        }
+    ];
+
+    container.innerHTML = cards.map(card => `
+        <article class="forecast-card rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+            <span class="inline-flex items-center justify-center w-11 h-11 rounded-2xl ${card.accent}">
+                <i class="fas fa-${card.icon}"></i>
+            </span>
+            <div class="mt-3 space-y-1">
+                <p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">${card.title}</p>
+                <p class="text-2xl font-black text-slate-900">${card.format === 'number' ? formatNumber(card.value) : (card.value ?? 0)}</p>
+            </div>
+        </article>
+    `).join('');
+}
+
+function renderForecastIntegrationReorders(reorders) {
+    const tbody = forecastIntegrationElements.reorderBody;
+    if (!tbody) return;
+
+    if (!Array.isArray(reorders) || reorders.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-4 py-6 text-center text-sm text-slate-500">No reorder recommendations at the moment.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = reorders.slice(0, 6).map(item => `
+        <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3">
+                <div class="font-semibold text-slate-800">${escapeHtml(item.name)}</div>
+                <div class="text-xs text-slate-500">${escapeHtml(item.item_code)}</div>
+            </td>
+            <td class="px-4 py-3">${formatNumber(item.current_stock ?? 0)}</td>
+            <td class="px-4 py-3">${formatDecimal(item.average_daily_usage)}</td>
+            <td class="px-4 py-3">${item.projected_runout_days !== null && item.projected_runout_days !== undefined ? formatDecimal(item.projected_runout_days) : '—'}</td>
+            <td class="px-4 py-3 font-semibold">${formatNumber(item.recommended_reorder_qty ?? 0)}</td>
+            <td class="px-4 py-3">${renderForecastPriorityChip(item.priority)}</td>
+        </tr>
+    `).join('');
+}
+
+function renderForecastIntegrationAlerts(alerts) {
+    const container = forecastIntegrationElements.alerts;
+    if (!container) return;
+
+    if (!Array.isArray(alerts) || alerts.length === 0) {
+        container.innerHTML = `
+            <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-5 text-sm text-slate-500">
+                No active alerts. All monitored supplies are within safe stock levels.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = alerts.slice(0, 5).map(alert => {
+        const styles = getAlertStyles(alert.severity);
+        return `
+            <div class="rounded-2xl border ${styles.border} bg-white p-4 shadow-sm">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900">${escapeHtml(alert.title)}</p>
+                        <p class="text-sm text-slate-600 mt-1">${escapeHtml(alert.message)}</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${styles.chip}">
+                        <i class="fas fa-${styles.icon}"></i>
+                        ${styles.label}
+                    </span>
+                </div>
+                ${(alert.current_stock !== undefined && alert.recommended_reorder_qty !== undefined) ? `
+                    <div class="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500">
+                        <div>
+                            <p class="font-semibold text-slate-700">Current Stock</p>
+                            <p>${formatNumber(alert.current_stock ?? 0)}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-700">Suggested Order</p>
+                            <p>${formatNumber(alert.recommended_reorder_qty ?? 0)}</p>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function updateForecastIntegrationGeneratedAt(overview) {
+    if (!forecastIntegrationElements.generatedAt) return;
+
+    if (overview?.generated_at) {
+        const generated = new Date(overview.generated_at);
+        forecastIntegrationElements.generatedAt.textContent = generated.toLocaleString();
+    } else {
+        forecastIntegrationElements.generatedAt.textContent = '—';
+    }
+}
+
+function showForecastIntegrationEmptyState() {
+    if (!forecastIntegrationElements.section) return;
+    forecastIntegrationElements.section.classList.remove('hidden');
+}
+
+function showForecastIntegrationErrorState() {
+    const container = forecastIntegrationElements.highlights;
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="col-span-full rounded-2xl border border-rose-200 bg-rose-50/70 p-6 text-center text-sm text-rose-700">
+            Gemini AI forecasting data is currently unavailable. Try refreshing later.
+        </div>
+    `;
+
+    if (forecastIntegrationElements.section) {
+        forecastIntegrationElements.section.classList.remove('hidden');
+    }
+}
+
+function renderForecastPriorityChip(priority) {
+    const styles = {
+        critical: { label: 'Critical', cls: 'bg-rose-100 text-rose-700' },
+        high: { label: 'High', cls: 'bg-amber-100 text-amber-700' },
+        overstock: { label: 'Overstock', cls: 'bg-sky-100 text-sky-700' },
+        medium: { label: 'Medium', cls: 'bg-emerald-100 text-emerald-700' },
+        low: { label: 'Stable', cls: 'bg-emerald-100 text-emerald-700' }
+    };
+
+    const style = styles[priority] || styles.medium;
+    return `<span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${style.cls}">${style.label}</span>`;
+}
+
+function getAlertStyles(severity) {
+    switch (severity) {
+        case 'critical':
+            return { border: 'border-rose-200', chip: 'bg-rose-100 text-rose-700', label: 'Critical', icon: 'triangle-exclamation' };
+        case 'high':
+            return { border: 'border-amber-200', chip: 'bg-amber-100 text-amber-700', label: 'High', icon: 'exclamation-circle' };
+        case 'overstock':
+            return { border: 'border-sky-200', chip: 'bg-sky-100 text-sky-700', label: 'Overstock', icon: 'circle' };
+        default:
+            return { border: 'border-emerald-200', chip: 'bg-emerald-100 text-emerald-700', label: 'Normal', icon: 'info-circle' };
+    }
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat().format(value ?? 0);
+}
+
+function formatDecimal(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return '0.00';
+    }
+    return Number(value).toFixed(2);
+}
+
+function escapeHtml(value) {
+    return (value ?? '').toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // Populate supply select for transactions
 function populateSupplySelect() {
     const select = document.getElementById('transactionSupplyId');
