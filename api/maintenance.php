@@ -160,33 +160,58 @@ function getMaintenanceList($db) {
 function getMaintenanceStats($db) {
     $stats = [];
 
-    // Scheduled count
-    $query = "SELECT COUNT(*) as count FROM maintenance_schedules WHERE status = 'scheduled'";
+    // Scheduled tasks (future or overdue but not started)
+    $query = "SELECT COUNT(*) AS count FROM maintenance_schedules WHERE status = 'scheduled'";
     $stmt = $db->prepare($query);
     $stmt->execute();
-    $stats['scheduled'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $stats['scheduled'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
 
-    // Due today count
-    $query = "SELECT COUNT(*) as count FROM maintenance_schedules
-              WHERE status = 'scheduled' AND scheduled_date = CURDATE()";
+    // Pending tasks (in progress)
+    $query = "SELECT COUNT(*) AS count FROM maintenance_schedules WHERE status = 'in_progress'";
     $stmt = $db->prepare($query);
     $stmt->execute();
-    $stats['due_today'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $stats['pending'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
 
-    // Overdue count
-    $query = "SELECT COUNT(*) as count FROM maintenance_schedules
-              WHERE status = 'scheduled' AND scheduled_date < CURDATE()";
+    // Critical issues (high priority awaiting action)
+    $query = "SELECT COUNT(*) AS count FROM maintenance_schedules
+              WHERE status IN ('scheduled','in_progress') AND priority IN ('high','critical')";
     $stmt = $db->prepare($query);
     $stmt->execute();
-    $stats['overdue'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $stats['critical'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
 
-    // Completed count (this month)
-    $query = "SELECT COUNT(*) as count FROM maintenance_schedules
-              WHERE status = 'completed' AND MONTH(completed_date) = MONTH(CURDATE())
-              AND YEAR(completed_date) = YEAR(CURDATE())";
+    // Completed tasks (all time)
+    $query = "SELECT COUNT(*) AS count FROM maintenance_schedules WHERE status = 'completed'";
     $stmt = $db->prepare($query);
     $stmt->execute();
-    $stats['completed'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $stats['completed'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
+
+    // Due today
+    $query = "SELECT COUNT(*) AS count FROM maintenance_schedules
+              WHERE status IN ('scheduled','in_progress') AND scheduled_date = CURDATE()";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    $stats['due_today'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
+
+    // Overdue tasks
+    $query = "SELECT COUNT(*) AS count FROM maintenance_schedules
+              WHERE status IN ('scheduled','in_progress') AND scheduled_date < CURDATE()";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    $stats['overdue'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
+
+    // Preventive maintenance snapshot
+    $query = "SELECT
+                SUM(CASE WHEN maintenance_type = 'preventive' AND status IN ('scheduled','in_progress') THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN maintenance_type = 'preventive' AND status IN ('scheduled','in_progress') AND scheduled_date = CURDATE() THEN 1 ELSE 0 END) AS due_today,
+                SUM(CASE WHEN maintenance_type = 'preventive' AND status IN ('scheduled','in_progress') AND scheduled_date < CURDATE() THEN 1 ELSE 0 END) AS overdue
+              FROM maintenance_schedules";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    $preventiveStats = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $stats['preventive_active'] = (int)($preventiveStats['active'] ?? 0);
+    $stats['preventive_due_today'] = (int)($preventiveStats['due_today'] ?? 0);
+    $stats['preventive_overdue'] = (int)($preventiveStats['overdue'] ?? 0);
 
     echo json_encode(['stats' => $stats]);
 }

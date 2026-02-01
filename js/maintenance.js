@@ -78,10 +78,30 @@ class MaintenanceManager {
                 const overdue = document.getElementById('criticalIssues');
                 const completed = document.getElementById('completedTasks');
 
-                if (scheduled) scheduled.textContent = data.stats.scheduled ?? 0;
-                if (dueToday) dueToday.textContent = data.stats.due_today ?? 0;
-                if (overdue) overdue.textContent = data.stats.overdue ?? 0;
-                if (completed) completed.textContent = data.stats.completed ?? 0;
+                const toNumber = (value) => Number(value ?? 0);
+
+                if (scheduled) scheduled.textContent = toNumber(data.stats.scheduled);
+                if (dueToday) dueToday.textContent = toNumber(data.stats.due_today);
+                if (overdue) overdue.textContent = toNumber(data.stats.overdue);
+                if (completed) completed.textContent = toNumber(data.stats.completed);
+
+                const dashboardCard = document.getElementById('maintenanceItems');
+                const dueBadge = document.getElementById('maintenanceDueToday');
+                const overdueBadge = document.getElementById('maintenanceOverdue');
+
+                const activePreventive = toNumber(data.stats.preventive_active);
+                const preventiveDueToday = toNumber(data.stats.preventive_due_today);
+                const preventiveOverdue = toNumber(data.stats.preventive_overdue);
+
+                if (dashboardCard) {
+                    dashboardCard.textContent = activePreventive > 0 ? activePreventive : dashboardCard.textContent;
+                }
+                if (dueBadge && preventiveDueToday >= 0) {
+                    dueBadge.textContent = `${preventiveDueToday} due today`;
+                }
+                if (overdueBadge && preventiveOverdue >= 0) {
+                    overdueBadge.textContent = `${preventiveOverdue} overdue`;
+                }
             }
         } catch (error) {
             console.error('Error loading maintenance stats:', error);

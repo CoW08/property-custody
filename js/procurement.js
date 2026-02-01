@@ -2,8 +2,8 @@
 
 let currentPage = 1;
 let currentFilters = {};
-let requestItems = [];
 let currentUserRole = null;
+let itemIndexCounter = 0;
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
@@ -25,6 +25,80 @@ function getCurrentUserRole() {
     return currentUserRole;
 }
 
+async function submitProcurementRequest(event) {
+    event.preventDefault();
+
+    try {
+        const form = event.target;
+        const editId = form.dataset.editId;
+        const isEdit = !!editId;
+
+        const formData = new FormData(form);
+        const requestData = {
+            request_type: formData.get('request_type'),
+            requestor_id: parseInt(formData.get('requestor_id')),
+            department: formData.get('department'),
+            request_date: formData.get('request_date'),
+            required_date: formData.get('required_date'),
+            justification: formData.get('justification'),
+            priority: formData.get('priority'),
+            notes: formData.get('notes'),
+            items: []
+        };
+
+        if (isEdit) {
+            requestData.id = parseInt(editId);
+        }
+
+        const itemRows = Array.from(document.querySelectorAll('.item-row'));
+        if (!itemRows.length) {
+            showError('Please add at least one item to the request');
+            return;
+        }
+
+        for (const row of itemRows) {
+            const index = row.dataset.index;
+            const name = (formData.get(`items[${index}][item_name]`) || '').trim();
+            if (!name) {
+                showError('Each item must have a name');
+                return;
+            }
+
+            requestData.items.push({
+                item_name: name,
+                quantity: parseInt(formData.get(`items[${index}][quantity]`)) || 1,
+                unit: (formData.get(`items[${index}][unit]`) || 'piece').trim(),
+                estimated_unit_cost: parseFloat(formData.get(`items[${index}][estimated_unit_cost]`)) || 0,
+                description: (formData.get(`items[${index}][description]`) || '').trim(),
+                specifications: (formData.get(`items[${index}][specifications]`) || '').trim()
+            });
+        }
+
+        const action = isEdit ? 'update' : 'create';
+        const response = await fetch(`api/procurement.php?action=${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showSuccess(`Procurement request ${isEdit ? 'updated' : 'created'} successfully`);
+            closeModal('newRequestModal');
+            resetForm();
+            refreshData();
+        } else {
+            showError(result.error || `Failed to ${isEdit ? 'update' : 'create'} procurement request`);
+        }
+    } catch (error) {
+        console.error('Error submitting procurement request:', error);
+        showError('Error submitting procurement request');
+    }
+}
+
 function setupEventListeners() {
     // Search and filter inputs
     document.getElementById('searchInput').addEventListener('input', debounce(filterRequests, 300));
@@ -38,16 +112,20 @@ function setupEventListeners() {
 
     // Add item button
     document.getElementById('addItemBtn').addEventListener('click', addRequestItem);
-
-    // Set today's date as default
-    document.getElementById('requestDate').value = getCurrentDate();
 }
 
 function setDefaultValues() {
     // Set current user ID (you should get this from session/auth)
     document.getElementById('requestorId').value = 1; // Default to admin for now
 
-    // Add first item row
+    // Reset item rows
+    resetItemRows();
+}
+
+function resetItemRows() {
+    const itemsContainer = document.getElementById('itemsContainer');
+    itemsContainer.innerHTML = '';
+    itemIndexCounter = 0;
     addRequestItem();
 }
 
@@ -93,8 +171,13 @@ async function loadProcurementRequests(page = 1) {
 
         const params = new URLSearchParams({
             action: 'list',
-            page: page,
-            ...currentFilters
+            page: page
+        });
+
+        Object.entries(currentFilters).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                params.set(key, value);
+            }
         });
 
         const response = await fetch(`api/procurement.php?${params}`);
@@ -276,17 +359,16 @@ function canEditRequest(status) {
 
 // Filter requests
 function filterRequests() {
-    const search = document.getElementById('searchInput').value;
+    const search = document.getElementById('searchInput').value.trim();
     const status = document.getElementById('statusFilter').value;
     const priority = document.getElementById('priorityFilter').value;
     const type = document.getElementById('typeFilter').value;
 
-    currentFilters = {
-        ...(search && { search }),
-        ...(status && { status }),
-        ...(priority && { priority }),
-        ...(type && { request_type: type })
-    };
+    currentFilters = {};
+    if (search) currentFilters.search = search;
+    if (status) currentFilters.status = status;
+    if (priority) currentFilters.priority = priority;
+    if (type) currentFilters.request_type = type;
 
     loadProcurementRequests(1);
 }
@@ -298,9 +380,12 @@ function refreshData() {
 }
 
 // Add request item to form
-function addRequestItem() {
+function addRequestItem(itemData) {
+
     const container = document.getElementById('itemsContainer');
-    const itemIndex = requestItems.length;
+    if (!container) return;
+
+    const itemIndex = itemIndexCounter++;
 
     const itemHtml = `
         <div class="item-row border border-gray-200 rounded-lg p-3 sm:p-4 mb-4" data-index="${itemIndex}">
@@ -360,24 +445,41 @@ function addRequestItem() {
     `;
 
     container.insertAdjacentHTML('beforeend', itemHtml);
-    requestItems.push({ index: itemIndex });
-}
 
-// Remove request item
-function removeRequestItem(index) {
-    const itemRow = document.querySelector(`[data-index="${index}"]`);
-    if (itemRow) {
-        itemRow.remove();
-        requestItems = requestItems.filter(item => item.index !== index);
-        calculateTotalCost();
+    if (itemData) {
+        setItemFields(itemIndex, itemData);
     }
+
+    calculateItemTotal(itemIndex);
 }
 
-// Calculate item total cost
+function setItemFields(index, item = {}) {
+    const nameInput = document.querySelector(`input[name="items[${index}][item_name]"]`);
+    const quantityInput = document.querySelector(`input[name="items[${index}][quantity]"]`);
+    const unitInput = document.querySelector(`input[name="items[${index}][unit]"]`);
+    const unitCostInput = document.querySelector(`input[name="items[${index}][estimated_unit_cost]"]`);
+    const totalCostInput = document.querySelector(`input[name="items[${index}][total_cost]"]`);
+    const descriptionInput = document.querySelector(`textarea[name="items[${index}][description]"]`);
+    const specsInput = document.querySelector(`textarea[name="items[${index}][specifications]"]`);
+
+    if (nameInput) nameInput.value = item.item_name || '';
+    if (quantityInput) quantityInput.value = item.quantity || 1;
+    if (unitInput) unitInput.value = item.unit || 'piece';
+    if (unitCostInput) unitCostInput.value = item.estimated_unit_cost != null ? item.estimated_unit_cost : '';
+    if (totalCostInput) totalCostInput.value = item.total_cost != null ? item.total_cost : '';
+    if (descriptionInput) descriptionInput.value = item.description || '';
+    if (specsInput) specsInput.value = item.specifications || '';
+}
+
 function calculateItemTotal(index) {
     const quantityInput = document.querySelector(`input[name="items[${index}][quantity]"]`);
     const unitCostInput = document.querySelector(`input[name="items[${index}][estimated_unit_cost]"]`);
     const totalCostInput = document.querySelector(`input[name="items[${index}][total_cost]"]`);
+
+    if (!quantityInput || !unitCostInput || !totalCostInput) {
+        calculateTotalCost();
+        return;
+    }
 
     const quantity = parseFloat(quantityInput.value) || 0;
     const unitCost = parseFloat(unitCostInput.value) || 0;
@@ -387,215 +489,31 @@ function calculateItemTotal(index) {
     calculateTotalCost();
 }
 
-// Calculate total estimated cost
 function calculateTotalCost() {
     let total = 0;
-    document.querySelectorAll('input[name$="[total_cost]"]').forEach(input => {
-        total += parseFloat(input.value) || 0;
+    document.querySelectorAll('.item-row').forEach(row => {
+        const index = row.dataset.index;
+        const totalInput = document.querySelector(`input[name="items[${index}][total_cost]"]`);
+        total += parseFloat(totalInput?.value) || 0;
     });
 
-    // Update estimated cost display if needed
-    console.log('Total estimated cost:', total);
-}
-
-// Submit procurement request
-async function submitProcurementRequest(event) {
-    event.preventDefault();
-
-    try {
-        const form = event.target;
-        const editId = form.dataset.editId;
-        const isEdit = !!editId;
-        
-        const formData = new FormData(form);
-        const requestData = {
-            request_type: formData.get('request_type'),
-            requestor_id: parseInt(formData.get('requestor_id')),
-            department: formData.get('department'),
-            request_date: formData.get('request_date'),
-            required_date: formData.get('required_date'),
-            justification: formData.get('justification'),
-            priority: formData.get('priority'),
-            notes: formData.get('notes'),
-            items: []
-        };
-
-        // If editing, include the ID
-        if (isEdit) {
-            requestData.id = parseInt(editId);
-        }
-
-        // Collect items data
-        requestItems.forEach(item => {
-            const index = item.index;
-            const itemData = {
-                item_name: formData.get(`items[${index}][item_name]`),
-                quantity: parseInt(formData.get(`items[${index}][quantity]`)) || 1,
-                unit: formData.get(`items[${index}][unit]`) || 'piece',
-                estimated_unit_cost: parseFloat(formData.get(`items[${index}][estimated_unit_cost]`)) || 0,
-                description: formData.get(`items[${index}][description]`),
-                specifications: formData.get(`items[${index}][specifications]`)
-            };
-            requestData.items.push(itemData);
-        });
-
-        if (requestData.items.length === 0) {
-            showError('Please add at least one item to the request');
-            return;
-        }
-
-        const action = isEdit ? 'update' : 'create';
-        const response = await fetch(`api/procurement.php?action=${action}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestData)
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            showSuccess(`Procurement request ${isEdit ? 'updated' : 'created'} successfully`);
-            closeModal('newRequestModal');
-            resetForm();
-            refreshData();
-        } else {
-            showError(result.error || `Failed to ${isEdit ? 'update' : 'create'} procurement request`);
-        }
-    } catch (error) {
-        console.error('Error submitting procurement request:', error);
-        showError('Error submitting procurement request');
+    const totalField = document.getElementById('estimatedCostDisplay');
+    if (totalField) {
+        totalField.textContent = formatCurrency(total);
     }
 }
 
-// View request details
-async function viewRequest(id) {
-    try {
-        const response = await fetch(`api/procurement.php?action=details&id=${id}`);
-        const data = await response.json();
-
-        if (data.success) {
-            displayRequestDetails(data.data);
-            openModal('viewRequestModal');
-        } else {
-            showError('Failed to load request details');
-        }
-    } catch (error) {
-        console.error('Error loading request details:', error);
-        showError('Error loading request details');
+// Remove request item
+function removeRequestItem(index) {
+    const itemRow = document.querySelector(`[data-index="${index}"]`);
+    if (itemRow) {
+        itemRow.remove();
+        calculateTotalCost();
     }
-}
 
-// Display request details in modal
-function displayRequestDetails(request) {
-    const content = document.getElementById('requestDetailsContent');
-
-    // Mobile card view for items
-    const itemsCardsHtml = request.items.map(item => `
-        <div class="border border-gray-200 rounded-lg p-3 mb-3">
-            <h5 class="font-medium text-gray-900 mb-2">${item.item_name}</h5>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div><span class="text-gray-500">Quantity:</span> ${item.quantity} ${item.unit}</div>
-                <div><span class="text-gray-500">Unit Cost:</span> ${formatCurrency(item.estimated_unit_cost)}</div>
-                <div class="col-span-2"><span class="text-gray-500">Total:</span> <span class="font-medium">${formatCurrency(item.total_cost)}</span></div>
-            </div>
-            ${item.description ? `<p class="text-xs text-gray-600 mt-2">${item.description}</p>` : ''}
-        </div>
-    `).join('');
-
-    // Desktop table view for items
-    const itemsTableHtml = request.items.map(item => `
-        <tr>
-            <td class="px-3 sm:px-4 py-2 border text-sm">${item.item_name}</td>
-            <td class="px-3 sm:px-4 py-2 border text-sm">${item.quantity}</td>
-            <td class="px-3 sm:px-4 py-2 border text-sm">${item.unit}</td>
-            <td class="px-3 sm:px-4 py-2 border text-sm">${formatCurrency(item.estimated_unit_cost)}</td>
-            <td class="px-3 sm:px-4 py-2 border text-sm">${formatCurrency(item.total_cost)}</td>
-        </tr>
-    `).join('');
-
-    content.innerHTML = `
-        <div class="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Request Code</label>
-                    <p class="mt-1 text-sm text-gray-900">${request.request_code}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Type</label>
-                    <p class="mt-1 text-sm text-gray-900">${capitalizeFirst(request.request_type)}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Requestor</label>
-                    <p class="mt-1 text-sm text-gray-900">${request.requestor_name}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Department</label>
-                    <p class="mt-1 text-sm text-gray-900">${request.department}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Request Date</label>
-                    <p class="mt-1 text-sm text-gray-900">${formatDate(request.request_date)}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Required Date</label>
-                    <p class="mt-1 text-sm text-gray-900">${request.required_date ? formatDate(request.required_date) : 'N/A'}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Priority</label>
-                    <p class="mt-1 text-sm text-gray-900">${capitalizeFirst(request.priority)}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Status</label>
-                    <p class="mt-1 text-sm text-gray-900">${capitalizeFirst(request.status)}</p>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Justification</label>
-                <p class="mt-1 text-sm text-gray-900">${request.justification}</p>
-            </div>
-
-            ${request.notes ? `
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Notes</label>
-                    <p class="mt-1 text-sm text-gray-900">${request.notes}</p>
-                </div>
-            ` : ''}
-
-            <div>
-                <h4 class="text-lg font-medium text-gray-900 mb-4">Request Items</h4>
-
-                <!-- Mobile Card View -->
-                <div class="block sm:hidden">
-                    ${itemsCardsHtml}
-                </div>
-
-                <!-- Desktop Table View -->
-                <div class="hidden sm:block overflow-x-auto">
-                    <table class="min-w-full border border-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-3 sm:px-4 py-2 border text-left text-xs font-medium text-gray-500 uppercase">Item Name</th>
-                                <th class="px-3 sm:px-4 py-2 border text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                                <th class="px-3 sm:px-4 py-2 border text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                <th class="px-3 sm:px-4 py-2 border text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
-                                <th class="px-3 sm:px-4 py-2 border text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${itemsTableHtml}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="mt-4 text-center sm:text-right">
-                    <p class="text-base sm:text-lg font-semibold">Total Estimated Cost: ${formatCurrency(request.estimated_cost)}</p>
-                </div>
-            </div>
-        </div>
-    `;
+    if (!document.querySelector('.item-row')) {
+        addRequestItem();
+    }
 }
 
 // Edit request
@@ -617,22 +535,25 @@ async function editRequest(id) {
             document.getElementById('requestNotes').value = request.notes || '';
             
             // Clear and populate items
-            const itemsContainer = document.getElementById('itemsContainer');
-            itemsContainer.innerHTML = '';
-            requestItems = [];
-            
+            const container = document.getElementById('itemsContainer');
+            container.innerHTML = '';
+            itemIndexCounter = 0;
+
             if (request.items && request.items.length > 0) {
                 request.items.forEach(item => {
-                    requestItems.push({
+                    addRequestItem();
+                    setItemFields(itemIndexCounter - 1, {
                         item_name: item.item_name,
-                        description: item.description || '',
                         quantity: item.quantity,
                         unit: item.unit,
                         estimated_unit_cost: item.estimated_unit_cost,
-                        specifications: item.specifications || ''
+                        total_cost: item.total_cost,
+                        description: item.description,
+                        specifications: item.specifications
                     });
-                    addRequestItem(item);
                 });
+            } else {
+                addRequestItem();
             }
             
             // Store request ID for update
@@ -779,12 +700,15 @@ function closeRequestModal() {
 
 // Reset form
 function resetForm() {
-    document.getElementById('newRequestForm').reset();
-    document.getElementById('itemsContainer').innerHTML = '';
-    requestItems = [];
+    const form = document.getElementById('newRequestForm');
+    form.reset();
+    delete form.dataset.editId;
+
     document.getElementById('requestDate').value = getCurrentDate();
+    document.getElementById('requestPriority').value = 'medium';
     document.getElementById('requestorId').value = 1;
-    addRequestItem();
+
+    resetItemRows();
 }
 
 // Update pagination

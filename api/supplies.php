@@ -121,7 +121,13 @@ function createSupply($db) {
     $data = json_decode(file_get_contents("php://input"));
 
     if(!empty($data->item_code) && !empty($data->name)) {
-        $query = "INSERT INTO supplies (item_code, name, description, category, unit, current_stock, minimum_stock, unit_cost, supplier, storage_location, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $currentStock = isset($data->current_stock) ? (int)$data->current_stock : 0;
+        $unitCost = isset($data->unit_cost) ? (float)$data->unit_cost : null;
+        $totalValue = isset($data->total_value)
+            ? (float)$data->total_value
+            : ($unitCost !== null ? $currentStock * $unitCost : null);
+
+        $query = "INSERT INTO supplies (item_code, name, description, category, unit, current_stock, minimum_stock, unit_cost, total_value, location, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $db->prepare($query);
 
@@ -131,12 +137,12 @@ function createSupply($db) {
             $data->description ?? null,
             $data->category ?? null,
             $data->unit ?? 'pcs',
-            $data->current_stock ?? 0,
-            $data->minimum_stock ?? 0,
-            $data->unit_cost ?? null,
-            $data->supplier ?? null,
-            $data->storage_location ?? null,
-            $data->expiry_date ?? null
+            $currentStock,
+            isset($data->minimum_stock) ? (int)$data->minimum_stock : 0,
+            $unitCost,
+            $totalValue,
+            $data->location ?? null,
+            $data->status ?? 'active'
         ])) {
             $supply_id = $db->lastInsertId();
 
@@ -212,7 +218,13 @@ function createTransaction($db) {
 function updateSupply($db, $id) {
     $data = json_decode(file_get_contents("php://input"));
 
-    $query = "UPDATE supplies SET name = ?, description = ?, category = ?, unit = ?, minimum_stock = ?, unit_cost = ?, supplier = ?, storage_location = ?, expiry_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+    $currentStock = isset($data->current_stock) ? (int)$data->current_stock : null;
+    $unitCost = isset($data->unit_cost) ? (float)$data->unit_cost : null;
+    $totalValue = isset($data->total_value)
+        ? (float)$data->total_value
+        : (($currentStock !== null && $unitCost !== null) ? $currentStock * $unitCost : null);
+
+    $query = "UPDATE supplies SET name = ?, description = ?, category = ?, unit = ?, current_stock = ?, minimum_stock = ?, unit_cost = ?, total_value = ?, location = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
 
     $stmt = $db->prepare($query);
 
@@ -221,11 +233,12 @@ function updateSupply($db, $id) {
         $data->description ?? null,
         $data->category ?? null,
         $data->unit ?? 'pcs',
-        $data->minimum_stock ?? 0,
-        $data->unit_cost ?? null,
-        $data->supplier ?? null,
-        $data->storage_location ?? null,
-        $data->expiry_date ?? null,
+        $currentStock ?? 0,
+        isset($data->minimum_stock) ? (int)$data->minimum_stock : 0,
+        $unitCost,
+        $totalValue,
+        $data->location ?? null,
+        $data->status ?? 'active',
         $id
     ])) {
         // Log the activity

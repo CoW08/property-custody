@@ -104,11 +104,37 @@ class Dashboard {
         try {
             const stats = await API.getDashboardStats();
 
-            // Update stat cards
-            document.getElementById('totalAssets').textContent = stats.totalAssets || 0;
-            document.getElementById('availableItems').textContent = stats.availableItems || 0;
-            document.getElementById('maintenanceItems').textContent = stats.maintenanceItems || 0;
-            document.getElementById('damagedItems').textContent = stats.damagedItems || 0;
+            const totalItemsEl = document.getElementById('totalItems') || document.getElementById('totalAssets');
+            if (totalItemsEl) {
+                totalItemsEl.textContent = stats.totalAssets || 0;
+            }
+
+            const availableEl = document.getElementById('availableItems');
+            if (availableEl) {
+                availableEl.textContent = stats.availableItems || 0;
+            }
+
+            const maintenanceEl = document.getElementById('maintenanceItems');
+            if (maintenanceEl) {
+                maintenanceEl.textContent = stats.maintenanceItems || 0;
+            }
+
+            const maintenanceDueEl = document.getElementById('maintenanceDueToday');
+            if (maintenanceDueEl) {
+                const dueCount = Number(stats.maintenanceDueToday || stats.maintenance_due_today || 0);
+                maintenanceDueEl.textContent = `${dueCount} due today`;
+            }
+
+            const maintenanceOverdueEl = document.getElementById('maintenanceOverdue');
+            if (maintenanceOverdueEl) {
+                const overdueCount = Number(stats.maintenanceOverdue || stats.maintenance_overdue || 0);
+                maintenanceOverdueEl.textContent = `${overdueCount} overdue`;
+            }
+
+            const damagedEl = document.getElementById('damagedItems');
+            if (damagedEl) {
+                damagedEl.textContent = stats.damagedItems || 0;
+            }
 
         } catch (error) {
             console.error('Error loading stats:', error);

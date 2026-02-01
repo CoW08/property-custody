@@ -118,15 +118,13 @@ function shouldUseFallbackForecast(): bool
 
     $envValue = getenv('FORECAST_USE_SIMULATED_DATA');
     if ($envValue === false || $envValue === null || $envValue === '') {
-        $useFallback = true;
+        $useFallback = false;
     } else {
-        $useFallback = filter_var($envValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-        if ($useFallback === null) {
-            $useFallback = true;
-        }
+        $parsed = filter_var($envValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        $useFallback = $parsed ?? false;
     }
 
-    return $useFallback;
+    return (bool) $useFallback;
 }
 
 function getDemandForecast(PDO $db)

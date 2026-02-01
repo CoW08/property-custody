@@ -58,13 +58,9 @@ $staffPermissions = [
     'login',
     'manage_user_profile',
     'view_dashboard',
-    'manage_assets', // staff can register items / scan QR codes
-    'manage_supplies', // staff can update stock usage
-    'manage_inventory',
-    'submit_supply_request',
-    'track_request_status',
-    'report_lost_damaged',
-    'view_assigned_items'
+    'view_items',
+    'view_supplies',
+    'submit_supply_request'
 ];
 
 $maintenancePermissions = [
@@ -101,9 +97,9 @@ define('ROLE_DISPLAY_NAMES', [
 // Map permissions to menu items
 define('MENU_PERMISSIONS', [
     'dashboard' => ['view_dashboard'],
-    'asset_registry' => ['manage_assets'],
-    'property_issuance' => ['issue_supplies'],
-    'supplies_inventory' => ['manage_supplies', 'manage_inventory'],
+    'asset_registry' => ['manage_assets', 'view_items'],
+    'property_issuance' => ['issue_supplies', 'submit_supply_request'],
+    'supplies_inventory' => ['manage_supplies', 'manage_inventory', 'view_supplies'],
     'custodian_assignment' => ['custodian_assignment'],
     'preventive_maintenance' => ['preventive_maintenance'],
     'damaged_items' => ['damaged_items', 'report_lost_damaged'],

@@ -544,9 +544,11 @@ ob_start();
 <script src="js/api.js"></script>
 <script src="js/detail_handlers.js"></script>
 <script>
-let supplies = [];
+let liveSupplies = [];
+let historicalSupplies = [];
 let filteredSupplies = [];
 let currentEditId = null;
+let currentView = 'inventory';
 
 const HISTORICAL_INVENTORY_ITEMS = [
     { item_code: 'LIB-BOND', name: 'Bond Paper (reams)', category: 'library', unit: 'reams', default_stock: 110, minimum_stock: 80, location: 'Library Supply Room', unit_cost: 280, description: 'Multi-purpose bond paper for print production.' },
@@ -554,20 +556,17 @@ const HISTORICAL_INVENTORY_ITEMS = [
     { item_code: 'LIB-STAP', name: 'Staples (boxes)', category: 'library', unit: 'boxes', default_stock: 14, minimum_stock: 8, location: 'Library Supply Room', unit_cost: 120, description: 'Staple wires for binding.' },
     { item_code: 'LIB-FOLD', name: 'Folders (pcs)', category: 'library', unit: 'pcs', default_stock: 180, minimum_stock: 120, location: 'Records Archive', unit_cost: 25, description: 'Document folders for filing.' },
     { item_code: 'LIB-MARK', name: 'Markers (pcs)', category: 'library', unit: 'pcs', default_stock: 28, minimum_stock: 15, location: 'Records Archive', unit_cost: 45, description: 'Whiteboard and labeling markers.' },
-
     { item_code: 'CLN-ALC', name: 'Alcohol (bottles)', category: 'clinic', unit: 'bottles', default_stock: 60, minimum_stock: 30, location: 'Clinic Storage', unit_cost: 65, description: 'Disinfecting ethyl alcohol.' },
     { item_code: 'CLN-MASK', name: 'Face Masks (boxes)', category: 'clinic', unit: 'boxes', default_stock: 20, minimum_stock: 10, location: 'Clinic Storage', unit_cost: 120, description: 'Disposable surgical masks.' },
     { item_code: 'CLN-PARA', name: 'Paracetamol (tabs)', category: 'clinic', unit: 'tabs', default_stock: 300, minimum_stock: 200, location: 'Clinic Storage', unit_cost: 6, description: 'Tablets for fever management.' },
     { item_code: 'CLN-SYR', name: 'Syringes (pcs)', category: 'clinic', unit: 'pcs', default_stock: 120, minimum_stock: 80, location: 'Clinic Storage', unit_cost: 18, description: 'Sterile syringes for medical procedures.' },
     { item_code: 'CLN-GLOV', name: 'Gloves (boxes)', category: 'clinic', unit: 'boxes', default_stock: 15, minimum_stock: 8, location: 'Clinic Storage', unit_cost: 150, description: 'Disposable gloves for health bay.' },
     { item_code: 'CLN-VITA', name: 'Vitamins (tabs)', category: 'clinic', unit: 'tabs', default_stock: 200, minimum_stock: 120, location: 'Clinic Storage', unit_cost: 8, description: 'Multivitamins for student welfare.' },
-
     { item_code: 'FA-BAND', name: 'Bandages (pcs)', category: 'first_aid', unit: 'pcs', default_stock: 38, minimum_stock: 20, location: 'First Aid Cabinets', unit_cost: 12, description: 'Elastic bandages for first aid.' },
     { item_code: 'FA-ANT', name: 'Antiseptic (bottles)', category: 'first_aid', unit: 'bottles', default_stock: 9, minimum_stock: 5, location: 'First Aid Cabinets', unit_cost: 55, description: 'Topical antiseptic solution.' },
     { item_code: 'FA-GAUZ', name: 'Gauze Pads (pcs)', category: 'first_aid', unit: 'pcs', default_stock: 75, minimum_stock: 40, location: 'First Aid Cabinets', unit_cost: 10, description: 'Sterile gauze pads for wound care.' },
     { item_code: 'FA-TAPE', name: 'Medical Tape (rolls)', category: 'first_aid', unit: 'rolls', default_stock: 18, minimum_stock: 10, location: 'First Aid Cabinets', unit_cost: 35, description: 'Hypoallergenic medical tape.' },
     { item_code: 'FA-COLD', name: 'Cold Packs (pcs)', category: 'first_aid', unit: 'pcs', default_stock: 14, minimum_stock: 8, location: 'First Aid Cabinets', unit_cost: 45, description: 'Instant cold packs for injuries.' },
-
     { item_code: 'EVT-KIT', name: 'Event Kits', category: 'events', unit: 'kits', default_stock: 3, minimum_stock: 2, location: 'Events Storage', unit_cost: 1500, description: 'Standard campus event kits.' },
     { item_code: 'EVT-CHAIR', name: 'Chairs & Tables', category: 'events', unit: 'sets', default_stock: 60, minimum_stock: 40, location: 'Events Storage', unit_cost: 950, description: 'Folding chairs and tables.' },
     { item_code: 'EVT-SOUND', name: 'Sound System Units', category: 'events', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Events Storage', unit_cost: 8500, description: 'Portable sound systems.' },
@@ -575,26 +574,88 @@ const HISTORICAL_INVENTORY_ITEMS = [
     { item_code: 'EVT-BAN', name: 'Banners', category: 'events', unit: 'pcs', default_stock: 6, minimum_stock: 4, location: 'Events Storage', unit_cost: 300, description: 'Reusable tarpaulin banners.' }
 ];
 
-function getHydratedHistoricalItems(liveSupplies = []) {
-    const liveMap = new Map((liveSupplies || []).map(item => [String(item.item_code || '').toUpperCase(), item]));
+function normalizeSupply(raw, fallback = {}) {
+    if (!raw && !fallback) return {};
 
-    return HISTORICAL_INVENTORY_ITEMS.map((item, index) => {
-        const live = liveMap.get(item.item_code.toUpperCase());
+    const base = raw ? { ...raw } : { ...fallback };
+    const unitCost = base.unit_cost !== null && base.unit_cost !== undefined ? parseFloat(base.unit_cost) : (fallback.unit_cost ?? null);
+    const currentStock = parseInt(base.current_stock ?? fallback.default_stock ?? 0, 10);
+    const minimumStock = parseInt(base.minimum_stock ?? fallback.minimum_stock ?? 0, 10);
 
-        return {
-            id: live?.id ?? index + 1,
-            item_code: item.item_code,
-            name: item.name,
-            description: live?.description ?? item.description ?? '',
-            category: live?.category ?? item.category ?? '',
-            unit: live?.unit ?? item.unit ?? 'pcs',
-            current_stock: parseInt(live?.current_stock ?? item.default_stock ?? 0, 10),
-            minimum_stock: parseInt(live?.minimum_stock ?? item.minimum_stock ?? 0, 10),
-            unit_cost: live?.unit_cost ?? item.unit_cost ?? null,
-            location: live?.location ?? item.location ?? '-',
-            status: live?.status ?? 'active'
-        };
+    return {
+        id: base.id ?? fallback.id ?? null,
+        item_code: base.item_code ?? fallback.item_code ?? '',
+        name: base.name ?? fallback.name ?? '',
+        description: base.description ?? fallback.description ?? '',
+        category: base.category ?? fallback.category ?? '',
+        unit: base.unit ?? fallback.unit ?? 'pcs',
+        current_stock: currentStock,
+        minimum_stock: minimumStock,
+        unit_cost: unitCost,
+        total_value: unitCost ? currentStock * unitCost : 0,
+        location: base.location ?? base.storage_location ?? fallback.location ?? '-',
+        status: base.status ?? fallback.status ?? 'active'
+    };
+}
+
+function getHydratedHistoricalItems(liveData = []) {
+    const liveMap = new Map((liveData || []).map(item => [String(item.item_code || '').toUpperCase(), normalizeSupply(item)]));
+
+    return HISTORICAL_INVENTORY_ITEMS.map((preset, index) => {
+        const live = liveMap.get(preset.item_code.toUpperCase());
+        const enriched = normalizeSupply(live, {
+            id: index + 1,
+            item_code: preset.item_code,
+            name: preset.name,
+            description: preset.description,
+            category: preset.category,
+            unit: preset.unit,
+            default_stock: preset.default_stock,
+            minimum_stock: preset.minimum_stock,
+            unit_cost: preset.unit_cost,
+            location: preset.location,
+            status: 'active'
+        });
+
+        return enriched;
     });
+}
+
+function getActiveDataset() {
+    return currentView === 'historical' ? historicalSupplies : liveSupplies;
+}
+
+function setActiveView(mode = 'inventory') {
+    currentView = mode === 'historical' ? 'historical' : 'inventory';
+    updateToggleState();
+    filterSupplies({ skipSummary: true });
+    updateSummaryCards();
+}
+
+function updateToggleState() {
+    const historicalTab = document.getElementById('historicalTab');
+    const inventoryTab = document.getElementById('inventoryTab');
+    const historicalPanel = document.getElementById('historicalDataPanel');
+    const inventoryPanel = document.getElementById('inventoryPanel');
+
+    if (!historicalTab || !inventoryTab || !historicalPanel || !inventoryPanel) {
+        return;
+    }
+
+    const isHistorical = currentView === 'historical';
+
+    historicalPanel.classList.toggle('hidden', !isHistorical);
+    inventoryPanel.classList.toggle('hidden', isHistorical);
+
+    historicalTab.classList.toggle('bg-white', isHistorical);
+    historicalTab.classList.toggle('text-gray-900', isHistorical);
+    historicalTab.classList.toggle('shadow-sm', isHistorical);
+    historicalTab.classList.toggle('text-gray-500', !isHistorical);
+
+    inventoryTab.classList.toggle('bg-white', !isHistorical);
+    inventoryTab.classList.toggle('text-gray-900', !isHistorical);
+    inventoryTab.classList.toggle('shadow-sm', !isHistorical);
+    inventoryTab.classList.toggle('text-gray-500', isHistorical);
 }
 
 // Initialize page
@@ -607,11 +668,11 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadSupplies() {
     try {
         const response = await API.getSupplies();
-        supplies = getHydratedHistoricalItems(response || []);
-        filteredSupplies = [...supplies];
-        renderSuppliesTable();
-        updateSummaryCards();
+        liveSupplies = Array.isArray(response) ? response.map(item => normalizeSupply(item)) : [];
+        historicalSupplies = getHydratedHistoricalItems(liveSupplies);
+
         populateSupplySelect();
+        setActiveView(currentView);
     } catch (error) {
         console.error('Error loading supplies:', error);
         showNotification('Error loading supplies', 'error');
@@ -630,6 +691,8 @@ function renderSuppliesTable() {
     tbody.innerHTML = filteredSupplies.map(supply => {
         const stockStatus = getStockStatus(supply);
         const statusBadge = getStatusBadge(supply.status);
+        const liveRecord = liveSupplies.find(item => item.id === supply.id);
+        const canTransact = Boolean(liveRecord);
 
         return `
             <tr class="hover:bg-gray-50">
@@ -662,7 +725,7 @@ function renderSuppliesTable() {
                 <td class="px-3 lg:px-6 py-4 whitespace-nowrap">
                     ${statusBadge}
                 </td>
-                <td class="px-3 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <td class="px-3 lg:px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center space-x-2">
                         <button onclick="viewSupplyDetails(${supply.id})" class="text-purple-600 hover:text-purple-900" title="View Details">
                             <i class="fas fa-eye"></i>
@@ -673,9 +736,15 @@ function renderSuppliesTable() {
                         <button onclick="archiveSupply(${supply.id})" class="text-orange-600 hover:text-orange-900" title="Archive">
                             <i class="fas fa-archive"></i>
                         </button>
-                        <button onclick="quickTransaction(${supply.id})" class="text-green-600 hover:text-green-900" title="Stock Transaction">
-                            <i class="fas fa-exchange-alt"></i>
-                        </button>
+                        ${canTransact ? `
+                            <button onclick="quickTransaction(${supply.id})" class="text-green-600 hover:text-green-900" title="Stock Transaction">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                        ` : `
+                            <span class="text-gray-300" title="Available on live inventory only">
+                                <i class="fas fa-exchange-alt"></i>
+                            </span>
+                        `}
                     </div>
                 </td>
             </tr>
@@ -707,25 +776,29 @@ function getStatusBadge(status) {
     return badges[status] || badges['active'];
 }
 
-
 // Update summary cards
 function updateSummaryCards() {
-    const total = supplies.length;
-    const lowStock = supplies.filter(s => (parseInt(s.current_stock) || 0) <= (parseInt(s.minimum_stock) || 0) && parseInt(s.current_stock) > 0).length;
-    const outOfStock = supplies.filter(s => (parseInt(s.current_stock) || 0) === 0).length;
-    const totalValue = supplies.reduce((sum, s) => sum + (parseFloat(s.total_value) || 0), 0);
+    const dataset = getActiveDataset();
+    const total = dataset.length;
+    const lowStock = dataset.filter(s => (parseInt(s.current_stock) || 0) <= (parseInt(s.minimum_stock) || 0) && (parseInt(s.current_stock) || 0) > 0).length;
+    const outOfStock = dataset.filter(s => (parseInt(s.current_stock) || 0) === 0).length;
+    const totalValue = dataset.reduce((sum, s) => {
+        const current = parseInt(s.current_stock) || 0;
+        const unitCost = s.unit_cost !== null && s.unit_cost !== undefined ? parseFloat(s.unit_cost) : 0;
+        return sum + (current * unitCost);
+    }, 0);
 
     document.getElementById('totalItems').textContent = total;
     document.getElementById('lowStockItems').textContent = lowStock;
     document.getElementById('outOfStockItems').textContent = outOfStock;
-    document.getElementById('expiringSoonItems').textContent = '₱' + totalValue.toLocaleString('en-PH', {minimumFractionDigits: 2});
+    document.getElementById('expiringSoonItems').textContent = '₱' + totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 });
 }
 
 // Populate supply select for transactions
 function populateSupplySelect() {
     const select = document.getElementById('transactionSupplyId');
-    select.innerHTML = '<option value="">Select Historical Data Item</option>' +
-        supplies.map(supply => `<option value="${supply.id}">${supply.item_code} - ${supply.name}</option>`).join('');
+    select.innerHTML = '<option value="">Select Live Inventory Item</option>' +
+        liveSupplies.map(supply => `<option value="${supply.id}">${supply.item_code} - ${supply.name}</option>`).join('');
 }
 
 function setupViewToggle() {
@@ -738,36 +811,22 @@ function setupViewToggle() {
         return;
     }
 
-    const activate = (mode) => {
-        const isHistorical = mode === 'historical';
-        historicalPanel.classList.toggle('hidden', !isHistorical);
-        inventoryPanel.classList.toggle('hidden', isHistorical);
+    historicalTab.addEventListener('click', () => setActiveView('historical'));
+    inventoryTab.addEventListener('click', () => setActiveView('inventory'));
 
-        historicalTab.classList.toggle('bg-white', isHistorical);
-        historicalTab.classList.toggle('text-gray-900', isHistorical);
-        historicalTab.classList.toggle('shadow-sm', isHistorical);
-        historicalTab.classList.toggle('text-gray-500', !isHistorical);
-
-        inventoryTab.classList.toggle('bg-white', !isHistorical);
-        inventoryTab.classList.toggle('text-gray-900', !isHistorical);
-        inventoryTab.classList.toggle('shadow-sm', !isHistorical);
-        inventoryTab.classList.toggle('text-gray-500', isHistorical);
-    };
-
-    historicalTab.addEventListener('click', () => activate('historical'));
-    inventoryTab.addEventListener('click', () => activate('inventory'));
-
-    activate('historical');
+    setActiveView('inventory');
 }
 
 // Filter supplies
-function filterSupplies() {
+function filterSupplies(options = {}) {
     const search = document.getElementById('searchInput').value.toLowerCase();
     const category = document.getElementById('categoryFilter').value;
     const stockFilter = document.getElementById('stockFilter').value;
     const statusFilter = document.getElementById('statusFilter').value;
 
-    filteredSupplies = supplies.filter(supply => {
+    const dataset = getActiveDataset();
+
+    filteredSupplies = dataset.filter(supply => {
         const matchesSearch = !search ||
             supply.name.toLowerCase().includes(search) ||
             supply.item_code.toLowerCase().includes(search) ||
@@ -797,6 +856,10 @@ function filterSupplies() {
         return matchesSearch && matchesCategory && matchesStatus && matchesStock;
     });
 
+    if (!options.skipSummary) {
+        updateSummaryCards();
+    }
+
     renderSuppliesTable();
 }
 
@@ -809,7 +872,8 @@ function openAddSupplyModal() {
 }
 
 function editSupply(id) {
-    const supply = supplies.find(s => s.id == id);
+    const dataset = getActiveDataset();
+    const supply = dataset.find(s => s.id == id);
     if (!supply) return;
 
     currentEditId = id;
@@ -842,6 +906,12 @@ function openTransactionModal() {
 }
 
 function quickTransaction(supplyId) {
+    const live = liveSupplies.find(s => s.id == supplyId);
+    if (!live) {
+        showNotification('Transactions are available for live inventory items only.', 'warning');
+        return;
+    }
+
     openTransactionModal();
     document.getElementById('transactionSupplyId').value = supplyId;
 }

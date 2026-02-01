@@ -86,6 +86,8 @@ function getStats($db) {
                 'totalAssets' => 0,
                 'availableItems' => 0,
                 'maintenanceItems' => 0,
+                'maintenanceDueToday' => 0,
+                'maintenanceOverdue' => 0,
                 'damagedItems' => 0
             );
             http_response_code(200);
@@ -93,7 +95,14 @@ function getStats($db) {
             return;
         }
 
-        $stats = array();
+        $stats = array(
+            'totalAssets' => 0,
+            'availableItems' => 0,
+            'maintenanceItems' => 0,
+            'maintenanceDueToday' => 0,
+            'maintenanceOverdue' => 0,
+            'damagedItems' => 0
+        );
 
         // Total assets
         $query = "SELECT COUNT(*) as total FROM assets";
@@ -111,13 +120,36 @@ function getStats($db) {
         $query = "SELECT COUNT(*) as total FROM assets WHERE status = 'maintenance'";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        $stats['maintenanceItems'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stats['maintenanceItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
         // Damaged/Lost items
         $query = "SELECT COUNT(*) as total FROM assets WHERE status IN ('damaged', 'lost')";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        $stats['damagedItems'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+
+        // Preventive maintenance tasks (if table exists)
+        $checkMaintenance = $db->query("SHOW TABLES LIKE 'maintenance_schedules'");
+        if ($checkMaintenance && $checkMaintenance->rowCount() > 0) {
+            $query = "
+                SELECT
+                    SUM(CASE WHEN maintenance_type = 'preventive' AND status IN ('scheduled','in_progress') THEN 1 ELSE 0 END) AS active,
+                    SUM(CASE WHEN maintenance_type = 'preventive' AND status = 'scheduled' AND scheduled_date = CURDATE() THEN 1 ELSE 0 END) AS due_today,
+                    SUM(CASE WHEN maintenance_type = 'preventive' AND status = 'scheduled' AND scheduled_date < CURDATE() THEN 1 ELSE 0 END) AS overdue
+                FROM maintenance_schedules
+            ";
+
+            $stmt = $db->prepare($query);
+            $stmt->execute();
+            $maintenanceStats = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            $activeTasks = (int)($maintenanceStats['active'] ?? 0);
+            if ($activeTasks > 0 || $maintenanceStats) {
+                $stats['maintenanceItems'] = $activeTasks;
+            }
+            $stats['maintenanceDueToday'] = (int)($maintenanceStats['due_today'] ?? 0);
+            $stats['maintenanceOverdue'] = (int)($maintenanceStats['overdue'] ?? 0);
+        }
 
         http_response_code(200);
         echo json_encode($stats);

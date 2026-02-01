@@ -325,7 +325,7 @@ class DamagedItemsManager {
                 <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                         ${this.getStatusClass(item.status)}">
-                        ${item.status.charAt(0).toUpperCase() + item.status.slice(1).replace('_', ' ')}
+                        ${this.getStatusLabel(item.status)}
                     </span>
                 </td>
                 <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -358,6 +358,22 @@ class DamagedItemsManager {
             'write_off': 'bg-red-100 text-red-800'
         };
         return classes[status] || 'bg-gray-100 text-gray-800';
+    }
+
+    getStatusLabel(status) {
+        if (!status) return '';
+        const labels = {
+            'write_off': 'Unusable'
+        };
+        if (labels[status]) {
+            return labels[status];
+        }
+
+        return status
+            .split('_')
+            .map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : '')
+            .join(' ')
+            .trim();
     }
 
     async loadStats() {
@@ -578,7 +594,7 @@ class DamagedItemsManager {
                         <div><strong>Reported By:</strong> ${item.reported_by}</div>
                         <div><strong>Location:</strong> ${item.current_location || 'N/A'}</div>
                         <div><strong>Repair Cost:</strong> ₱${parseFloat(item.estimated_repair_cost || 0).toFixed(2)}</div>
-                        <div><strong>Status:</strong> ${item.status.replace('_', ' ')}</div>
+                        <div><strong>Status:</strong> ${this.getStatusLabel(item.status)}</div>
                         <div><strong>Created:</strong> ${this.formatDate(item.created_at)}</div>
                     </div>
                     ${item.damage_description ? `

@@ -61,6 +61,16 @@
                     <p class="text-xs font-semibold uppercase tracking-wide text-amber-600">Needs Maintenance</p>
                     <p class="mt-3 text-3xl font-bold text-slate-900" id="maintenanceItems">0</p>
                     <p class="mt-1 text-xs text-slate-500">Queued for servicing or inspection</p>
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">
+                            <i class="fas fa-calendar-day text-[10px]"></i>
+                            <span id="maintenanceDueToday">0 due today</span>
+                        </span>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-rose-700">
+                            <i class="fas fa-exclamation-circle text-[10px]"></i>
+                            <span id="maintenanceOverdue">0 overdue</span>
+                        </span>
+                    </div>
                 </div>
                 <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white shadow-lg shadow-amber-500/30">
                     <i class="fas fa-exclamation-triangle text-lg"></i>
