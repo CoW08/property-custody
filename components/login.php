@@ -32,10 +32,6 @@
                     </button>
                 </form>
 
-                <p class="text-center text-xs text-slate-500">
-                    Don't have an account?
-                    <a href="#" class="font-semibold text-indigo-500 hover:text-indigo-600">Register</a>
-                </p>
             </div>
 
             <div id="otpStep" class="hidden space-y-6">
