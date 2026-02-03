@@ -605,6 +605,219 @@ const forecastIntegrationState = {
     alerts: []
 };
 
+function initializeForecastIntegration() {
+    const { section, refreshBtn } = forecastIntegrationElements;
+    if (!section) {
+        console.warn('Forecast integration section not found');
+        return;
+    }
+
+    const load = () => loadForecastIntegrationData();
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', load);
+    }
+
+    load();
+}
+
+async function loadForecastIntegrationData() {
+    toggleForecastIntegrationLoading(true);
+
+    try {
+        const [overviewRes, reorderRes, alertsRes] = await Promise.allSettled([
+            API.getForecastOverview(),
+            API.getForecastReorders(),
+            API.getForecastAlerts()
+        ]);
+
+        forecastIntegrationState.overview = extractForecastPayload(overviewRes);
+        forecastIntegrationState.reorders = extractForecastPayload(reorderRes) || [];
+        forecastIntegrationState.alerts = extractForecastPayload(alertsRes) || [];
+
+        renderForecastIntegration();
+    } catch (error) {
+        console.error('Failed to initialize forecast integration', error);
+        showNotification('Unable to load forecasting insights', 'error');
+        forecastIntegrationElements.section.classList.add('hidden');
+    } finally {
+        toggleForecastIntegrationLoading(false);
+    }
+}
+
+function extractForecastPayload(result) {
+    if (!result || result.status !== 'fulfilled') return null;
+    const payload = result.value;
+    if (payload && typeof payload === 'object' && 'success' in payload) {
+        return payload.data ?? null;
+    }
+    return payload;
+}
+
+function renderForecastIntegration() {
+    const { overview, reorders, alerts } = forecastIntegrationState;
+    const hasData = Boolean((overview && Object.keys(overview).length) || (reorders && reorders.length) || (alerts && alerts.length));
+
+    forecastIntegrationElements.section.classList.toggle('hidden', !hasData);
+    if (!hasData) return;
+
+    renderForecastHighlights(overview);
+    renderForecastReorders(reorders);
+    renderForecastAlerts(alerts);
+
+    if (forecastIntegrationElements.generatedAt) {
+        const ts = overview?.generated_at ? new Date(overview.generated_at) : new Date();
+        forecastIntegrationElements.generatedAt.textContent = ts.toLocaleString();
+    }
+}
+
+function renderForecastHighlights(overview) {
+    const container = forecastIntegrationElements.highlights;
+    if (!container) return;
+
+    if (!overview) {
+        container.innerHTML = '<p class="text-sm text-slate-500">Forecast overview unavailable.</p>';
+        return;
+    }
+
+    const summary = overview.summary || {};
+    const cards = [
+        { label: 'Tracked Supplies', value: summary.total_supplies ?? '—', icon: 'fas fa-box-open', accent: 'bg-blue-50 text-blue-700' },
+        { label: 'Forecasted 30-day Usage', value: summary.forecasted_usage ? summary.forecasted_usage.toLocaleString() : '—', icon: 'fas fa-wave-square', accent: 'bg-amber-50 text-amber-700' },
+        { label: 'Critical Low Stock', value: summary.critical_low_stock ?? 0, icon: 'fas fa-bolt', accent: 'bg-rose-50 text-rose-700' },
+        { label: 'Seasonal Trends', value: summary.seasonal_trends ?? 0, icon: 'fas fa-seedling', accent: 'bg-emerald-50 text-emerald-700' }
+    ];
+
+    container.innerHTML = cards.map(card => `
+        <div class="p-4 rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+            <div class="flex items-center gap-3">
+                <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl ${card.accent}">
+                    <i class="${card.icon}"></i>
+                </span>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">${card.label}</p>
+                    <p class="text-2xl font-bold text-slate-900">${card.value}</p>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    const highlights = Array.isArray(overview.highlights) ? overview.highlights : [];
+    if (highlights.length) {
+        container.innerHTML += `
+            <div class="p-4 rounded-2xl border border-slate-200 bg-white">
+                <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Highlights</p>
+                <ul class="space-y-1 text-sm text-slate-600">
+                    ${highlights.slice(0, 4).map(item => `<li>• ${item}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+}
+
+function renderForecastReorders(reorders) {
+    const body = forecastIntegrationElements.reorderBody;
+    if (!body) return;
+
+    if (!Array.isArray(reorders) || !reorders.length) {
+        body.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-sm text-slate-500">No reorder signals yet.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = reorders.slice(0, 6).map(item => `
+        <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3">
+                <div class="font-semibold text-slate-900">${item.name || item.item_code}</div>
+                <div class="text-xs text-slate-500">${item.item_code || ''}</div>
+            </td>
+            <td class="px-4 py-3 text-slate-700">${item.current_stock ?? '—'}</td>
+            <td class="px-4 py-3 text-slate-700">${item.average_daily_usage ?? '—'}</td>
+            <td class="px-4 py-3 text-slate-700">${item.projected_runout_days ?? '—'}</td>
+            <td class="px-4 py-3 font-semibold text-slate-900">${item.recommended_reorder_qty ?? 0}</td>
+            <td class="px-4 py-3">
+                <span class="inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getForecastPriorityBadge(item.priority)}">
+                    ${formatPriorityLabel(item.priority)}
+                </span>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function renderForecastAlerts(alerts) {
+    const container = forecastIntegrationElements.alerts;
+    if (!container) return;
+
+    if (!Array.isArray(alerts) || !alerts.length) {
+        container.innerHTML = '<p class="text-sm text-slate-500">No alerts at this moment.</p>';
+        return;
+    }
+
+    container.innerHTML = alerts.slice(0, 5).map(alert => `
+        <div class="p-3 rounded-xl border ${getAlertBorder(alert.severity)} bg-white">
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-semibold text-slate-900">${alert.title || 'Alert'}</p>
+                <span class="text-xs font-medium ${getAlertText(alert.severity)}">${formatPriorityLabel(alert.severity)}</span>
+            </div>
+            <p class="text-sm text-slate-600 mt-1">${alert.message || ''}</p>
+        </div>
+    `).join('');
+}
+
+function toggleForecastIntegrationLoading(isLoading) {
+    const { section, refreshBtn } = forecastIntegrationElements;
+    if (refreshBtn) {
+        refreshBtn.disabled = isLoading;
+        refreshBtn.classList.toggle('opacity-50', isLoading);
+    }
+    if (section) {
+        section.classList.toggle('opacity-60', isLoading);
+    }
+}
+
+function getForecastPriorityBadge(priority) {
+    switch ((priority || '').toLowerCase()) {
+        case 'critical':
+            return 'bg-rose-100 text-rose-700';
+        case 'high':
+            return 'bg-amber-100 text-amber-700';
+        case 'overstock':
+            return 'bg-emerald-100 text-emerald-700';
+        default:
+            return 'bg-blue-100 text-blue-700';
+    }
+}
+
+function getAlertBorder(severity) {
+    switch ((severity || '').toLowerCase()) {
+        case 'critical':
+            return 'border-rose-200';
+        case 'high':
+            return 'border-amber-200';
+        case 'overstock':
+            return 'border-emerald-200';
+        default:
+            return 'border-slate-200';
+    }
+}
+
+function getAlertText(severity) {
+    switch ((severity || '').toLowerCase()) {
+        case 'critical':
+            return 'text-rose-600';
+        case 'high':
+            return 'text-amber-600';
+        case 'overstock':
+            return 'text-emerald-600';
+        default:
+            return 'text-slate-500';
+    }
+}
+
+function formatPriorityLabel(label) {
+    if (!label) return 'Normal';
+    return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 const HISTORICAL_INVENTORY_ITEMS = [
     { item_code: 'LIB-BOND', name: 'Bond Paper (reams)', category: 'library', unit: 'reams', default_stock: 110, minimum_stock: 80, location: 'Library Supply Room', unit_cost: 280, description: 'Multi-purpose bond paper for print production.' },
     { item_code: 'LIB-INK', name: 'Printer Ink (pcs)', category: 'library', unit: 'pcs', default_stock: 9, minimum_stock: 5, location: 'Library Supply Room', unit_cost: 950, description: 'Ink cartridges for library printers.' },
