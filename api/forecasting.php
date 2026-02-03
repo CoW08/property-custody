@@ -78,7 +78,7 @@ function tablesAvailable(PDO $db, array $tables)
 
 function getForecastOverview(PDO $db)
 {
-    if (!tablesAvailable($db, ['supplies', 'supply_transactions'])) {
+    if (!tablesAvailable($db, ['supplies'])) {
         return [
             'generated_at' => date('c'),
             'summary' => [],
@@ -129,25 +129,42 @@ function shouldUseFallbackForecast(): bool
 
 function getDemandForecast(PDO $db)
 {
-    if (shouldUseFallbackForecast() || !tablesAvailable($db, ['supplies', 'supply_transactions'])) {
+    if (shouldUseFallbackForecast() || !tablesAvailable($db, ['supplies'])) {
         return getFallbackDemandForecast($db);
     }
 
-    $query = "SELECT 
-            s.id,
-            s.item_code,
-            s.name,
-            s.current_stock,
-            s.minimum_stock,
-            COALESCE(SUM(CASE WHEN st.transaction_type = 'out' THEN st.quantity ELSE 0 END), 0) AS total_out,
-            COALESCE(MIN(st.created_at), NOW()) AS first_txn,
-            COALESCE(MAX(st.created_at), NOW()) AS last_txn
-        FROM supplies s
-        LEFT JOIN supply_transactions st ON st.supply_id = s.id
-            AND st.created_at >= DATE_SUB(NOW(), INTERVAL 180 DAY)
-        WHERE s.status = 'active'
-        GROUP BY s.id, s.item_code, s.name, s.current_stock, s.minimum_stock
-        ORDER BY s.name";
+    $hasTransactions = tablesAvailable($db, ['supply_transactions']);
+
+    if ($hasTransactions) {
+        $query = "SELECT 
+                s.id,
+                s.item_code,
+                s.name,
+                s.current_stock,
+                s.minimum_stock,
+                COALESCE(SUM(CASE WHEN st.transaction_type = 'out' THEN st.quantity ELSE 0 END), 0) AS total_out,
+                COALESCE(MIN(st.created_at), NOW()) AS first_txn,
+                COALESCE(MAX(st.created_at), NOW()) AS last_txn
+            FROM supplies s
+            LEFT JOIN supply_transactions st ON st.supply_id = s.id
+                AND st.created_at >= DATE_SUB(NOW(), INTERVAL 180 DAY)
+            WHERE s.status = 'active'
+            GROUP BY s.id, s.item_code, s.name, s.current_stock, s.minimum_stock
+            ORDER BY s.name";
+    } else {
+        $query = "SELECT 
+                s.id,
+                s.item_code,
+                s.name,
+                s.current_stock,
+                s.minimum_stock,
+                0 AS total_out,
+                NOW() AS first_txn,
+                NOW() AS last_txn
+            FROM supplies s
+            WHERE s.status = 'active'
+            ORDER BY s.name";
+    }
 
     $stmt = $db->prepare($query);
     $stmt->execute();

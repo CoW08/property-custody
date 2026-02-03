@@ -386,8 +386,19 @@ function getSuppliesStats($db) {
 }
 
 function logActivity($db, $user_id, $action, $table_name, $record_id) {
-    $query = "INSERT INTO system_logs (user_id, action, table_name, record_id, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)";
-    $stmt = $db->prepare($query);
-    $stmt->execute([$user_id, $action, $table_name, $record_id, $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']]);
+    try {
+        $query = "INSERT INTO system_logs (user_id, action, table_name, record_id, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $db->prepare($query);
+        $stmt->execute([
+            $user_id,
+            $action,
+            $table_name,
+            $record_id,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Throwable $th) {
+        error_log('Failed to write system log entry: ' . $th->getMessage());
+    }
 }
 ?>
