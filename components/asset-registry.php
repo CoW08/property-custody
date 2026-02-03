@@ -182,19 +182,6 @@
                         <option value="excellent">Excellent</option>
                         <option value="good">Good</option>
                         <option value="fair">Fair</option>
-                        <option value="poor">Poor</option>
-                        <option value="damaged">Damaged</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Assigned To (User ID)</label>
-                <input type="number" id="assetAssignedTo" name="assigned_to"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                <small class="text-gray-500">Leave empty if not assigned to anyone</small>
-            </div>
-
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Purchase Date</label>

@@ -96,7 +96,7 @@ ob_start();
                 <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">Historical Data Catalog</h2>
-                        <p class="text-sm text-gray-500">Simulated usage trends for key supply groups based on BPA-approved scenarios.</p>
+                        <p class="text-sm text-gray-500">Repository of past inventory records showing simulated consumption patterns across major supplies.</p>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-sm text-gray-500">View mode:</span>
@@ -111,8 +111,7 @@ ob_start();
                     <div>
                         <h3 class="text-base font-semibold text-gray-900">Simulated Historical Data for Supplies Inventory Management</h3>
                         <p class="mt-1 text-sm text-gray-600 max-w-3xl">
-                            These datasets power the Gemini AI forecasting module for School Management System 2. The values are system-generated using
-                            Business Process Analysis (BPA) assumptions and realistic usage patterns for each supply cluster.
+                            System-generated historical inventory datasets that simulate realistic supply consumption patterns, designed to support AI-driven forecasting and decision analysis.
                         </p>
                     </div>
 

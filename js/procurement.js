@@ -25,6 +25,120 @@ function getCurrentUserRole() {
     return currentUserRole;
 }
 
+// View request details
+async function viewRequest(id) {
+    try {
+        showLoading();
+
+        const response = await fetch(`api/procurement.php?action=details&id=${id}`);
+        const result = await response.json();
+
+        if (!result.success) {
+            showError(result.error || 'Failed to fetch request details');
+            return;
+        }
+
+        const request = result.data;
+        const container = document.getElementById('requestDetailsContent');
+        if (!container) {
+            showError('Details container not found');
+            return;
+        }
+
+        const itemsHtml = (request.items && request.items.length)
+            ? `
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-700">Item</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-700">Qty</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-700">Unit</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-700">Unit Cost</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-700">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        ${request.items.map(item => `
+                            <tr>
+                                <td class="px-4 py-2">
+                                    <p class="font-medium text-gray-900">${item.item_name}</p>
+                                    ${item.description ? `<p class="text-xs text-gray-500">${item.description}</p>` : ''}
+                                </td>
+                                <td class="px-4 py-2">${item.quantity || 0}</td>
+                                <td class="px-4 py-2">${item.unit || 'pcs'}</td>
+                                <td class="px-4 py-2">${formatCurrency(item.estimated_unit_cost || 0)}</td>
+                                <td class="px-4 py-2 font-semibold text-gray-900">${formatCurrency(item.total_cost || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `
+            : '<p class="text-sm text-gray-500">No items recorded for this request.</p>';
+
+        container.innerHTML = `
+            <div class="space-y-6 py-4">
+                <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                        <p class="text-xs uppercase font-semibold text-blue-600 mb-2">Request Summary</p>
+                        <dl class="space-y-2 text-sm">
+                            <div class="flex justify-between"><dt class="text-gray-500">Request Code</dt><dd class="font-semibold text-gray-900">${request.request_code}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>${capitalizeFirst(request.request_type)}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Status</dt><dd>${capitalizeFirst(request.status)}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Priority</dt><dd>${capitalizeFirst(request.priority)}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Request Date</dt><dd>${formatDate(request.request_date)}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Required Date</dt><dd>${request.required_date ? formatDate(request.required_date) : 'N/A'}</dd></div>
+                        </dl>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                        <p class="text-xs uppercase font-semibold text-gray-600 mb-2">Requester</p>
+                        <dl class="space-y-2 text-sm">
+                            <div class="flex justify-between"><dt class="text-gray-500">Name</dt><dd class="font-semibold text-gray-900">${request.requestor_name || 'N/A'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Department</dt><dd>${request.requestor_department || 'N/A'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Email</dt><dd>${request.requestor_email || 'N/A'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Role</dt><dd>${capitalizeFirst(request.requestor_role || 'N/A')}</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section>
+                    <p class="text-sm font-semibold text-gray-900 mb-2">Justification</p>
+                    <p class="text-sm text-gray-700 bg-white border border-gray-200 rounded-lg p-3">${request.justification || 'No justification provided.'}</p>
+                </section>
+
+                <section>
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-sm font-semibold text-gray-900">Requested Items</p>
+                        <p class="text-sm text-gray-500">Estimated Total: <span class="font-semibold text-gray-900">${formatCurrency(request.estimated_cost || request.total_estimated_cost || 0)}</span></p>
+                    </div>
+                    <div class="overflow-x-auto border border-gray-200 rounded-xl">${itemsHtml}</div>
+                </section>
+
+                <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white border border-gray-200 rounded-xl p-4">
+                        <p class="text-xs uppercase font-semibold text-gray-600 mb-2">Approval</p>
+                        <dl class="space-y-2 text-sm">
+                            <div class="flex justify-between"><dt class="text-gray-500">Approver</dt><dd>${request.approver_name || 'Pending'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Approval Date</dt><dd>${request.approval_date ? formatDate(request.approval_date) : 'Pending'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Approved Cost</dt><dd>${request.approved_cost ? formatCurrency(request.approved_cost) : 'Pending'}</dd></div>
+                        </dl>
+                    </div>
+                    <div class="bg-white border border-gray-200 rounded-xl p-4">
+                        <p class="text-xs uppercase font-semibold text-gray-600 mb-2">Notes</p>
+                        <p class="text-sm text-gray-700">${request.notes || 'No additional notes.'}</p>
+                    </div>
+                </section>
+            </div>
+        `;
+
+        openModal('viewRequestModal');
+    } catch (error) {
+        console.error('Error loading request details:', error);
+        showError('Error loading request details');
+    } finally {
+        hideLoading();
+    }
+}
+
 async function submitProcurementRequest(event) {
     event.preventDefault();
 

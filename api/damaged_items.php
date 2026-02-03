@@ -245,6 +245,12 @@ try {
                 $repairStmt->execute();
                 $stats['under_repair'] = $repairStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
+                // Repaired items
+                $repairedSql = "SELECT COUNT(*) as total FROM damaged_items WHERE status = 'repaired'";
+                $repairedStmt = $db->prepare($repairedSql);
+                $repairedStmt->execute();
+                $stats['repaired'] = $repairedStmt->fetch(PDO::FETCH_ASSOC)['total'];
+
                 // Write-offs
                 $writeoffSql = "SELECT COUNT(*) as total FROM damaged_items WHERE status = 'write_off'";
                 $writeoffStmt = $db->prepare($writeoffSql);

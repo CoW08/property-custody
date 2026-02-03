@@ -5,14 +5,14 @@ class Dashboard {
             // Load all dashboard data in parallel
             const loaders = [
                 this.loadStats(),
-                this.loadRecentActivities(),
-                this.loadAlerts(),
-                this.loadNotifications()
+                this.loadRecentActivities()
             ];
+
 
             if (typeof API.getForecastOverview === 'function') {
                 loaders.push(this.loadForecastSummary());
             }
+
 
             await Promise.all(loaders);
         } catch (error) {
@@ -167,96 +167,6 @@ class Dashboard {
             console.error('Error loading activities:', error);
             const container = document.getElementById('recentActivities');
             container.innerHTML = '<p class="text-red-500 text-sm">Failed to load activities</p>';
-        }
-    }
-
-    static async loadAlerts() {
-        const container = document.getElementById('alertsList');
-        if (!container) return;
-
-        try {
-            const [alertsResponse] = await Promise.all([
-                API.getAlerts()
-            ]);
-
-            const alerts = Array.isArray(alertsResponse) ? alertsResponse : [];
-
-            let notifications = Array.isArray(window.dashboardNotifications)
-                ? window.dashboardNotifications
-                : [];
-
-            if (notifications.length === 0) {
-                try {
-                    const notificationsResponse = await API.getNotifications();
-                    notifications = Array.isArray(notificationsResponse) ? notificationsResponse : [];
-                    window.dashboardNotifications = notifications;
-                } catch (notificationError) {
-                    console.warn('Unable to load notifications for alerts panel', notificationError);
-                }
-            }
-
-            const hasAlerts = alerts.length > 0;
-            const hasNotifications = notifications.length > 0;
-
-            if (!hasAlerts && !hasNotifications) {
-                container.innerHTML = '<p class="text-gray-500 text-sm">No alerts or notifications right now</p>';
-                return;
-            }
-
-            const alertSection = hasAlerts ? `
-                <div>
-                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">System Alerts</h4>
-                    <div class="space-y-3">
-                        ${alerts.map(alert => `
-                            <div class="flex items-start p-3 border-l-4 ${
-                                alert.priority === 'high' ? 'border-red-500 bg-red-50' :
-                                alert.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                                'border-blue-500 bg-blue-50'
-                            } rounded">
-                                <div class="mr-3 pt-1">
-                                    <i class="fas fa-${this.getAlertIcon(alert.type)} ${
-                                        alert.priority === 'high' ? 'text-red-600' :
-                                        alert.priority === 'medium' ? 'text-yellow-600' :
-                                        'text-blue-600'
-                                    }"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">${alert.title}</p>
-                                    <p class="text-sm text-gray-700">${alert.message}</p>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            ` : '';
-
-            const notificationItems = notifications.slice(0, 5);
-            const notificationSection = notificationItems.length ? `
-                <div class="mt-6">
-                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recent Notifications</h4>
-                    <div class="space-y-3">
-                        ${notificationItems.map(notification => `
-                            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded">
-                                <span class="inline-flex items-center justify-center h-9 w-9 rounded-full ${this.getNotificationAccent(notification.type)}">
-                                    <i class="fas fa-${this.getNotificationIcon(notification.type)}"></i>
-                                </span>
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <p class="text-sm font-semibold text-gray-900">${notification.title || 'Notification'}</p>
-                                        <span class="text-xs text-gray-400 whitespace-nowrap">${this.formatTimeAgo(notification.created_at)}</span>
-                                    </div>
-                                    <p class="text-sm text-gray-600 mt-1">${notification.message || ''}</p>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            ` : '';
-
-            container.innerHTML = `${alertSection}${notificationSection}`;
-        } catch (error) {
-            console.error('Error loading alerts:', error);
-            container.innerHTML = '<p class="text-red-500 text-sm">Failed to load alerts and notifications</p>';
         }
     }
 

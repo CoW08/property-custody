@@ -573,12 +573,6 @@ async function loadAssetForEdit(assetId) {
                 conditionField.value = asset.condition_status || 'good';
             }
 
-            // Handle assigned to if field exists
-            const assignedField = document.getElementById('assetAssignedTo');
-            if (assignedField) {
-                assignedField.value = asset.assigned_to || '';
-            }
-
             // Set selected tags
             selectedAssetTags = asset.tags || [];
             updateSelectedTagsDisplay();

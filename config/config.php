@@ -27,10 +27,9 @@ define('ASSET_CATEGORIES', [
     2 => 'Office Furniture',
     3 => 'Laboratory Equipment',
     4 => 'Audio Visual Equipment',
-    5 => 'Vehicles',
-    6 => 'Kitchen Equipment',
-    7 => 'Sports Equipment',
-    8 => 'Books and References'
+    5 => 'Medical Supply',
+    6 => 'Sports Equipment',
+    7 => 'Books and References'
 ]);
 
 // Supply Categories

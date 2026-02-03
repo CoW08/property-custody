@@ -130,7 +130,8 @@ class DamagedItemsManager {
         const assetNameInput = document.getElementById('asset_name');
         const locationInput = document.getElementById('current_location');
 
-        const assetCode = assetCodeInput?.value.trim();
+        const assetCode = assetCodeInput ? assetCodeInput.value.trim() : '';
+
         if (!assetCode) return;
 
         try {
@@ -392,18 +393,21 @@ class DamagedItemsManager {
                 console.error('Failed to load stats:', result);
             }
         } catch (error) {
-            console.error('Error loading stats:', error);
+            console.error('Error loading damaged items:', error);
+            this.showNotification('Error loading damaged items: ' + error.message, 'error');
         }
     }
 
     updateStatsDisplay(stats) {
         const totalDamaged = document.getElementById('totalDamaged');
         const underRepair = document.getElementById('underRepair');
+        const repairedItems = document.getElementById('repairedItems');
         const writeOffs = document.getElementById('writeOffs');
         const totalRepairCost = document.getElementById('totalRepairCost');
 
         if (totalDamaged) totalDamaged.textContent = stats.total_damaged || '0';
         if (underRepair) underRepair.textContent = stats.under_repair || '0';
+        if (repairedItems) repairedItems.textContent = stats.repaired || '0';
         if (writeOffs) writeOffs.textContent = stats.write_offs || '0';
         if (totalRepairCost) totalRepairCost.textContent = `₱${parseFloat(stats.total_repair_cost || 0).toFixed(2)}`;
     }
@@ -448,7 +452,6 @@ class DamagedItemsManager {
     }
 
     showNotification(message, type = 'info') {
-        // Create notification element
         const notification = document.createElement('div');
         notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
             type === 'success' ? 'bg-green-500 text-white' :
@@ -459,7 +462,6 @@ class DamagedItemsManager {
 
         document.body.appendChild(notification);
 
-        // Remove after 3 seconds
         setTimeout(() => {
             notification.remove();
         }, 3000);
@@ -468,8 +470,7 @@ class DamagedItemsManager {
     renderPagination(pagination) {
         const tableBody = document.getElementById('damagedItemsTableBody');
         const tableContainer = tableBody ? tableBody.closest('.bg-white') : null;
-        
-        // Remove existing pagination
+
         const existingPagination = document.querySelector('.pagination-container');
         if (existingPagination) {
             existingPagination.remove();
@@ -518,7 +519,9 @@ class DamagedItemsManager {
             </div>
         `;
 
-        tableContainer?.insertAdjacentHTML('afterend', paginationHtml);
+        if (tableContainer) {
+            tableContainer.insertAdjacentHTML('afterend', paginationHtml);
+        }
     }
 
     generatePageNumbers(pagination) {
@@ -573,7 +576,6 @@ class DamagedItemsManager {
     }
 
     showDetailsModal(item) {
-        // Create a modal to show damage details
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
         modal.innerHTML = `
@@ -724,63 +726,77 @@ class DamagedItemsManager {
     }
 
     handleFileUpload(event) {
-        const files = event.target.files;
-        console.log('Files selected:', files.length);
-
-        if (files.length > 0) {
-            this.uploadedFiles = Array.from(files);
-            this.showFilePreview(files);
-        }
+        const files = Array.from(event.target.files || []);
+        this.uploadedFiles = files;
+        this.showFilePreview(this.uploadedFiles);
     }
 
     showFilePreview(files) {
-        const previewContainer = document.querySelector('#damage-report-form .border-dashed');
-        
-        // Create preview area
-        const previewHtml = `
-            <div class="damage-preview mt-3">
-                <div class="text-sm text-gray-600 mb-2">Selected files:</div>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    ${Array.from(files).map((file, index) => `
-                        <div class="relative">
-                            <img src="${URL.createObjectURL(file)}" class="w-full h-20 object-cover rounded border" alt="Preview">
-                            <button onclick="damagedItemsManager.removeFile(${index})"
-                                    class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                                ×
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
+        const previewAnchor = document.querySelector('#damage-report-form .border-dashed');
+        if (!previewAnchor) {
+            return;
+        }
 
         const existingPreview = document.querySelector('#damage-report-form .damage-preview');
         if (existingPreview) {
             existingPreview.remove();
         }
 
-        previewContainer?.insertAdjacentHTML('afterend', previewHtml);
+        if (!files || files.length === 0) {
+            return;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'damage-preview mt-3';
+
+        const header = document.createElement('div');
+        header.className = 'text-sm text-gray-600 mb-2';
+        header.textContent = 'Selected files:';
+        wrapper.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-2 md:grid-cols-3 gap-2';
+        wrapper.appendChild(grid);
+
+        files.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'relative';
+
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.alt = 'Damage photo preview';
+            img.className = 'w-full h-20 object-cover rounded border';
+            img.onload = () => URL.revokeObjectURL(img.src);
+            item.appendChild(img);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', () => this.removeFile(index));
+            item.appendChild(removeBtn);
+
+            grid.appendChild(item);
+        });
+
+        previewAnchor.insertAdjacentElement('afterend', wrapper);
     }
 
     removeFile(index) {
         this.uploadedFiles.splice(index, 1);
         const fileInput = document.getElementById('damage_photos');
 
-        // Update file input
         const dt = new DataTransfer();
         this.uploadedFiles.forEach(file => dt.items.add(file));
-        fileInput.files = dt.files;
-
-        if (this.uploadedFiles.length > 0) {
-            this.showFilePreview(this.uploadedFiles);
-        } else {
-            const preview = document.querySelector('#damage-report-form .damage-preview');
-            if (preview) preview.remove();
+        if (fileInput) {
+            fileInput.files = dt.files;
         }
+
+        this.showFilePreview(this.uploadedFiles);
     }
 }
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     window.damagedItemsManager = new DamagedItemsManager();
 });

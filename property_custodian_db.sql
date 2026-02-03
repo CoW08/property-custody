@@ -90,18 +90,16 @@ INSERT INTO `asset_categories` (`id`, `name`, `description`, `created_at`) VALUE
 (2, 'Office Furniture', 'Desks, chairs, cabinets, tables', '2025-09-25 05:13:15'),
 (3, 'Laboratory Equipment', 'Scientific instruments, microscopes, measuring tools', '2025-09-25 05:13:15'),
 (4, 'Audio Visual Equipment', 'Projectors, speakers, cameras, recording devices', '2025-09-25 05:13:15'),
-(5, 'Vehicles', 'School buses, service vehicles, motorcycles', '2025-09-25 05:13:15'),
-(6, 'Kitchen Equipment', 'Stoves, refrigerators, cooking utensils', '2025-09-25 05:13:15'),
-(7, 'Sports Equipment', 'Balls, nets, gymnasium equipment', '2025-09-25 05:13:15'),
-(8, 'Books and References', 'Textbooks, reference materials, library books', '2025-09-25 05:13:15'),
-(9, 'Computer Equipment', 'Desktop computers, laptops, monitors, keyboards, etc.', '2025-09-27 05:28:21'),
-(10, 'Office Furniture', 'Desks, chairs, cabinets, tables', '2025-09-27 05:28:21'),
-(11, 'Laboratory Equipment', 'Scientific instruments, microscopes, measuring tools', '2025-09-27 05:28:21'),
-(12, 'Audio Visual Equipment', 'Projectors, speakers, cameras, recording devices', '2025-09-27 05:28:21'),
-(13, 'Vehicles', 'School buses, service vehicles, motorcycles', '2025-09-27 05:28:21'),
-(14, 'Kitchen Equipment', 'Stoves, refrigerators, cooking utensils', '2025-09-27 05:28:21'),
-(15, 'Sports Equipment', 'Balls, nets, gymnasium equipment', '2025-09-27 05:28:21'),
-(16, 'Books and References', 'Textbooks, reference materials, library books', '2025-09-27 05:28:21');
+(5, 'Medical Supply', 'Medical-grade equipment and consumables for health services', '2025-09-25 05:13:15'),
+(6, 'Sports Equipment', 'Balls, nets, gymnasium equipment', '2025-09-25 05:13:15'),
+(7, 'Books and References', 'Textbooks, reference materials, library books', '2025-09-25 05:13:15'),
+(8, 'Computer Equipment', 'Desktop computers, laptops, monitors, keyboards, etc.', '2025-09-27 05:28:21'),
+(9, 'Office Furniture', 'Tables, chairs, cabinets, shelving units', '2025-09-27 05:28:21'),
+(10, 'Laboratory Equipment', 'Scientific instruments, microscopes, measuring tools', '2025-09-27 05:28:21'),
+(11, 'Audio Visual Equipment', 'Projectors, speakers, cameras, recording devices', '2025-09-27 05:28:21'),
+(12, 'Medical Supply', 'Medical-grade equipment and consumables for health services', '2025-09-27 05:28:21'),
+(13, 'Sports Equipment', 'Balls, nets, gymnasium equipment', '2025-09-27 05:28:21'),
+(14, 'Books and References', 'Textbooks, reference materials, library books', '2025-09-27 05:28:21');
 
 -- --------------------------------------------------------
 
@@ -368,6 +366,15 @@ CREATE TABLE `property_assignments` (
   `acknowledgment_signed` tinyint(1) DEFAULT 0,
   `acknowledgment_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `status` enum('active','returned','transferred','lost') DEFAULT 'active',
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_signature` longtext DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `issued_by` int(11) DEFAULT NULL,
+  `issuer_signature` longtext DEFAULT NULL,
+  `issued_at` datetime DEFAULT NULL,
+  `current_custodian_id` int(11) DEFAULT NULL,
+  `maintenance_status` enum('on_schedule','requires_attention','overdue','completed') DEFAULT 'on_schedule',
+  `transfer_status` enum('none','transfer_pending','transfer_completed') DEFAULT 'none',
   `notes` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -379,6 +386,81 @@ CREATE TABLE `property_assignments` (
 INSERT INTO `property_assignments` (`id`, `asset_id`, `custodian_id`, `assigned_by`, `assignment_date`, `expected_return_date`, `actual_return_date`, `assignment_purpose`, `conditions`, `acknowledgment_signed`, `acknowledgment_date`, `status`, `notes`, `created_at`) VALUES
 (1, 4, 1, 1, '2025-09-27', NULL, '2025-09-27', 'Testing assignment', NULL, 0, '2025-09-27 06:10:28', 'returned', NULL, '2025-09-27 06:09:10'),
 (2, 7, 1, 1, '2025-09-27', '2025-10-02', NULL, '', NULL, 0, '2025-09-27 06:10:16', 'active', '', '2025-09-27 06:10:16');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `assignment_requests`
+--
+
+CREATE TABLE `assignment_requests` (
+  `id` int(11) NOT NULL,
+  `requester_id` int(11) NOT NULL,
+  `asset_id` int(11) NOT NULL,
+  `purpose` text DEFAULT NULL,
+  `justification` text DEFAULT NULL,
+  `status` enum('pending','approved','rejected','cancelled') DEFAULT 'pending',
+  `reviewed_by` int(11) DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `rejection_reason` text DEFAULT NULL,
+  `approver_signature` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `custodian_transfers`
+--
+
+CREATE TABLE `custodian_transfers` (
+  `id` int(11) NOT NULL,
+  `assignment_id` int(11) NOT NULL,
+  `asset_id` int(11) NOT NULL,
+  `from_custodian_id` int(11) NOT NULL,
+  `to_custodian_id` int(11) NOT NULL,
+  `initiated_by` int(11) DEFAULT NULL,
+  `approved_by` int(11) DEFAULT NULL,
+  `transfer_reason` text DEFAULT NULL,
+  `transfer_notes` text DEFAULT NULL,
+  `from_signature` longtext DEFAULT NULL,
+  `to_signature` longtext DEFAULT NULL,
+  `approver_signature` longtext DEFAULT NULL,
+  `status` enum('pending','approved','declined','completed') DEFAULT 'pending',
+  `transfer_date` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `assignment_history`
+--
+
+CREATE TABLE `assignment_history` (
+  `id` int(11) NOT NULL,
+  `assignment_id` int(11) NOT NULL,
+  `asset_id` int(11) NOT NULL,
+  `event_type` enum('request_submitted','request_reviewed','assignment_created','asset_issued','transfer_initiated','transfer_completed','returned','maintenance_linked','maintenance_completed','status_updated') NOT NULL,
+  `actor_id` int(11) DEFAULT NULL,
+  `details` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `assignment_maintenance_links`
+--
+
+CREATE TABLE `assignment_maintenance_links` (
+  `id` int(11) NOT NULL,
+  `assignment_id` int(11) NOT NULL,
+  `maintenance_id` int(11) NOT NULL,
+  `link_type` enum('preventive','corrective','inspection') DEFAULT 'preventive',
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -728,7 +810,51 @@ ALTER TABLE `property_assignments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `asset_id` (`asset_id`),
   ADD KEY `custodian_id` (`custodian_id`),
-  ADD KEY `assigned_by` (`assigned_by`);
+  ADD KEY `approved_by` (`approved_by`),
+  ADD KEY `issued_by` (`issued_by`),
+  ADD KEY `current_custodian_id` (`current_custodian_id`);
+
+--
+-- Indexes for table `assignment_requests`
+--
+
+ALTER TABLE `assignment_requests`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `requester_id` (`requester_id`),
+  ADD KEY `asset_id` (`asset_id`),
+  ADD KEY `reviewed_by` (`reviewed_by`);
+
+--
+-- Indexes for table `custodian_transfers`
+--
+
+ALTER TABLE `custodian_transfers`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `assignment_id` (`assignment_id`),
+  ADD KEY `asset_id` (`asset_id`),
+  ADD KEY `from_custodian_id` (`from_custodian_id`),
+  ADD KEY `to_custodian_id` (`to_custodian_id`),
+  ADD KEY `initiated_by` (`initiated_by`),
+  ADD KEY `approved_by` (`approved_by`);
+
+--
+-- Indexes for table `assignment_history`
+--
+
+ALTER TABLE `assignment_history`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `assignment_id` (`assignment_id`),
+  ADD KEY `asset_id` (`asset_id`),
+  ADD KEY `actor_id` (`actor_id`);
+
+--
+-- Indexes for table `assignment_maintenance_links`
+--
+
+ALTER TABLE `assignment_maintenance_links`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `assignment_id` (`assignment_id`),
+  ADD KEY `maintenance_id` (`maintenance_id`);
 
 --
 -- Indexes for table `property_audits`
@@ -859,6 +985,34 @@ ALTER TABLE `property_assignments`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
+-- AUTO_INCREMENT for table `assignment_requests`
+--
+
+ALTER TABLE `assignment_requests`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `custodian_transfers`
+--
+
+ALTER TABLE `custodian_transfers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `assignment_history`
+--
+
+ALTER TABLE `assignment_history`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `assignment_maintenance_links`
+--
+
+ALTER TABLE `assignment_maintenance_links`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `property_audits`
 --
 ALTER TABLE `property_audits`
@@ -980,7 +1134,48 @@ ALTER TABLE `purchase_order_items`
 ALTER TABLE `property_assignments`
   ADD CONSTRAINT `property_assignments_ibfk_1` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
   ADD CONSTRAINT `property_assignments_ibfk_2` FOREIGN KEY (`custodian_id`) REFERENCES `custodians` (`id`),
-  ADD CONSTRAINT `property_assignments_ibfk_3` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`);
+  ADD CONSTRAINT `property_assignments_ibfk_3` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `property_assignments_ibfk_4` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `property_assignments_ibfk_5` FOREIGN KEY (`issued_by`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `property_assignments_ibfk_6` FOREIGN KEY (`current_custodian_id`) REFERENCES `custodians` (`id`);
+
+--
+-- Constraints for table `assignment_requests`
+--
+
+ALTER TABLE `assignment_requests`
+  ADD CONSTRAINT `assignment_requests_ibfk_1` FOREIGN KEY (`requester_id`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `assignment_requests_ibfk_2` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
+  ADD CONSTRAINT `assignment_requests_ibfk_3` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `custodian_transfers`
+--
+
+ALTER TABLE `custodian_transfers`
+  ADD CONSTRAINT `custodian_transfers_ibfk_1` FOREIGN KEY (`assignment_id`) REFERENCES `property_assignments` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `custodian_transfers_ibfk_2` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
+  ADD CONSTRAINT `custodian_transfers_ibfk_3` FOREIGN KEY (`from_custodian_id`) REFERENCES `custodians` (`id`),
+  ADD CONSTRAINT `custodian_transfers_ibfk_4` FOREIGN KEY (`to_custodian_id`) REFERENCES `custodians` (`id`),
+  ADD CONSTRAINT `custodian_transfers_ibfk_5` FOREIGN KEY (`initiated_by`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `custodian_transfers_ibfk_6` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `assignment_history`
+--
+
+ALTER TABLE `assignment_history`
+  ADD CONSTRAINT `assignment_history_ibfk_1` FOREIGN KEY (`assignment_id`) REFERENCES `property_assignments` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `assignment_history_ibfk_2` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
+  ADD CONSTRAINT `assignment_history_ibfk_3` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `assignment_maintenance_links`
+--
+
+ALTER TABLE `assignment_maintenance_links`
+  ADD CONSTRAINT `assignment_maintenance_links_ibfk_1` FOREIGN KEY (`assignment_id`) REFERENCES `property_assignments` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `assignment_maintenance_links_ibfk_2` FOREIGN KEY (`maintenance_id`) REFERENCES `maintenance_schedules` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `property_audits`

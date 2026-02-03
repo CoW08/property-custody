@@ -42,6 +42,12 @@ try {
                 getAssignmentStats($db);
             } elseif ($action === 'cleanup_orphaned') {
                 cleanupOrphanedAssignments($db);
+            } elseif ($action === 'history') {
+                getAssignmentHistory($db, $_GET['assignment_id'] ?? null);
+            } elseif ($action === 'transfers') {
+                getCustodianTransfers($db, $_GET['assignment_id'] ?? null);
+            } elseif ($action === 'maintenance_links') {
+                getAssignmentMaintenanceLinks($db, $_GET['assignment_id'] ?? null);
             } else {
                 getAssignments($db);
             }
@@ -60,6 +66,20 @@ try {
                 rejectAssignmentRequest($db);
             } elseif ($action === 'delete_request') {
                 deleteAssignmentRequest($db);
+            } elseif ($action === 'issue_assignment') {
+                issueAssignment($db);
+            } elseif ($action === 'initiate_transfer') {
+                initiateTransfer($db);
+            } elseif ($action === 'approve_transfer') {
+                approveTransfer($db);
+            } elseif ($action === 'complete_transfer') {
+                completeTransfer($db);
+            } elseif ($action === 'link_maintenance') {
+                linkMaintenanceToAssignment($db);
+            } elseif ($action === 'unlink_maintenance') {
+                unlinkMaintenanceFromAssignment($db);
+            } elseif ($action === 'update_maintenance_status') {
+                updateMaintenanceStatus($db);
             } else {
                 createAssignment($db);
             }
@@ -255,36 +275,60 @@ function createAssignment($db) {
             return;
         }
 
-        // Create assignment
-        $assignment_query = "INSERT INTO property_assignments (asset_id, custodian_id, assigned_by, assignment_date,
-                            expected_return_date, assignment_purpose, conditions, notes)
-                            VALUES (:asset_id, :custodian_id, :assigned_by, :assignment_date,
-                            :expected_return_date, :assignment_purpose, :conditions, :notes)";
+        // Get custodian user mapping
+        $custodian_stmt = $db->prepare("SELECT user_id FROM custodians WHERE id = :id");
+        $custodian_stmt->bindParam(':id', $input['custodian_id']);
+        $custodian_stmt->execute();
+        $custodian = $custodian_stmt->fetch(PDO::FETCH_ASSOC);
+
+        $custodian_user_id = $custodian['user_id'] ?? null;
+
+        // Create assignment with approval metadata
+        $assignment_query = "INSERT INTO property_assignments (
+                                asset_id, custodian_id, assigned_by, assignment_date,
+                                expected_return_date, assignment_purpose, conditions, notes,
+                                approved_by, approved_signature, approved_at, current_custodian_id
+                            ) VALUES (
+                                :asset_id, :custodian_id, :assigned_by, :assignment_date,
+                                :expected_return_date, :assignment_purpose, :conditions, :notes,
+                                :approved_by, :approved_signature, NOW(), :current_custodian_id
+                            )";
 
         $assignment_stmt = $db->prepare($assignment_query);
         $expected_return_date = $input['expected_return_date'] ?? null;
         $assignment_purpose = $input['assignment_purpose'] ?? null;
         $conditions = $input['conditions'] ?? null;
         $notes = $input['notes'] ?? null;
-        $assignment_stmt->bindParam(':asset_id', $input['asset_id']);
-        $assignment_stmt->bindParam(':custodian_id', $input['custodian_id']);
-        $assignment_stmt->bindParam(':assigned_by', $_SESSION['user_id']);
-        $assignment_stmt->bindParam(':assignment_date', $input['assignment_date']);
-        $assignment_stmt->bindParam(':expected_return_date', $expected_return_date);
-        $assignment_stmt->bindParam(':assignment_purpose', $assignment_purpose);
-        $assignment_stmt->bindParam(':conditions', $conditions);
-        $assignment_stmt->bindParam(':notes', $notes);
+        $approved_signature = $input['approved_signature'] ?? null;
+        $assignment_stmt->bindValue(':asset_id', $input['asset_id']);
+        $assignment_stmt->bindValue(':custodian_id', $input['custodian_id']);
+        $assignment_stmt->bindValue(':assigned_by', $_SESSION['user_id']);
+        $assignment_stmt->bindValue(':assignment_date', $input['assignment_date']);
+        $assignment_stmt->bindValue(':expected_return_date', $expected_return_date);
+        $assignment_stmt->bindValue(':assignment_purpose', $assignment_purpose);
+        $assignment_stmt->bindValue(':conditions', $conditions);
+        $assignment_stmt->bindValue(':notes', $notes);
+        $assignment_stmt->bindValue(':approved_by', $_SESSION['user_id']);
+        $assignment_stmt->bindValue(':approved_signature', $approved_signature);
+        $assignment_stmt->bindValue(':current_custodian_id', $input['custodian_id']);
         $assignment_stmt->execute();
 
         $assignment_id = $db->lastInsertId();
 
-        // Update asset status
-        $update_asset = "UPDATE assets SET status = 'assigned' WHERE id = :asset_id";
+        // Update asset status and assignment ownership
+        $update_asset = "UPDATE assets SET status = 'assigned', assigned_to = :assigned_to WHERE id = :asset_id";
         $update_stmt = $db->prepare($update_asset);
-        $update_stmt->bindParam(':asset_id', $input['asset_id']);
+        $update_stmt->bindValue(':assigned_to', $custodian_user_id);
+        $update_stmt->bindValue(':asset_id', $input['asset_id']);
         $update_stmt->execute();
 
         $db->commit();
+
+        logAssignmentHistory($db, $assignment_id, $input['asset_id'], 'assignment_created', json_encode([
+            'created_via' => 'manual',
+            'custodian_id' => $input['custodian_id'],
+            'assigned_by' => $_SESSION['user_id']
+        ]));
 
         echo json_encode([
             'success' => true,
@@ -490,188 +534,256 @@ function createAssignmentRequest($db) {
         ':purpose' => $input['purpose'],
         ':justification' => $input['justification'] ?? null
     ]);
-    
-    echo json_encode(['success' => true, 'message' => 'Request submitted. Awaiting custodian approval.']);
+
+    echo json_encode(['success' => true, 'message' => 'Assignment request submitted']);
 }
 
 // Custodian approves request
 function approveAssignmentRequest($db) {
     $input = json_decode(file_get_contents('php://input'), true);
-    $request_id = $input['request_id'];
-    
+    $request_id = $input['request_id'] ?? null;
+    $approver_signature = $input['approver_signature'] ?? null;
+    $expected_return_date = $input['expected_return_date'] ?? null;
+    $additional_notes = $input['notes'] ?? null;
+
+    if (!$request_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Request ID is required']);
+        return;
+    }
+
     $db->beginTransaction();
     try {
-        // Get request details
-        $stmt = $db->prepare("SELECT ar.*, u.full_name FROM assignment_requests ar JOIN users u ON ar.requester_id = u.id WHERE ar.id = :id");
+        $stmt = $db->prepare("SELECT ar.*, u.full_name, u.department, u.id as user_id
+                              FROM assignment_requests ar
+                              JOIN users u ON ar.requester_id = u.id
+                              WHERE ar.id = :id FOR UPDATE");
         $stmt->execute([':id' => $request_id]);
         $request = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$request) {
+            http_response_code(404);
             echo json_encode(['error' => 'Request not found']);
             return;
         }
-        
-        // Check asset availability
-        $stmt = $db->prepare("SELECT status FROM assets WHERE id = :id");
+
+        $stmt = $db->prepare("SELECT id, status FROM assets WHERE id = :id FOR UPDATE");
         $stmt->execute([':id' => $request['asset_id']]);
         $asset = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($asset['status'] !== 'available') {
+
+        if (!$asset || $asset['status'] !== 'available') {
             $db->rollBack();
+            http_response_code(409);
             echo json_encode(['error' => 'Asset no longer available']);
             return;
         }
-        
-        // Check if custodian exists for the requester, if not create one
-        $stmt = $db->prepare("SELECT id FROM custodians WHERE user_id = :user_id");
+
+        $stmt = $db->prepare("SELECT id, user_id FROM custodians WHERE user_id = :user_id");
         $stmt->execute([':user_id' => $request['requester_id']]);
         $custodian = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$custodian) {
-            // Create custodian record for the requester
-            $stmt = $db->prepare("INSERT INTO custodians (user_id, employee_id, department, status) 
-                                 SELECT id, CONCAT('EMP-', id), department, 'active' 
-                                 FROM users WHERE id = :user_id");
+            $stmt = $db->prepare("INSERT INTO custodians (user_id, employee_id, department, status)
+                                   SELECT id, CONCAT('EMP-', id), department, 'active'
+                                   FROM users WHERE id = :user_id");
             $stmt->execute([':user_id' => $request['requester_id']]);
             $custodian_id = $db->lastInsertId();
+            $custodian_user_id = $request['requester_id'];
         } else {
             $custodian_id = $custodian['id'];
+            $custodian_user_id = $custodian['user_id'];
         }
-        
-        // Create property assignment record
-        $stmt = $db->prepare("INSERT INTO property_assignments 
-                             (asset_id, custodian_id, assigned_by, assignment_date, assignment_purpose, status) 
-                             VALUES (:asset_id, :custodian_id, :assigned_by, CURDATE(), :purpose, 'active')");
-        $stmt->execute([
+
+        $assignment_query = "INSERT INTO property_assignments (
+                                asset_id, custodian_id, assigned_by, assignment_date,
+                                expected_return_date, assignment_purpose, notes, status,
+                                approved_by, approved_signature, approved_at, current_custodian_id
+                             ) VALUES (
+                                :asset_id, :custodian_id, :assigned_by, CURDATE(),
+                                :expected_return_date, :assignment_purpose, :notes, 'active',
+                                :approved_by, :approved_signature, NOW(), :current_custodian_id
+                             )";
+
+        $assignment_stmt = $db->prepare($assignment_query);
+        $assignment_stmt->execute([
             ':asset_id' => $request['asset_id'],
             ':custodian_id' => $custodian_id,
             ':assigned_by' => $_SESSION['user_id'],
-            ':purpose' => $request['purpose']
+            ':expected_return_date' => $expected_return_date,
+            ':assignment_purpose' => $request['purpose'],
+            ':notes' => $additional_notes ?? $request['justification'],
+            ':approved_by' => $_SESSION['user_id'],
+            ':approved_signature' => $approver_signature,
+            ':current_custodian_id' => $custodian_id
         ]);
-        
-        // Get the assignment ID immediately after insert
+
         $assignment_id = $db->lastInsertId();
-        
-        // Update request status
-        $stmt = $db->prepare("UPDATE assignment_requests SET status = 'approved', reviewed_by = :user_id, reviewed_at = NOW() WHERE id = :id");
-        $stmt->execute([':user_id' => $_SESSION['user_id'], ':id' => $request_id]);
-        
-        // Update asset
-        $stmt = $db->prepare("UPDATE assets SET status = 'assigned', assigned_to = :user_id WHERE id = :asset_id");
-        $stmt->execute([':user_id' => $request['requester_id'], ':asset_id' => $request['asset_id']]);
-        
+
+        $stmt = $db->prepare("UPDATE assignment_requests
+                              SET status = 'approved', reviewed_by = :user_id, reviewed_at = NOW(), approver_signature = :signature
+                              WHERE id = :id");
+        $stmt->execute([
+            ':user_id' => $_SESSION['user_id'],
+            ':signature' => $approver_signature,
+            ':id' => $request_id
+        ]);
+
+        $stmt = $db->prepare("UPDATE assets SET status = 'assigned', assigned_to = :assigned_to WHERE id = :asset_id");
+        $stmt->execute([
+            ':assigned_to' => $custodian_user_id,
+            ':asset_id' => $request['asset_id']
+        ]);
+
         $db->commit();
-        
-        // Generate PDF link
+
+        logAssignmentHistory($db, $assignment_id, $request['asset_id'], 'request_reviewed', [
+            'request_id' => $request_id,
+            'result' => 'approved'
+        ]);
+
+        logAssignmentHistory($db, $assignment_id, $request['asset_id'], 'assignment_created', [
+            'created_via' => 'request',
+            'custodian_id' => $custodian_id,
+            'request_id' => $request_id
+        ]);
+
         $pdf_url = 'generate_accountability_pdf.php?assignment_id=' . $assignment_id;
-        
+
         echo json_encode([
-            'success' => true, 
+            'success' => true,
             'message' => 'Request approved and asset assigned',
             'assignment_id' => $assignment_id,
             'pdf_url' => $pdf_url
         ]);
     } catch (Exception $e) {
         $db->rollBack();
+        http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
     }
 }
 
-// Custodian rejects request
+// Custodian rejects request with history logging
 function rejectAssignmentRequest($db) {
     $input = json_decode(file_get_contents('php://input'), true);
-    
+    $request_id = $input['request_id'] ?? null;
+    $reason = $input['reason'] ?? 'Not specified';
+
+    if (!$request_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Request ID is required']);
+        return;
+    }
+
     $stmt = $db->prepare("UPDATE assignment_requests SET status = 'rejected', reviewed_by = :user_id, reviewed_at = NOW(), rejection_reason = :reason WHERE id = :id");
     $stmt->execute([
         ':user_id' => $_SESSION['user_id'],
-        ':id' => $input['request_id'],
-        ':reason' => $input['reason'] ?? 'Not specified'
+        ':id' => $request_id,
+        ':reason' => $reason
     ]);
-    
+
     echo json_encode(['success' => true, 'message' => 'Request rejected']);
 }
 
 // Get statistics
 function getAssignmentStats($db) {
     $stats = [];
-    
     $stmt = $db->prepare("SELECT COUNT(*) as count FROM assignment_requests WHERE status = 'pending'");
     $stmt->execute();
     $stats['pending_requests'] = $stmt->fetchColumn();
-    
+
     $stmt = $db->prepare("SELECT COUNT(*) as count FROM property_assignments WHERE status = 'active'");
     $stmt->execute();
     $stats['active_assignments'] = $stmt->fetchColumn();
-    
-    echo json_encode(['data' => $stats]);
-}
 
-// Delete assignment request and its associated records
-function deleteAssignmentRequest($db) {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $request_id = $input['request_id'];
-    
-    $db->beginTransaction();
-    try {
-        // Get request details
-        $stmt = $db->prepare("SELECT ar.* FROM assignment_requests ar WHERE ar.id = :id");
-        $stmt->execute([':id' => $request_id]);
-        $request = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$request) {
-            $db->rollBack();
-            echo json_encode(['error' => 'Request not found']);
-            return;
-        }
-        
-        // Find and delete any associated property assignments for this asset
-        // This handles all active assignments for the asset, regardless of how they were created
-        $stmt = $db->prepare("DELETE FROM property_assignments WHERE asset_id = :asset_id AND status = 'active'");
-        $stmt->execute([':asset_id' => $request['asset_id']]);
-        
-        // Update asset status back to available
-        $stmt = $db->prepare("UPDATE assets SET status = 'available', assigned_to = NULL WHERE id = :asset_id");
-        $stmt->execute([':asset_id' => $request['asset_id']]);
-        
-        // Delete the request
-        $stmt = $db->prepare("DELETE FROM assignment_requests WHERE id = :id");
-        $stmt->execute([':id' => $request_id]);
-        
-        $db->commit();
-        echo json_encode(['success' => true, 'message' => 'Assignment deleted successfully']);
-    } catch (Exception $e) {
-        $db->rollBack();
-        echo json_encode(['error' => $e->getMessage()]);
-    }
+    echo json_encode(['data' => $stats]);
 }
 
 // Cleanup orphaned assignments (no matching request)
 function cleanupOrphanedAssignments($db) {
     try {
-        // Find active assignments that don't have a corresponding approved request
         $stmt = $db->prepare("SELECT pa.id, pa.asset_id 
-                             FROM property_assignments pa
-                             LEFT JOIN assignment_requests ar ON ar.asset_id = pa.asset_id AND ar.status = 'approved'
-                             WHERE pa.status = 'active' AND ar.id IS NULL");
+                              FROM property_assignments pa
+                              LEFT JOIN assignment_requests ar ON ar.asset_id = pa.asset_id AND ar.status = 'approved'
+                              WHERE pa.status = 'active' AND ar.id IS NULL");
         $stmt->execute();
         $orphaned = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         $cleaned = 0;
         foreach ($orphaned as $assignment) {
-            // Delete orphaned assignment
             $deleteStmt = $db->prepare("DELETE FROM property_assignments WHERE id = :id");
             $deleteStmt->execute([':id' => $assignment['id']]);
-            
-            // Update asset status
+
             $updateStmt = $db->prepare("UPDATE assets SET status = 'available', assigned_to = NULL WHERE id = :asset_id");
             $updateStmt->execute([':asset_id' => $assignment['asset_id']]);
-            
+
             $cleaned++;
         }
-        
+
         echo json_encode(['success' => true, 'cleaned' => $cleaned, 'message' => "Cleaned up $cleaned orphaned assignment(s)"]);
     } catch (Exception $e) {
+        http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
     }
+}
+
+// ... (rest of the code remains the same)
+
+function getCustodianTransfers($db, $assignment_id = null) {
+    $query = "SELECT ct.*, 
+                     from_c.full_name as from_custodian_name,
+                     to_c.full_name as to_custodian_name
+              FROM custodian_transfers ct
+              LEFT JOIN custodians fc ON ct.from_custodian_id = fc.id
+              LEFT JOIN users from_c ON fc.user_id = from_c.id
+              LEFT JOIN custodians tc ON ct.to_custodian_id = tc.id
+              LEFT JOIN users to_c ON tc.user_id = to_c.id";
+
+    $params = [];
+    if ($assignment_id) {
+        $query .= " WHERE ct.assignment_id = :assignment_id";
+        $params[':assignment_id'] = $assignment_id;
+    }
+
+    $query .= " ORDER BY ct.created_at DESC";
+
+    $stmt = $db->prepare($query);
+    $stmt->execute($params);
+
+    echo json_encode(['data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+}
+
+function getAssignmentMaintenanceLinks($db, $assignment_id = null) {
+    $query = "SELECT aml.*, ms.maintenance_type, ms.scheduled_date, ms.status as maintenance_status
+              FROM assignment_maintenance_links aml
+              JOIN maintenance_schedules ms ON aml.maintenance_id = ms.id";
+
+    $params = [];
+    if ($assignment_id) {
+        $query .= " WHERE aml.assignment_id = :assignment_id";
+        $params[':assignment_id'] = $assignment_id;
+    }
+
+    $query .= " ORDER BY aml.created_at DESC";
+
+    $stmt = $db->prepare($query);
+    $stmt->execute($params);
+
+    echo json_encode(['data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+}
+
+function logAssignmentHistory($db, $assignment_id, $asset_id, $event_type, $details = null) {
+    if (!$assignment_id || !$asset_id) {
+        return;
+    }
+
+    $stmt = $db->prepare("INSERT INTO assignment_history (assignment_id, asset_id, event_type, actor_id, details)
+                          VALUES (:assignment_id, :asset_id, :event_type, :actor_id, :details)");
+    $stmt->execute([
+        ':assignment_id' => $assignment_id,
+        ':asset_id' => $asset_id,
+        ':event_type' => $event_type,
+        ':actor_id' => $_SESSION['user_id'] ?? null,
+        ':details' => is_array($details) ? json_encode($details) : $details
+    ]);
 }
 ?>

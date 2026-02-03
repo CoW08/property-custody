@@ -65,6 +65,17 @@ function getCategories($db) {
 
     $categories = array();
     while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if (strcasecmp($row['name'], 'Vehicles') === 0) {
+            continue;
+        }
+
+        if (strcasecmp($row['name'], 'Kitchen Equipment') === 0) {
+            $row['name'] = 'Medical Supply';
+            if (empty($row['description']) || strcasecmp($row['description'], 'Stoves, refrigerators, cooking utensils') === 0) {
+                $row['description'] = 'Medical-grade equipment and consumables for health services';
+            }
+        }
+
         $categories[] = $row;
     }
 

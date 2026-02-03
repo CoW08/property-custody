@@ -103,9 +103,9 @@ ob_start();
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Select Asset</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Select Item</label>
                                 <select id="asset_id" name="asset_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                    <option value="">Choose asset for maintenance</option>
+                                    <option value="">Choose item for maintenance</option>
                                 </select>
                             </div>
                             <div>
@@ -188,7 +188,7 @@ ob_start();
                     <table class="min-w-full divide-y divide-gray-200 table-striped text-sm">
                         <thead class="bg-gray-50 text-xs">
                             <tr>
-                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Maintenance Type</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled Date</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Assigned To</th>
@@ -229,9 +229,9 @@ ob_start();
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Select Asset</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Select Item</label>
                             <select id="edit-asset-id" name="asset_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                <option value="">Choose asset for maintenance</option>
+                                <option value="">Choose item for maintenance</option>
                             </select>
                         </div>
                         <div>

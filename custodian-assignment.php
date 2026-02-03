@@ -150,9 +150,217 @@ ob_start();
     </main>
 </div>
 
+<!-- Assignment detail drawer -->
+<div id="assignmentDetailDrawer" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-gray-900/60" onclick="closeAssignmentDrawer()"></div>
+    <div class="absolute right-0 top-0 h-full w-full max-w-4xl bg-white shadow-2xl overflow-y-auto">
+        <div class="p-6 border-b border-gray-100 flex items-start justify-between gap-4 sticky top-0 bg-white">
+            <div>
+                <p class="text-xs uppercase tracking-wide text-blue-600 font-semibold">Assignment Detail</p>
+                <h2 id="drawerAssetTitle" class="text-2xl font-bold text-gray-900">Asset</h2>
+                <p id="drawerAssignmentMeta" class="text-sm text-gray-500">Loading details...</p>
+            </div>
+            <button class="text-gray-500 hover:text-gray-700" onclick="closeAssignmentDrawer()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="rounded-xl border border-gray-100 p-4 bg-gradient-to-br from-slate-50 to-white">
+                    <p class="text-xs font-semibold text-gray-500 uppercase">Custodian</p>
+                    <p id="drawerCustodian" class="mt-1 text-lg font-semibold text-gray-900">-</p>
+                    <p id="drawerCustodianMeta" class="text-sm text-gray-500">-</p>
+                </div>
+                <div class="rounded-xl border border-gray-100 p-4 bg-gradient-to-br from-slate-50 to-white">
+                    <p class="text-xs font-semibold text-gray-500 uppercase">Asset</p>
+                    <p id="drawerAssetCode" class="mt-1 text-lg font-semibold text-gray-900">-</p>
+                    <p id="drawerAssetMeta" class="text-sm text-gray-500">-</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                    <p class="text-xs uppercase text-gray-500">Status</p>
+                    <p id="drawerStatus" class="mt-1 font-semibold text-gray-900">-</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-500">Assigned</p>
+                    <p id="drawerAssignedDate" class="mt-1 font-semibold text-gray-900">-</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-500">Expected Return</p>
+                    <p id="drawerExpectedReturn" class="mt-1 font-semibold text-gray-900">-</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-500">Maintenance</p>
+                    <p id="drawerMaintenanceStatus" class="mt-1 font-semibold text-gray-900">-</p>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-gray-100 bg-slate-50/70 p-4">
+                <div class="flex flex-wrap items-center gap-3 mb-3">
+                    <button id="drawerIssueBtn" class="inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm" onclick="openIssueModal()">
+                        <i class="fas fa-pen"></i> Issue Asset
+                    </button>
+                    <button class="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm" onclick="openTransferModal()">
+                        <i class="fas fa-random"></i> Initiate Transfer
+                    </button>
+                    <button class="inline-flex items-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-sm" onclick="openMaintenanceModal()">
+                        <i class="fas fa-tools"></i> Link Maintenance
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p class="text-xs uppercase text-gray-500">Approved by</p>
+                        <p id="drawerApprovedMeta" class="mt-1 font-semibold text-gray-900">-</p>
+                        <p id="drawerApprovedAt" class="text-xs text-gray-500">-</p>
+                    </div>
+                    <div>
+                        <p class="text-xs uppercase text-gray-500">Issued by</p>
+                        <p id="drawerIssuedMeta" class="mt-1 font-semibold text-gray-900">Awaiting issuance</p>
+                        <p id="drawerIssuedAt" class="text-xs text-gray-500">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="rounded-2xl border border-gray-100 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-semibold text-gray-900">Maintenance Links</h4>
+                        <span id="maintenanceCount" class="text-xs uppercase text-gray-400">0 linked</span>
+                    </div>
+                    <div id="maintenanceList" class="space-y-3 text-sm text-gray-700">
+                        <p class="text-gray-500">No maintenance schedules linked.</p>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-gray-100 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-semibold text-gray-900">Transfers</h4>
+                        <span id="transferCount" class="text-xs uppercase text-gray-400">0 records</span>
+                    </div>
+                    <div id="transferList" class="space-y-3 text-sm text-gray-700">
+                        <p class="text-gray-500">No transfer records yet.</p>
+                    </div>
+                    <div id="transferActionsContainer" class="mt-4"></div>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-gray-100 p-4">
+                <h4 class="font-semibold text-gray-900 mb-4">Accountability Timeline</h4>
+                <ol id="assignmentHistoryList" class="space-y-3 text-sm text-gray-700">
+                    <li class="text-gray-500">Loading timeline...</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Issue assignment modal -->
+<div id="issueModal" class="hidden fixed inset-0 z-50 bg-gray-900/60">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase text-gray-500">Issuance</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Record Issued Signature</h3>
+                </div>
+                <button onclick="hideModal('issueModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="issueAssignmentForm" class="p-6 space-y-4">
+                <input type="hidden" id="issueAssignmentId">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Issuer Signature / Initials</label>
+                    <input type="text" id="issuerSignatureInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Type full name or initials" required>
+                </div>
+                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2">
+                    <i class="fas fa-check-circle"></i><span>Mark as Issued</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer modal -->
+<div id="transferModal" class="hidden fixed inset-0 z-50 bg-gray-900/60">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase text-gray-500">Custody Transfer</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Initiate Transfer</h3>
+                </div>
+                <button onclick="hideModal('transferModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="transferForm" class="p-6 space-y-4">
+                <input type="hidden" id="transferAssignmentId">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">New Custodian</label>
+                    <select id="transferCustodianSelect" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" required>
+                        <option value="">Select custodian...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Reason</label>
+                    <textarea id="transferReasonInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" rows="3" placeholder="Why is this transfer needed?" required></textarea>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Releasing Signature</label>
+                    <input type="text" id="transferSignatureInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Current custodian signature" required>
+                </div>
+                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 py-2">
+                    <i class="fas fa-paper-plane"></i><span>Start Transfer</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Maintenance modal -->
+<div id="maintenanceModal" class="hidden fixed inset-0 z-50 bg-gray-900/60">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase text-gray-500">Maintenance Link</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Attach Schedule</h3>
+                </div>
+                <button onclick="hideModal('maintenanceModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="maintenanceForm" class="p-6 space-y-4">
+                <input type="hidden" id="maintenanceAssignmentId">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Maintenance ID</label>
+                    <input type="number" id="maintenanceIdInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Schedule record ID" required>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Link Type</label>
+                    <select id="maintenanceLinkType" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="preventive">Preventive</option>
+                        <option value="corrective">Corrective</option>
+                        <option value="safety">Safety</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Notes</label>
+                    <textarea id="maintenanceNotesInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" rows="3"></textarea>
+                </div>
+                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg px-4 py-2">
+                    <i class="fas fa-link"></i><span>Link Maintenance</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script src="js/api.js"></script>
 <script src="js/assignment_requests.js"></script>
-
 <!-- Request Assignment Modal (For Staff/Teachers) -->
 <div id="requestModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen p-4">
@@ -216,50 +424,6 @@ ob_start();
         </div>
     </div>
 </div>
-
-<!-- Old Custodian Modal - Disabled -->
-<!-- <div id="custodianModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
-    <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="px-4 lg:px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-900">Create New Custodian</h3>
-                <button type="button" id="closeCustodianModalX" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form id="newCustodianForm" class="p-4 lg:p-6 space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-                    <input type="text" id="newEmployeeId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input type="text" id="newFullName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" id="newEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                    <input type="text" id="newDepartment" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Position</label>
-                    <input type="text" id="newPosition" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 sm:justify-end">
-                    <button type="button" id="closeCustodianModal" class="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 order-2 sm:order-1">
-                        Cancel
-                    </button>
-                    <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 order-1 sm:order-2">
-                        Create Custodian
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div> -->
 
 <script>
 // API utility functions
@@ -487,8 +651,8 @@ class CustodianAssignmentManager {
                         <h4 class="font-medium text-gray-900">${assignment.custodian_name || 'N/A'}</h4>
                         <p class="text-sm text-gray-500">${assignment.employee_id} • ${assignment.custodian_department}</p>
                     </div>
-                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${this.getStatusColor(assignment.status)}">
-                        ${assignment.status}
+                    <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white shadow-lg shadow-amber-500/30">
+                        <i class="fas fa-clock text-lg"></i>
                     </span>
                 </div>
                 <div class="mb-3">

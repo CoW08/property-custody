@@ -110,18 +110,37 @@ function listProcurementRequests($pdo) {
         $countStmt->execute($params);
         $totalRecords = $countStmt->fetchColumn();
 
-        $sql = "SELECT pr.*,
-                       u.full_name as requestor_name,
-                       u.department as requestor_department,
-                       approver.full_name as approver_name,
-                       COUNT(pri.id) as items_count,
-                       SUM(pri.total_cost) as total_estimated_cost
+        $sql = "SELECT 
+                    pr.id,
+                    pr.request_code,
+                    pr.request_type,
+                    pr.requestor_id,
+                    pr.department,
+                    pr.request_date,
+                    pr.required_date,
+                    pr.justification,
+                    pr.estimated_cost,
+                    pr.approved_cost,
+                    pr.priority,
+                    pr.status,
+                    pr.notes,
+                    pr.created_at,
+                    pr.approved_by,
+                    pr.approval_date,
+                    u.full_name AS requestor_name,
+                    u.department AS requestor_department,
+                    approver.full_name AS approver_name,
+                    stats.items_count,
+                    stats.total_estimated_cost
                 FROM procurement_requests pr
                 LEFT JOIN users u ON pr.requestor_id = u.id
                 LEFT JOIN users approver ON pr.approved_by = approver.id
-                LEFT JOIN procurement_request_items pri ON pr.id = pri.request_id
+                LEFT JOIN (
+                    SELECT request_id, COUNT(*) AS items_count, SUM(total_cost) AS total_estimated_cost
+                    FROM procurement_request_items
+                    GROUP BY request_id
+                ) stats ON stats.request_id = pr.id
                 $whereClause
-                GROUP BY pr.id
                 ORDER BY pr.created_at DESC
                 LIMIT :limit OFFSET :offset";
 
@@ -367,60 +386,6 @@ function updateProcurementRequest($pdo) {
         $pdo->rollBack();
         http_response_code(500);
         echo json_encode(['error' => 'Failed to update procurement request: ' . $e->getMessage()]);
-    }
-}
-
-function deleteProcurementRequest($pdo) {
-    try {
-        $id = $_GET['id'] ?? '';
-
-        if (!$id) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing request ID']);
-            return;
-        }
-
-        // Check if request exists and is deletable
-        $checkSql = "SELECT status FROM procurement_requests WHERE id = :id";
-        $checkStmt = $pdo->prepare($checkSql);
-        $checkStmt->execute([':id' => $id]);
-        $request = $checkStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$request) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Procurement request not found']);
-            return;
-        }
-
-        if (in_array($request['status'], ['approved', 'ordered', 'received'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Cannot delete approved or processed requests']);
-            return;
-        }
-
-        $pdo->beginTransaction();
-
-        // Delete request items first (foreign key constraint)
-        $deleteItemsSql = "DELETE FROM procurement_request_items WHERE request_id = :id";
-        $deleteItemsStmt = $pdo->prepare($deleteItemsSql);
-        $deleteItemsStmt->execute([':id' => $id]);
-
-        // Delete procurement request
-        $deleteSql = "DELETE FROM procurement_requests WHERE id = :id";
-        $deleteStmt = $pdo->prepare($deleteSql);
-        $deleteStmt->execute([':id' => $id]);
-
-        $pdo->commit();
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Procurement request deleted successfully'
-        ]);
-
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        http_response_code(500);
-        echo json_encode(['error' => 'Failed to delete procurement request: ' . $e->getMessage()]);
     }
 }
 

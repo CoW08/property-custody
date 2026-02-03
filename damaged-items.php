@@ -22,7 +22,7 @@ ob_start();
                     <p class="mt-2 text-sm text-gray-500 max-w-2xl">Capture damage reports quickly, monitor severity, and track repair status across your asset base.</p>
                 </div>
                 <div class="flex items-center gap-3 sm:gap-4">
-                    <button id="reportDamageBtn" class="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 sm:px-5 py-2 rounded-lg transition duration-200 shadow-sm text-sm sm:text-base">
+                    <button id="reportDamageBtn" type="button" class="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 sm:px-5 py-2 rounded-lg transition duration-200 shadow-sm text-sm sm:text-base">
                         <i class="fas fa-plus"></i><span>Report Damage</span>
                     </button>
                 </div>
@@ -163,7 +163,8 @@ ob_start();
             </div>
 
             <!-- Summary Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mt-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 sm:gap-6 mt-6">
+
                 <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-rose-500/20">
                     <div class="absolute inset-0 bg-gradient-to-br from-rose-500/10 via-white to-slate-50"></div>
                     <div class="relative flex items-start justify-between gap-4">
@@ -188,6 +189,20 @@ ob_start();
                         </div>
                         <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-white shadow-lg shadow-amber-500/30">
                             <i class="fas fa-wrench text-lg"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/20">
+                    <div class="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-white to-slate-50"></div>
+                    <div class="relative flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Repaired</p>
+                            <p id="repairedItems" class="mt-2 text-3xl font-bold text-slate-900">0</p>
+                            <p class="mt-1 text-xs text-slate-500">Successfully restored assets</p>
+                        </div>
+                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
+                            <i class="fas fa-check-circle text-lg"></i>
                         </span>
                     </div>
                 </div>

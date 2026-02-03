@@ -93,26 +93,14 @@
         </div>
     </div>
 
-    <!-- Recent Activity & Alerts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-700">Recent Activities</h3>
-                <span class="text-xs text-gray-500">Last 20</span>
-            </div>
-            <div id="recentActivities" class="space-y-4 text-sm text-gray-700">
-                <!-- Activities will be loaded here -->
-            </div>
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-700">Recent Activities</h3>
+            <span class="text-xs text-gray-500">Last 20</span>
         </div>
-
-        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-700">Alerts & Notifications</h3>
-                <span class="text-xs text-gray-500">Newest first</span>
-            </div>
-            <div id="alertsList" class="space-y-4 text-sm text-gray-700">
-                <!-- Alerts will be loaded here -->
-            </div>
+        <div id="recentActivities" class="space-y-4 text-sm text-gray-700">
+            <!-- Activities will be loaded here -->
         </div>
     </div>
 </div>

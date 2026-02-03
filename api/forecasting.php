@@ -130,7 +130,7 @@ function shouldUseFallbackForecast(): bool
 function getDemandForecast(PDO $db)
 {
     if (shouldUseFallbackForecast() || !tablesAvailable($db, ['supplies', 'supply_transactions'])) {
-        return getFallbackDemandForecast();
+        return getFallbackDemandForecast($db);
     }
 
     $query = "SELECT 
@@ -342,12 +342,34 @@ function getSeasonalUsage(PDO $db)
     return $results;
 }
 
-function getFallbackDemandForecast()
+function getFallbackDemandForecast(PDO $db = null)
 {
     $dataset = getFallbackUsageDataset();
     $months = $dataset['months'];
     $items = $dataset['items'];
     $results = [];
+
+    $stockByCode = [];
+    if ($db instanceof PDO && tablesAvailable($db, ['supplies'])) {
+        try {
+            $stockQuery = "SELECT item_code, name, current_stock, minimum_stock FROM supplies WHERE status = 'active'";
+            $stmt = $db->prepare($stockQuery);
+            $stmt->execute();
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $code = $row['item_code'];
+                if ($code) {
+                    $stockByCode[$code] = [
+                        'name' => $row['name'],
+                        'current_stock' => (int)($row['current_stock'] ?? 0),
+                        'minimum_stock' => (int)($row['minimum_stock'] ?? 0)
+                    ];
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Fallback demand forecast: unable to read supplies inventory - ' . $e->getMessage());
+            $stockByCode = [];
+        }
+    }
 
     foreach ($items as $index => $item) {
         $usage = $item['usage'];
@@ -358,6 +380,19 @@ function getFallbackDemandForecast()
         $avgMonthlyUsage = $totalOut / $monthsCount;
         $currentStock = max(0, (int) round($avgMonthlyUsage * 0.55));
         $minimumStock = max(1, (int) round($avgMonthlyUsage * 0.3));
+
+        if (!empty($stockByCode)) {
+            if (isset($stockByCode[$item['code']])) {
+                $currentStock = $stockByCode[$item['code']]['current_stock'];
+                $minimumStock = max(1, $stockByCode[$item['code']]['minimum_stock']);
+                $itemName = $stockByCode[$item['code']]['name'] ?? $item['name'];
+            } else {
+                $itemName = $item['name'];
+            }
+        } else {
+            $itemName = $item['name'];
+        }
+
         $forecast30 = round($avgDailyUsage * 30, 2);
         $forecast60 = round($avgDailyUsage * 60, 2);
 
@@ -365,7 +400,7 @@ function getFallbackDemandForecast()
         $results[] = [
             'supply_id' => $index + 1,
             'item_code' => $item['code'],
-            'name' => $item['name'],
+            'name' => $itemName,
             'current_stock' => $currentStock,
             'minimum_stock' => $minimumStock,
             'average_daily_usage' => $avgDailyUsage,
@@ -415,8 +450,8 @@ function getFallbackUsageDataset()
     }
 
     $months = [
-        '2024-01', '2024-02', '2024-03', '2024-04', '2024-05', '2024-06',
-        '2024-07', '2024-08', '2024-09', '2024-10', '2024-11', '2024-12'
+        '2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06',
+        '2025-07', '2025-08', '2025-09', '2025-10', '2025-11', '2025-12'
     ];
 
     $items = [
