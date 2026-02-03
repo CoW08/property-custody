@@ -842,6 +842,22 @@ const HISTORICAL_INVENTORY_ITEMS = [
     { item_code: 'EVT-BAN', name: 'Banners', category: 'events', unit: 'pcs', default_stock: 6, minimum_stock: 4, location: 'Events Storage', unit_cost: 300, description: 'Reusable tarpaulin banners.' }
 ];
 
+function getFallbackLiveSupplies() {
+    return HISTORICAL_INVENTORY_ITEMS.map((preset, index) => normalizeSupply(null, {
+        id: index + 1,
+        item_code: preset.item_code,
+        name: preset.name,
+        description: preset.description,
+        category: preset.category,
+        unit: preset.unit,
+        default_stock: preset.default_stock,
+        minimum_stock: preset.minimum_stock,
+        unit_cost: preset.unit_cost,
+        location: preset.location,
+        status: 'active'
+    }));
+}
+
 function normalizeSupply(raw, fallback = {}) {
     if (!raw && !fallback) return {};
 
@@ -898,6 +914,14 @@ function setActiveView(mode = 'inventory') {
     updateToggleState();
     filterSupplies({ skipSummary: true });
     updateSummaryCards();
+    toggleForecastSectionForView();
+}
+
+function toggleForecastSectionForView() {
+    const section = forecastIntegrationElements.section;
+    if (!section) return;
+    const shouldHide = currentView === 'inventory';
+    section.classList.toggle('hidden', shouldHide);
 }
 
 function updateToggleState() {
@@ -937,7 +961,13 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadSupplies() {
     try {
         const response = await API.getSupplies();
-        liveSupplies = Array.isArray(response) ? response.map(item => normalizeSupply(item)) : [];
+        let liveData = Array.isArray(response) ? response.map(item => normalizeSupply(item)) : [];
+
+        if (!liveData.length) {
+            liveData = getFallbackLiveSupplies();
+        }
+
+        liveSupplies = liveData;
         historicalSupplies = getHydratedHistoricalItems(liveSupplies);
 
         populateSupplySelect();
