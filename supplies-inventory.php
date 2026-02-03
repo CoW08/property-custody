@@ -569,23 +569,6 @@ ob_start();
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
                         <input type="number" id="transactionUnitCost" name="unit_cost" step="0.01" min="0" onchange="calculateTransactionCost()" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Total Cost</label>
-                        <input type="number" id="transactionTotalCost" name="total_cost" step="0.01" min="0" readonly class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Reference Number</label>
-                        <input type="text" id="referenceNumber" name="reference_number" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                        <textarea id="transactionNotes" name="notes" rows="3" placeholder="Enter transaction details, purpose, and any additional notes..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                    </div>
-                </div>
-                <div class="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
-                    <button type="button" onclick="closeTransactionModal()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition duration-200">
-                        <i class="fas fa-times"></i><span>Cancel</span>
                     </button>
                     <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition duration-200">
                         <i class="fas fa-check-circle"></i><span>Process Transaction</span>
