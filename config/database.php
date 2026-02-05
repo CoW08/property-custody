@@ -10,11 +10,11 @@ class Database {
     public $conn;
 
     public function __construct() {
-        $this->host = defined('DB_HOST') ? DB_HOST : '127.0.0.1';
-        $this->db_name = defined('DB_NAME') ? DB_NAME : 'systems';
+        $this->host = defined('DB_HOST') ? DB_HOST : 'localhost';
+        $this->db_name = defined('DB_NAME') ? DB_NAME : 'prop_custodian_db';
         $this->db_port = defined('DB_PORT') ? DB_PORT : '3306';
-        $this->username = defined('DB_USER') ? DB_USER : 'root';
-        $this->password = defined('DB_PASS') ? DB_PASS : 'root';
+        $this->username = defined('DB_USER') ? DB_USER : 'prop_custodian_db';
+        $this->password = defined('DB_PASS') ? DB_PASS : '123';
     }
 
     public function getConnection() {
