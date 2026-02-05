@@ -10,6 +10,24 @@ if(!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if (!defined('STORAGE_LOCATION_OPTIONS')) {
+    define('STORAGE_LOCATION_OPTIONS', [
+        'Clinic Storage',
+        'Library Storage',
+        'Event Storage',
+        'OSAS Storage'
+    ]);
+}
+
+function sanitizeStorageLocation($rawLocation)
+{
+    $location = is_string($rawLocation) ? trim($rawLocation) : '';
+    if ($location === '' || !in_array($location, STORAGE_LOCATION_OPTIONS, true)) {
+        return null;
+    }
+    return $location;
+}
+
 $database = new Database();
 $db = $database->getConnection();
 
@@ -127,6 +145,13 @@ function createSupply($db) {
             ? (float)$data->total_value
             : ($unitCost !== null ? $currentStock * $unitCost : null);
 
+        $location = sanitizeStorageLocation($data->location ?? null);
+        if ($location === null) {
+            http_response_code(400);
+            echo json_encode(array("message" => "Invalid storage location"));
+            return;
+        }
+
         $query = "INSERT INTO supplies (item_code, name, description, category, unit, current_stock, minimum_stock, unit_cost, total_value, location, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $db->prepare($query);
@@ -141,7 +166,7 @@ function createSupply($db) {
             isset($data->minimum_stock) ? (int)$data->minimum_stock : 0,
             $unitCost,
             $totalValue,
-            $data->location ?? null,
+            $location,
             $data->status ?? 'active'
         ])) {
             $supply_id = $db->lastInsertId();
@@ -224,6 +249,13 @@ function updateSupply($db, $id) {
         ? (float)$data->total_value
         : (($currentStock !== null && $unitCost !== null) ? $currentStock * $unitCost : null);
 
+    $location = sanitizeStorageLocation($data->location ?? null);
+    if ($location === null) {
+        http_response_code(400);
+        echo json_encode(array("message" => "Invalid storage location"));
+        return;
+    }
+
     $query = "UPDATE supplies SET name = ?, description = ?, category = ?, unit = ?, current_stock = ?, minimum_stock = ?, unit_cost = ?, total_value = ?, location = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
 
     $stmt = $db->prepare($query);
@@ -237,7 +269,7 @@ function updateSupply($db, $id) {
         isset($data->minimum_stock) ? (int)$data->minimum_stock : 0,
         $unitCost,
         $totalValue,
-        $data->location ?? null,
+        $location,
         $data->status ?? 'active',
         $id
     ])) {

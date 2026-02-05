@@ -508,8 +508,15 @@ ob_start();
                         <input type="number" id="totalValue" name="total_value" step="0.01" min="0" readonly class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Storage Location</label>
-                        <input type="text" id="storageLocation" name="location" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Storage Location *</label>
+                        <select id="storageLocation" name="location" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Storage Location</option>
+                            <option value="Clinic Storage">Clinic Storage</option>
+                            <option value="Library Storage">Library Storage</option>
+                            <option value="Event Storage">Event Storage</option>
+                            <option value="OSAS Storage">OSAS Storage</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Only approved storage areas are allowed.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
@@ -584,6 +591,13 @@ ob_start();
 <script src="js/api.js"></script>
 <script src="js/detail_handlers.js"></script>
 <script>
+const STORAGE_LOCATIONS = [
+    'Clinic Storage',
+    'Library Storage',
+    'Event Storage',
+    'OSAS Storage'
+];
+
 let liveSupplies = [];
 let historicalSupplies = [];
 let filteredSupplies = [];
@@ -952,6 +966,7 @@ function updateToggleState() {
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
+    populateStorageLocationSelect();
     loadSupplies();
     setupViewToggle();
     initializeForecastIntegration();
@@ -1100,20 +1115,15 @@ function populateSupplySelect() {
         liveSupplies.map(supply => `<option value="${supply.id}">${supply.item_code} - ${supply.name}</option>`).join('');
 }
 
-function setupViewToggle() {
-    const historicalTab = document.getElementById('historicalTab');
-    const inventoryTab = document.getElementById('inventoryTab');
-    const historicalPanel = document.getElementById('historicalDataPanel');
-    const inventoryPanel = document.getElementById('inventoryPanel');
+function populateStorageLocationSelect() {
+    const select = document.getElementById('storageLocation');
+    if (!select) return;
 
-    if (!historicalTab || !inventoryTab || !historicalPanel || !inventoryPanel) {
-        return;
-    }
+    const options = ['<option value="">Select Storage Location</option>']
+        .concat(STORAGE_LOCATIONS.map(location => `<option value="${location}">${location}</option>`))
+        .join('');
 
-    historicalTab.addEventListener('click', () => setActiveView('historical'));
-    inventoryTab.addEventListener('click', () => setActiveView('inventory'));
-
-    setActiveView('inventory');
+    select.innerHTML = options;
 }
 
 // Filter supplies
@@ -1188,7 +1198,11 @@ function editSupply(id) {
     document.getElementById('minimumStock').value = supply.minimum_stock || '';
     document.getElementById('totalValue').value = supply.total_value || '';
     document.getElementById('unitCost').value = supply.unit_cost || '';
-    document.getElementById('storageLocation').value = supply.location || '';
+    const storageLocationSelect = document.getElementById('storageLocation');
+    if (storageLocationSelect) {
+        storageLocationSelect.value = STORAGE_LOCATIONS.includes(supply.location) ? supply.location : '';
+    }
+
     document.getElementById('status').value = supply.status || 'active';
 
     document.getElementById('addSupplyModal').classList.remove('hidden');
@@ -1225,6 +1239,11 @@ async function handleSupplySubmit(event) {
 
     const formData = new FormData(event.target);
     const data = Object.fromEntries(formData.entries());
+
+    if (!STORAGE_LOCATIONS.includes(data.location)) {
+        showNotification('Please select a valid storage location.', 'error');
+        return;
+    }
 
     try {
         if (currentEditId) {
