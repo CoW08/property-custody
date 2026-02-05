@@ -520,11 +520,12 @@ function sendOtpEmail($toEmail, $recipientName, $otpCode) {
 }
 
 function maskEmail($email) {
-    if(strpos($email, '@') === false) {
+    if(empty($email) || strpos((string)$email, '@') === false) {
         return $email;
     }
 
-    list($name, $domain) = explode('@', $email, 2);
+    list($name, $domain) = explode('@', (string)$email, 2);
+
     $visible = substr($name, 0, 2);
     $maskedLength = max(1, strlen($name) - strlen($visible));
     return $visible . str_repeat('*', $maskedLength) . '@' . $domain;
