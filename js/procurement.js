@@ -7,16 +7,104 @@ let itemIndexCounter = 0;
 let supplyCatalog = [];
 let supplySelectMarkup = '<option value="">Loading inventory...</option>';
 
+const VENDOR_CONTACTS = [
+    {
+        id: 'clinic-medical-supplies',
+        category: 'Clinic / Medical Supplies',
+        name: 'Philippine Medical Supplies',
+        phone: '+63 2 8742-9228',
+        email: 'support@philmedicalsupplies.com',
+        address: 'Quezon City & other branches, Metro Manila, Philippines'
+    },
+    {
+        id: 'library-school-supplies',
+        category: 'Library / School Supplies',
+        name: 'Supplies.com.ph',
+        phone: '+63 917-519-7291',
+        email: 'info@supplies.com.ph',
+        address: 'Unit 206, PM Apartments, 24 Matalino St, Diliman, Quezon City, Metro Manila, Philippines'
+    },
+    {
+        id: 'school-event-office',
+        category: 'School Event / Office Supplies',
+        name: 'OfficeWorks Quezon City',
+        phone: '+63 2 8535-7333',
+        email: 'sales@officeworks.ph',
+        address: 'No. 47 Kamias Rd, Diliman, Quezon City, 1102 Metro Manila, Philippines'
+    },
+    {
+        id: 'disaster-preparedness',
+        category: 'Disaster & Preparedness Supplies',
+        name: 'iCare Philippines Medical Supply',
+        phone: '+63 917-520-7999',
+        email: 'cs@icareph.com',
+        address: '1230 Bambang St., Brgy. 254, Manila, Metro Manila, Philippines'
+    }
+];
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
     // Get current user role from session
     getCurrentUserRole();
+    initVendorDirectory();
     loadSupplyCatalog();
     loadProcurementStats();
     loadProcurementRequests();
     setupEventListeners();
     setDefaultValues();
 });
+
+function initVendorDirectory() {
+    const selector = document.getElementById('vendorSelector');
+    if (!selector) return;
+
+    const options = ['<option value="">Select vendor</option>']
+        .concat(VENDOR_CONTACTS.map(vendor => `<option value="${vendor.id}">${vendor.category} - ${vendor.name}</option>`))
+        .join('');
+
+    selector.innerHTML = options;
+    selector.addEventListener('change', (event) => {
+        const vendor = VENDOR_CONTACTS.find(v => v.id === event.target.value);
+        if (!vendor) {
+            return;
+        }
+        setVendorFields({
+            category: vendor.category,
+            name: vendor.name,
+            email: vendor.email,
+            phone: vendor.phone,
+            address: vendor.address
+        });
+    });
+}
+
+function setVendorFields({ category, name, email, phone, address } = {}) {
+    const categoryInput = document.getElementById('vendorCategory');
+    const nameInput = document.getElementById('vendorName');
+    const emailInput = document.getElementById('vendorEmail');
+    const phoneInput = document.getElementById('vendorPhone');
+    const addressInput = document.getElementById('vendorAddress');
+
+    if (categoryInput && category !== undefined) categoryInput.value = category || '';
+    if (nameInput && name !== undefined) nameInput.value = name || '';
+    if (emailInput && email !== undefined) emailInput.value = email || '';
+    if (phoneInput && phone !== undefined) phoneInput.value = phone || '';
+    if (addressInput && address !== undefined) addressInput.value = address || '';
+}
+
+function clearVendorFields() {
+    setVendorFields({
+        category: '',
+        name: '',
+        email: '',
+        phone: '',
+        address: ''
+    });
+    const selector = document.getElementById('vendorSelector');
+    if (selector) {
+        selector.value = '';
+    }
+}
 
 // Get current user role
 function getCurrentUserRole() {
@@ -154,6 +242,23 @@ async function viewRequest(id) {
             `
             : '<p class="text-sm text-gray-500">No items recorded for this request.</p>';
 
+        const vendorDetails = request.vendor_name || request.vendor_email || request.vendor_phone || request.vendor_address
+            ? `
+                <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                        <p class="text-xs uppercase font-semibold text-amber-600 mb-2">Vendor</p>
+                        <dl class="space-y-2 text-sm">
+                            <div class="flex justify-between"><dt class="text-gray-500">Category</dt><dd>${request.vendor_category || matchVendorPreset(request.vendor_name, request.vendor_phone, request.vendor_email)?.category || 'N/A'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Name</dt><dd class="font-semibold text-gray-900">${request.vendor_name || 'N/A'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Email</dt><dd>${request.vendor_email || 'N/A'}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd>${request.vendor_phone || 'N/A'}</dd></div>
+                            <div><dt class="text-gray-500 text-sm">Address</dt><dd class="text-gray-900">${request.vendor_address || 'N/A'}</dd></div>
+                        </dl>
+                    </div>
+                </section>
+            `
+            : '';
+
         container.innerHTML = `
             <div class="space-y-6 py-4">
                 <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -178,6 +283,8 @@ async function viewRequest(id) {
                         </dl>
                     </div>
                 </section>
+
+                ${vendorDetails}
 
                 <section>
                     <p class="text-sm font-semibold text-gray-900 mb-2">Justification</p>
@@ -227,15 +334,24 @@ async function submitProcurementRequest(event) {
         const isEdit = !!editId;
 
         const formData = new FormData(form);
+        const vendorName = (formData.get('vendor_name') || '').trim();
+        if (!vendorName) {
+            showError('Vendor name is required');
+            return;
+        }
+
         const requestData = {
             request_type: formData.get('request_type'),
             department: formData.get('department'),
             request_date: formData.get('request_date'),
             required_date: formData.get('required_date'),
             justification: formData.get('justification'),
-
             priority: formData.get('priority'),
             notes: formData.get('notes'),
+            vendor_name: vendorName,
+            vendor_email: (formData.get('vendor_email') || '').trim() || null,
+            vendor_phone: (formData.get('vendor_phone') || '').trim() || null,
+            vendor_address: (formData.get('vendor_address') || '').trim() || null,
             items: []
         };
 
@@ -916,6 +1032,7 @@ function resetForm() {
     document.getElementById('requestDate').value = getCurrentDate();
     document.getElementById('requestPriority').value = 'medium';
     document.getElementById('requestorId').value = 1;
+    clearVendorFields();
 
     resetItemRows();
 }

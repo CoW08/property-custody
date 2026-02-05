@@ -275,6 +275,58 @@ ob_start();
                               placeholder="Additional notes or comments..."></textarea>
                 </div>
 
+                <!-- Vendor Contact Section -->
+                <div class="mt-8 bg-gray-50 border border-gray-200 rounded-xl p-4 sm:p-6">
+                    <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+                        <div>
+                            <h4 class="text-lg font-medium text-gray-900">Vendor Contact</h4>
+                            <p class="text-xs text-gray-500">Choose from the preset directory to auto-fill contact details or switch to custom entry.</p>
+                        </div>
+                        <div class="w-full sm:w-64">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Contact List</label>
+                            <select id="vendorSelector"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                <option value="">Select vendor</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="vendorIdField" disabled>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Category</label>
+                            <input type="text" id="vendorCategory"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                   placeholder="Clinic / Medical Supplies">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Name *</label>
+                            <input type="text" name="vendor_name" id="vendorName" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                   placeholder="Vendor company name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Email</label>
+                            <input type="email" name="vendor_email" id="vendorEmail"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                   placeholder="contact@example.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Phone</label>
+                            <input type="text" name="vendor_phone" id="vendorPhone"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                   placeholder="+63 xxx-xxx-xxxx">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Address</label>
+                            <textarea name="vendor_address" id="vendorAddress" rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                      placeholder="Building / Street, City, Province"></textarea>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Items Section -->
                 <div class="mt-8">
                     <div class="flex items-center justify-between mb-4">

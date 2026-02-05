@@ -116,6 +116,10 @@ function listProcurementRequests($pdo) {
                     pr.request_type,
                     pr.requestor_id,
                     pr.department,
+                    pr.vendor_name,
+                    pr.vendor_email,
+                    pr.vendor_phone,
+                    pr.vendor_address,
                     pr.request_date,
                     pr.required_date,
                     pr.justification,
@@ -135,6 +139,7 @@ function listProcurementRequests($pdo) {
                 FROM procurement_requests pr
                 LEFT JOIN users u ON pr.requestor_id = u.id
                 LEFT JOIN users approver ON pr.approved_by = approver.id
+
                 LEFT JOIN (
                     SELECT request_id, COUNT(*) AS items_count, SUM(total_cost) AS total_estimated_cost
                     FROM procurement_request_items

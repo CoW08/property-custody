@@ -38,13 +38,36 @@ CREATE TABLE `assets` (
   `assigned_to` int(11) DEFAULT NULL,
   `purchase_date` date DEFAULT NULL,
   `purchase_cost` decimal(12,2) DEFAULT NULL,
-  `status` enum('available','assigned','maintenance','disposed') DEFAULT 'available',
+  `status` enum('available','assigned','maintenance','damaged','lost','disposed') DEFAULT 'available',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `qr_code` varchar(255) DEFAULT NULL,
   `qr_generated` tinyint(1) DEFAULT 0,
   `current_value` decimal(15,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `vendors`
+--
+
+CREATE TABLE `vendors` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `contact_person` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `vendors` (`id`, `name`, `contact_person`, `email`, `phone`, `address`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'Metro Supplies Co.', 'Ana Reyes', 'sales@metrosupplies.com', '+63 917 555 0100', '123 Pioneer St., Mandaluyong City', 'active', NOW(), NOW()),
+(2, 'Northwind Essentials', 'Marco Cruz', 'hello@northwind.ph', '+63 918 111 2244', '45 Aurora Blvd., Quezon City', 'active', NOW(), NOW()),
+(3, 'Prime Office Depot', 'Lara Santos', 'orders@primeofficedepot.com', '+63 920 333 7788', '78 Ayala Ave., Makati City', 'active', NOW(), NOW());
 
 --
 -- Dumping data for table `assets`
@@ -78,7 +101,8 @@ CREATE TABLE `asset_categories` (
   `id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
   `description` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -294,6 +318,10 @@ CREATE TABLE `procurement_requests` (
   `request_type` enum('asset','supply','service') NOT NULL,
   `requestor_id` int(11) NOT NULL,
   `department` varchar(100) DEFAULT NULL,
+  `vendor_id` int(11) DEFAULT NULL,
+  `vendor_name` varchar(255) DEFAULT NULL,
+  `vendor_email` varchar(255) DEFAULT NULL,
+  `vendor_phone` varchar(50) DEFAULT NULL,
   `request_date` date NOT NULL,
   `required_date` date DEFAULT NULL,
   `justification` text DEFAULT NULL,
@@ -311,10 +339,10 @@ CREATE TABLE `procurement_requests` (
 -- Dumping data for table `procurement_requests`
 --
 
-INSERT INTO `procurement_requests` (`id`, `request_code`, `request_type`, `requestor_id`, `department`, `request_date`, `required_date`, `justification`, `estimated_cost`, `approved_cost`, `priority`, `status`, `approved_by`, `approval_date`, `notes`, `created_at`) VALUES
-(1, 'AS-202509-001', 'asset', 1, 'IT Department', '2024-01-15', '2024-02-15', 'Need new computers for the computer lab upgrade', 235000.00, 230000.00, 'high', 'approved', 1, '2025-09-29', 'Approved with slight cost reduction', '2025-09-29 05:37:55'),
-(2, 'SU-202509-001', 'supply', 2, 'Office Management', '2024-01-20', NULL, 'Monthly office supplies replenishment', 25750.00, NULL, 'medium', 'draft', NULL, NULL, NULL, '2025-09-29 05:38:05'),
-(3, 'AS-202509-002', 'asset', 1, 'Marcos Admin', '2025-09-29', '2025-10-02', 'Need to resign', 10000000.00, NULL, 'urgent', 'draft', NULL, NULL, 'bad', '2025-09-29 05:44:05');
+INSERT INTO `procurement_requests` (`id`, `request_code`, `request_type`, `requestor_id`, `department`, `vendor_id`, `vendor_name`, `vendor_email`, `vendor_phone`, `request_date`, `required_date`, `justification`, `estimated_cost`, `approved_cost`, `priority`, `status`, `approved_by`, `approval_date`, `notes`, `created_at`) VALUES
+(1, 'AS-202509-001', 'asset', 1, 'IT Department', NULL, NULL, NULL, NULL, '2024-01-15', '2024-02-15', 'Need new computers for the computer lab upgrade', 235000.00, 230000.00, 'high', 'approved', 1, '2025-09-29', 'Approved with slight cost reduction', '2025-09-29 05:37:55'),
+(2, 'SU-202509-001', 'supply', 2, 'Office Management', NULL, NULL, NULL, NULL, '2024-01-20', NULL, 'Monthly office supplies replenishment', 25750.00, NULL, 'medium', 'draft', NULL, NULL, NULL, '2025-09-29 05:38:05'),
+(3, 'AS-202509-002', 'asset', 1, 'Marcos Admin', NULL, NULL, NULL, NULL, '2025-09-29', '2025-10-02', 'Need to resign', 10000000.00, NULL, 'urgent', 'draft', NULL, NULL, 'bad', '2025-09-29 05:44:05');
 
 -- --------------------------------------------------------
 
@@ -469,7 +497,7 @@ CREATE TABLE `assignment_maintenance_links` (
 --
 
 CREATE TABLE `property_audits` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `audit_code` varchar(50) NOT NULL,
   `audit_type` enum('physical_inventory','financial_audit','compliance_check') NOT NULL,
   `start_date` date NOT NULL,
