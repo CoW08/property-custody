@@ -150,11 +150,11 @@ async function submitProcurementRequest(event) {
         const formData = new FormData(form);
         const requestData = {
             request_type: formData.get('request_type'),
-            requestor_id: parseInt(formData.get('requestor_id')),
             department: formData.get('department'),
             request_date: formData.get('request_date'),
             required_date: formData.get('required_date'),
             justification: formData.get('justification'),
+
             priority: formData.get('priority'),
             notes: formData.get('notes'),
             items: []
