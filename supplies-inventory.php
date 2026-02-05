@@ -596,7 +596,7 @@ let liveSupplies = [];
 let historicalSupplies = [];
 let filteredSupplies = [];
 let currentEditId = null;
-let currentView = 'inventory';
+let currentView = 'historical';
 
 const forecastIntegrationElements = {
     section: document.getElementById('forecastIntegrationSection'),
