@@ -1086,7 +1086,7 @@ function setActiveView(mode = 'inventory') {
 function toggleForecastSectionForView() {
     const section = forecastIntegrationElements.section;
     if (!section) return;
-    const shouldHide = currentView === 'inventory';
+    const shouldHide = currentView === 'historical';
     section.classList.toggle('hidden', shouldHide);
 }
 
