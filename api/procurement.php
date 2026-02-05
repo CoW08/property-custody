@@ -188,12 +188,11 @@ function createProcurementRequest($pdo) {
             return;
         }
 
-        // Validate user data integrity - ensure requestor_id matches session
+        // Ignore any client-sent requestor_id (we always trust the session)
         if (isset($input['requestor_id']) && $input['requestor_id'] != $currentUser['id']) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Requestor ID mismatch. Security violation detected.']);
-            return;
+            error_log('Procurement create: requestor_id mismatch detected; overriding with session user.');
         }
+        unset($input['requestor_id']);
 
         // Auto-populate requester information from session (Override any client input)
         $requestorId = $currentUser['id'];
