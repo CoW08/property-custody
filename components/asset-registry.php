@@ -134,7 +134,9 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Loading supplies...</option>
                 </select>
-                <p class="text-xs text-gray-500 mt-1">Selecting a supply will auto-fill the fields below.</p>
+                <p class="text-xs text-gray-500 mt-1">
+                    Selecting a supply will auto-fill item details and lock the category so it matches the originating inventory entry.
+                </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -193,9 +195,10 @@
                         <option value="fair">Fair</option>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Purchase Date</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Acquisition Date</label>
                     <input type="date" id="assetPurchaseDate" name="purchase_date"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Used for lifecycle tracking, depreciation, and audit history.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Purchase Cost</label>

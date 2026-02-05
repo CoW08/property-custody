@@ -63,12 +63,6 @@ ob_start();
                         <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
                         <select id="categoryFilter" onchange="filterSupplies()" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">All Categories</option>
-                            <option value="office">Office Supplies</option>
-                            <option value="cleaning">Cleaning Supplies</option>
-                            <option value="medical">Medical Supplies</option>
-                            <option value="educational">Educational Materials</option>
-                            <option value="maintenance">Maintenance Supplies</option>
-                            <option value="cafeteria">Cafeteria Supplies</option>
                         </select>
                     </div>
                     <div>
@@ -476,16 +470,12 @@ ob_start();
                         <textarea id="description" name="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                        <select id="category" name="category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                        <select id="category" name="category" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">Select Category</option>
-                            <option value="office">Office Supplies</option>
-                            <option value="cleaning">Cleaning Supplies</option>
-                            <option value="medical">Medical Supplies</option>
-                            <option value="educational">Educational Materials</option>
-                            <option value="maintenance">Maintenance Supplies</option>
-                            <option value="cafeteria">Cafeteria Supplies</option>
                         </select>
+
+                        <p id="categoryHelperText" data-default-text="Categories are shared with the Item Registry for consistent reporting." class="mt-1 text-xs text-gray-500">Categories are shared with the Item Registry for consistent reporting.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
@@ -598,6 +588,10 @@ const STORAGE_LOCATIONS = [
     'OSAS Storage'
 ];
 
+let assetCategories = [];
+let categoriesLoaded = false;
+let pendingCategoryValue = '';
+
 let liveSupplies = [];
 let historicalSupplies = [];
 let filteredSupplies = [];
@@ -618,6 +612,164 @@ const forecastIntegrationState = {
     reorders: [],
     alerts: []
 };
+
+async function loadAssetCategoriesForSupplies() {
+    setCategoryLoadingState(true);
+
+    try {
+        const response = await fetch('./api/asset_categories.php');
+        if (!response.ok) {
+            throw new Error('Failed to load asset categories');
+        }
+
+        assetCategories = await response.json();
+        categoriesLoaded = true;
+        renderCategoryOptions();
+        applyPendingCategoryValue();
+        updateCategoryHelperText();
+
+        if (liveSupplies.length) {
+            updateLegacyCategoryFilters(liveSupplies);
+        }
+    } catch (error) {
+        categoriesLoaded = false;
+        assetCategories = [];
+        console.error('Error loading asset categories for supplies:', error);
+        updateCategoryHelperText('Unable to load shared categories. Please refresh the page or contact an administrator.');
+    } finally {
+        setCategoryLoadingState(false);
+    }
+}
+
+function setCategoryLoadingState(isLoading) {
+    const formSelect = document.getElementById('category');
+
+    if (formSelect) {
+        formSelect.disabled = isLoading || !categoriesLoaded;
+    }
+
+    if (isLoading) {
+        updateCategoryHelperText('Loading shared categories...');
+    } else if (categoriesLoaded) {
+        updateCategoryHelperText();
+    }
+}
+
+function renderCategoryOptions() {
+    const filter = document.getElementById('categoryFilter');
+    const formSelect = document.getElementById('category');
+
+    if (!filter || !formSelect) {
+        return;
+    }
+
+    const previousFilterValue = filter.value;
+    const previousFormValue = formSelect.value;
+
+    filter.innerHTML = '';
+    formSelect.innerHTML = '';
+
+    filter.appendChild(new Option('All Categories', ''));
+    formSelect.appendChild(new Option('Select Category', ''));
+
+    assetCategories.forEach(category => {
+        filter.appendChild(new Option(category.name, category.name));
+        formSelect.appendChild(new Option(category.name, category.name));
+    });
+
+    const filterHasPrevious = Array.from(filter.options).some(option => option.value === previousFilterValue);
+    const formHasPrevious = Array.from(formSelect.options).some(option => option.value === previousFormValue);
+
+    filter.value = filterHasPrevious ? previousFilterValue : '';
+    formSelect.value = formHasPrevious ? previousFormValue : '';
+}
+
+function updateLegacyCategoryFilters(supplies = []) {
+    const filter = document.getElementById('categoryFilter');
+    if (!filter) {
+        return;
+    }
+
+    const previousValue = filter.value;
+    filter.querySelectorAll('option[data-legacy-option="true"]').forEach(option => option.remove());
+
+    if (!Array.isArray(supplies) || supplies.length === 0) {
+        const hasPrevious = Array.from(filter.options).some(option => option.value === previousValue);
+        filter.value = hasPrevious ? previousValue : '';
+        return;
+    }
+
+    const legacyNames = new Set();
+    supplies.forEach(supply => {
+        if (supply.category && !assetCategories.some(category => category.name === supply.category)) {
+            legacyNames.add(supply.category);
+        }
+    });
+
+    legacyNames.forEach(name => {
+        const option = new Option(`${name} (Legacy)`, name);
+        option.dataset.legacyOption = 'true';
+        filter.appendChild(option);
+    });
+
+    const hasPrevious = Array.from(filter.options).some(option => option.value === previousValue);
+    filter.value = hasPrevious ? previousValue : '';
+}
+
+function updateCategoryHelperText(message = null) {
+    const helper = document.getElementById('categoryHelperText');
+    if (!helper) {
+        return;
+    }
+
+    if (message) {
+        helper.textContent = message;
+        helper.classList.remove('text-gray-500');
+        helper.classList.add('text-orange-600');
+    } else {
+        const defaultText = helper.dataset.defaultText || helper.textContent;
+        helper.textContent = defaultText;
+        helper.classList.remove('text-orange-600');
+        helper.classList.add('text-gray-500');
+    }
+}
+
+function setFormCategoryValue(categoryName) {
+    const formSelect = document.getElementById('category');
+    if (!formSelect) {
+        return;
+    }
+
+    if (!categoriesLoaded) {
+        pendingCategoryValue = categoryName || '';
+        formSelect.value = '';
+        return;
+    }
+
+    if (!categoryName) {
+        formSelect.value = '';
+        updateCategoryHelperText();
+        return;
+    }
+
+    const isStandardCategory = assetCategories.some(category => category.name === categoryName);
+    if (isStandardCategory) {
+        formSelect.value = categoryName;
+        updateCategoryHelperText();
+    } else {
+        formSelect.value = '';
+        updateCategoryHelperText(`Legacy category "${categoryName}" detected. Please map it to a shared category.`);
+    }
+}
+
+function applyPendingCategoryValue() {
+    if (!pendingCategoryValue) {
+        return;
+    }
+    const bufferedValue = pendingCategoryValue;
+    pendingCategoryValue = '';
+    setFormCategoryValue(bufferedValue);
+}
 
 function initializeForecastIntegration() {
     const { section, refreshBtn } = forecastIntegrationElements;
@@ -967,6 +1119,7 @@ function updateToggleState() {
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     populateStorageLocationSelect();
+    loadAssetCategoriesForSupplies();
     loadSupplies();
     setupViewToggle();
     initializeForecastIntegration();
@@ -987,6 +1140,9 @@ async function loadSupplies() {
 
         populateSupplySelect();
         setActiveView(currentView);
+        if (categoriesLoaded) {
+            updateLegacyCategoryFilters(liveSupplies);
+        }
     } catch (error) {
         console.error('Error loading supplies:', error);
         showNotification('Error loading supplies', 'error');
@@ -1177,6 +1333,7 @@ function openAddSupplyModal() {
     currentEditId = null;
     document.getElementById('modalTitle').textContent = 'Add Historical Data Item';
     document.getElementById('supplyForm').reset();
+    setFormCategoryValue('');
     document.getElementById('addSupplyModal').classList.remove('hidden');
 }
 
@@ -1192,9 +1349,10 @@ function editSupply(id) {
     document.getElementById('itemCode').value = supply.item_code || '';
     document.getElementById('itemName').value = supply.name || '';
     document.getElementById('description').value = supply.description || '';
-    document.getElementById('category').value = supply.category || '';
+    setFormCategoryValue(supply.category || '');
     document.getElementById('unit').value = supply.unit || '';
     document.getElementById('currentStock').value = supply.current_stock || '';
+
     document.getElementById('minimumStock').value = supply.minimum_stock || '';
     document.getElementById('totalValue').value = supply.total_value || '';
     document.getElementById('unitCost').value = supply.unit_cost || '';
@@ -1239,9 +1397,21 @@ async function handleSupplySubmit(event) {
 
     const formData = new FormData(event.target);
     const data = Object.fromEntries(formData.entries());
+    data.category = (data.category || '').trim();
 
     if (!STORAGE_LOCATIONS.includes(data.location)) {
         showNotification('Please select a valid storage location.', 'error');
+        return;
+    }
+
+    if (!categoriesLoaded) {
+        showNotification('Categories are still loading. Please wait a moment and try again.', 'warning');
+        return;
+    }
+
+    if (!isSharedCategoryValid(data.category)) {
+        setFormCategoryValue(data.category);
+        showNotification('Please select a category from the shared Item Registry list.', 'error');
         return;
     }
 
