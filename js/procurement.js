@@ -59,7 +59,7 @@ function initVendorDirectory() {
     if (!selector) return;
 
     const options = ['<option value="">Select vendor</option>']
-        .concat(VENDOR_CONTACTS.map(vendor => `<option value="${vendor.id}">${vendor.category}</option>`))
+        .concat(VENDOR_CONTACTS.map(vendor => `<option value="${vendor.id}">${vendor.category} - ${vendor.name}</option>`))
         .join('');
 
     selector.innerHTML = options;
