@@ -1116,6 +1116,42 @@ function updateToggleState() {
     inventoryTab.classList.toggle('text-gray-500', isHistorical);
 }
 
+function setupViewToggle() {
+    const historicalTab = document.getElementById('historicalTab');
+    const inventoryTab = document.getElementById('inventoryTab');
+
+    if (!historicalTab || !inventoryTab) {
+        console.warn('View toggle buttons not found');
+        return;
+    }
+
+    const bindToggle = (element, view) => {
+        element.setAttribute('role', 'tab');
+        element.setAttribute('tabindex', '0');
+        element.setAttribute('aria-pressed', currentView === view);
+
+        element.addEventListener('click', () => {
+            if (currentView !== view) {
+                setActiveView(view);
+            }
+        });
+
+        element.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                if (currentView !== view) {
+                    setActiveView(view);
+                }
+            }
+        });
+    };
+
+    bindToggle(historicalTab, 'historical');
+    bindToggle(inventoryTab, 'inventory');
+
+    updateToggleState();
+}
+
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     populateStorageLocationSelect();
