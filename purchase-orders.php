@@ -229,7 +229,20 @@ ob_start();
 
                 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                     <h4 class="text-sm font-semibold text-gray-900 mb-3">Purchase Order Items</h4>
-                    <p class="text-sm text-gray-500 mb-3">Purchase order items will auto-populate from the linked procurement request. You can adjust quantities and costs after selecting a request.</p>
+                    <p class="text-sm text-gray-500 mb-3">Purchase order items will auto-populate from the linked procurement request. You can also pull items directly from Supplies Inventory.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Add Inventory Item</label>
+                            <select id="purchaseOrderSupplySelect" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Loading inventory...</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button type="button" id="purchaseOrderAddItemBtn" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <i class="fas fa-plus mr-2"></i>Add Item
+                            </button>
+                        </div>
+                    </div>
                     <div id="purchaseOrderItemsContainer" class="space-y-3">
                         <!-- Items will be rendered here -->
                     </div>

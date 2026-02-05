@@ -14,12 +14,14 @@ let purchaseOrderItems = [];
 let editPurchaseOrderItems = [];
 let selectedRequestDetails = null;
 let selectedEditPurchaseOrder = null;
+let purchaseOrderSupplies = [];
 
 window.addEventListener('DOMContentLoaded', () => {
     bindPurchaseOrderEvents();
     loadPurchaseOrderStats();
     loadApprovedRequests();
     loadPurchaseOrders();
+    loadSupplyCatalogForPO();
 });
 
 function bindPurchaseOrderEvents() {
@@ -35,6 +37,8 @@ function bindPurchaseOrderEvents() {
     const editCloseBtn = document.getElementById('closeEditPurchaseOrderModal');
     const cancelEditBtn = document.getElementById('cancelEditPurchaseOrder');
     const requestSelect = document.getElementById('purchaseOrderRequest');
+    const itemSupplySelect = document.getElementById('purchaseOrderSupplySelect');
+    const addItemBtn = document.getElementById('purchaseOrderAddItemBtn');
     const taxInput = document.getElementById('purchaseOrderTaxAmount');
     const shippingInput = document.getElementById('purchaseOrderShippingCost');
     const form = document.getElementById('purchaseOrderForm');
