@@ -9,6 +9,13 @@ let bulkActionModal = null;
 let bulkActionForm = null;
 let bulkActionSection = null;
 let bulkSelectedCount = null;
+let supplyPrefillList = [];
+let supplyPrefillMap = new Map();
+let supplyPrefillLoaded = false;
+let supplyPrefillLoading = false;
+let supplyPrefillInitialized = false;
+let pendingSupplyCategoryName = '';
+let categoryLockedBySupply = false;
 let currentPagination = {
     current_page: 1,
     total_pages: 1,
@@ -24,6 +31,166 @@ function initAssetManagement() {
     loadTags();
     loadAssets();
     setupEventListeners();
+    initializeSupplyPrefillControls();
+}
+
+function initializeSupplyPrefillControls() {
+    const supplySelect = document.getElementById('assetSupplySelect');
+    if (!supplySelect || supplyPrefillInitialized) {
+        return;
+    }
+
+    supplyPrefillInitialized = true;
+    supplySelect.addEventListener('focus', ensureSupplyPrefillDataLoaded);
+    supplySelect.addEventListener('change', (event) => {
+        handleSupplyPrefillChange(event.target.value);
+    });
+
+    // Kick off load immediately so options are ready by the time modal opens
+    ensureSupplyPrefillDataLoaded();
+}
+
+async function ensureSupplyPrefillDataLoaded() {
+    if (supplyPrefillLoaded || supplyPrefillLoading) {
+        return;
+    }
+
+    supplyPrefillLoading = true;
+    const supplySelect = document.getElementById('assetSupplySelect');
+    if (supplySelect) {
+        supplySelect.innerHTML = '';
+        supplySelect.appendChild(new Option('Loading supplies...', ''));
+        supplySelect.disabled = true;
+    }
+
+    try {
+        const supplies = await API.getSupplies();
+        const normalized = Array.isArray(supplies)
+            ? supplies
+            : (Array.isArray(supplies?.data) ? supplies.data : []);
+
+        supplyPrefillList = normalized;
+        supplyPrefillMap = new Map(normalized.map(item => [String(item.id), item]));
+
+        renderSupplyPrefillOptions();
+        supplyPrefillLoaded = true;
+    } catch (error) {
+        console.error('Error loading supplies for asset prefill:', error);
+        renderSupplyPrefillOptions(true);
+    } finally {
+        supplyPrefillLoading = false;
+    }
+}
+
+function renderSupplyPrefillOptions(hasError = false) {
+    const supplySelect = document.getElementById('assetSupplySelect');
+    if (!supplySelect) {
+        return;
+    }
+
+    supplySelect.innerHTML = '';
+
+    if (hasError) {
+        supplySelect.appendChild(new Option('Unable to load supplies', ''));
+        supplySelect.disabled = true;
+        return;
+    }
+
+    if (!supplyPrefillList.length) {
+        supplySelect.appendChild(new Option('No live supplies available', ''));
+        supplySelect.disabled = true;
+        return;
+    }
+
+    supplySelect.appendChild(new Option('Select supply to prefill', ''));
+    supplyPrefillList.forEach(supply => {
+        const code = supply.item_code ? supply.item_code.trim() : '';
+        const name = supply.name ? supply.name.trim() : '';
+        const optionLabel = [code, name].filter(Boolean).join(' — ') || `Supply #${supply.id}`;
+        supplySelect.appendChild(new Option(optionLabel, supply.id));
+    });
+    supplySelect.disabled = false;
+}
+
+function handleSupplyPrefillChange(selectedId) {
+    if (!selectedId) {
+        pendingSupplyCategoryName = '';
+        unlockAssetCategoryLock();
+        return;
+    }
+
+    const supply = supplyPrefillMap.get(String(selectedId)) || supplyPrefillMap.get(Number(selectedId));
+    if (!supply) {
+        showNotification('Selected supply could not be loaded. Please refresh the list.', 'warning');
+        return;
+    }
+
+    fillAssetFormFromSupply(supply);
+}
+
+function fillAssetFormFromSupply(supply) {
+    setInputValue('assetCode', supply.item_code || '');
+    setInputValue('assetName', supply.name || '');
+    setInputValue('assetDescription', supply.description || '');
+    setInputValue('assetLocation', supply.location || '');
+
+    if (supply.unit_cost !== null && supply.unit_cost !== undefined) {
+        setInputValue('assetPurchaseCost', supply.unit_cost);
+    }
+
+    if (supply.total_value !== null && supply.total_value !== undefined) {
+        setInputValue('assetCurrentValue', supply.total_value);
+    }
+
+    lockAssetCategoryFromSupply(supply.category);
+}
+
+function setInputValue(inputId, value) {
+    const field = document.getElementById(inputId);
+    if (field) {
+        field.value = value ?? '';
+    }
+}
+
+function lockAssetCategoryFromSupply(categoryName) {
+    pendingSupplyCategoryName = categoryName || '';
+    applyPendingSupplyCategoryLock();
+}
+
+function applyPendingSupplyCategoryLock() {
+    const select = document.getElementById('assetCategory');
+    if (!select) {
+        return;
+    }
+
+    if (!pendingSupplyCategoryName) {
+        unlockAssetCategoryLock();
+        return;
+    }
+
+    const matchingOption = allCategories.find(category => String(category.id) === String(pendingSupplyCategoryName) || category.name === pendingSupplyCategoryName);
+    if (matchingOption) {
+        select.value = matchingOption.id;
+        select.disabled = true;
+        categoryLockedBySupply = true;
+        select.dataset.lockMessage = 'Category locked by selected supply';
+    } else {
+        select.disabled = false;
+        categoryLockedBySupply = false;
+        showNotification(`Supply category "${pendingSupplyCategoryName}" is not yet part of the shared list. Please update supplies inventory.`, 'warning');
+    }
+}
+
+function unlockAssetCategoryLock() {
+    const select = document.getElementById('assetCategory');
+    if (!select) {
+        return;
+    }
+
+    if (categoryLockedBySupply) {
+        select.disabled = false;
+        categoryLockedBySupply = false;
+    }
 }
 
 function updateBulkSelectionState() {
@@ -76,6 +243,7 @@ async function loadCategories() {
         if (response.ok) {
             allCategories = await response.json();
             populateCategoryFilters();
+            applyPendingSupplyCategoryLock();
         }
     } catch (error) {
         console.error('Error loading categories:', error);
