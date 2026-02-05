@@ -1,17 +1,21 @@
 <?php
-class Database {
-    private $host = 'localhost';
-    private $db_name = 'prop_custodian_db';
-    private $db_port = "3306"; 
-<<<<<<< HEAD
-    private $username = 'root';
-    private $password = 'root';
+require_once __DIR__ . '/config.php';
 
-=======
-    private $username = 'prop_custodian_db';
-    private $password = '123';
->>>>>>> fa6a104dc6be42e918703977ce565121b21da755
+class Database {
+    private $host;
+    private $db_name;
+    private $db_port;
+    private $username;
+    private $password;
     public $conn;
+
+    public function __construct() {
+        $this->host = defined('DB_HOST') ? DB_HOST : '127.0.0.1';
+        $this->db_name = defined('DB_NAME') ? DB_NAME : 'systems';
+        $this->db_port = defined('DB_PORT') ? DB_PORT : '3306';
+        $this->username = defined('DB_USER') ? DB_USER : 'root';
+        $this->password = defined('DB_PASS') ? DB_PASS : 'root';
+    }
 
     public function getConnection() {
         $this->conn = null;
