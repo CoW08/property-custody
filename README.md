@@ -1,6 +1,5 @@
-<<<<<<< HEAD
+
 # property-custody
-=======
 # School Management System - Property Custodian Management
 
 A comprehensive web-based system for managing school property, assets, and supplies inventory.
@@ -178,4 +177,4 @@ School Management System 2 Property Custodian Management for Supplies Inventory 
 
 ## Support
 For technical support or feature requests, please refer to the project documentation or contact the development team.
->>>>>>> c91d515 (Nigga)
+

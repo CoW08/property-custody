@@ -206,9 +206,11 @@ function login($db) {
             return;
         }
 
+        $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         http_response_code(200);
         echo json_encode(array(
-            "message" => "A verification code has been sent to your email.",
+            "message" => sprintf("A verification code has been sent to your email. It expires in %d minute%s.",
+                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : ''),
             "status" => "otp_required",
             "otp_token" => $otpData['token'],
             "email_hint" => maskEmail($row['email']),
@@ -261,10 +263,12 @@ function verifyOtp($db) {
             return;
         }
 
+        $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         if(strtotime($record['expires_at']) < time()) {
             removeOtpByToken($db, $data->otp_token);
             http_response_code(410);
-            echo json_encode(array("message" => "Verification code has expired. Please sign in again."));
+            echo json_encode(array("message" => sprintf("Verification code has expired. Please sign in again. Codes are valid for %d minute%s.",
+                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : '')));
             return;
         }
 
@@ -352,9 +356,11 @@ function resendOtp($db) {
             return;
         }
 
+        $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         if(strtotime($record['created_at']) > time() - 60) {
             http_response_code(429);
-            echo json_encode(array("message" => "Please wait a moment before requesting another code."));
+            echo json_encode(array("message" => sprintf("Please wait a moment before requesting another code. Codes are valid for %d minute%s.",
+                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : '')));
             return;
         }
 
@@ -377,7 +383,8 @@ function resendOtp($db) {
 
         http_response_code(200);
         echo json_encode(array(
-            "message" => "A new verification code has been sent.",
+            "message" => sprintf("A new verification code has been sent. It expires in %d minute%s.",
+                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : ''),
             "status" => "otp_required",
             "otp_token" => $otpData['token'],
             "otp_dev_code" => (defined('OTP_DEV_MODE') && OTP_DEV_MODE) ? $otpData['code'] : null
@@ -428,10 +435,11 @@ function createOtpRecord($db, $userId) {
         $delete = $db->prepare("DELETE FROM user_otp_tokens WHERE user_id = ?");
         $delete->execute([$userId]);
 
+        $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $otpToken = bin2hex(random_bytes(16));
         $otpHash = password_hash($otpCode, PASSWORD_DEFAULT);
-        $expiresAt = date('Y-m-d H:i:s', time() + 300);
+        $expiresAt = date('Y-m-d H:i:s', time() + $expirySeconds);
 
         $insert = $db->prepare("INSERT INTO user_otp_tokens (user_id, token, otp_hash, expires_at) VALUES (?, ?, ?, ?)");
         $insert->execute([$userId, $otpToken, $otpHash, $expiresAt]);
