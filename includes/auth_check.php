@@ -3,6 +3,23 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+// Enforce session timeout (30 minutes idle)
+if (!defined('SESSION_TIMEOUT')) {
+    define('SESSION_TIMEOUT', 30 * 60);
+}
+
+if (isset($_SESSION['LAST_ACTIVITY'])) {
+    $elapsed = time() - (int) $_SESSION['LAST_ACTIVITY'];
+    if ($elapsed > SESSION_TIMEOUT) {
+        session_unset();
+        session_destroy();
+        header('Location: login.php?session=expired');
+        exit();
+    }
+}
+
+$_SESSION['LAST_ACTIVITY'] = time();
+
 // Include permissions configuration
 $permissions_file = __DIR__ . '/../config/permissions.php';
 if (file_exists($permissions_file)) {
