@@ -50,12 +50,18 @@ function initializeSupplyPrefillControls() {
     ensureSupplyPrefillDataLoaded();
 }
 
+function refreshSupplyPrefillOptions() {
+    supplyPrefillLoaded = false;
+    ensureSupplyPrefillDataLoaded();
+}
+
 async function ensureSupplyPrefillDataLoaded() {
     if (supplyPrefillLoaded || supplyPrefillLoading) {
         return;
     }
 
     supplyPrefillLoading = true;
+
     const supplySelect = document.getElementById('assetSupplySelect');
     if (supplySelect) {
         supplySelect.innerHTML = '';
@@ -93,12 +99,14 @@ function renderSupplyPrefillOptions(hasError = false) {
     if (hasError) {
         supplySelect.appendChild(new Option('Unable to load supplies', ''));
         supplySelect.disabled = true;
+        updateSupplyPrefillStatus('Unable to load supplies. Please refresh.', true);
         return;
     }
 
     if (!supplyPrefillList.length) {
         supplySelect.appendChild(new Option('No live supplies available', ''));
         supplySelect.disabled = true;
+        updateSupplyPrefillStatus('No live supplies available to prefill.', true);
         return;
     }
 
@@ -110,22 +118,36 @@ function renderSupplyPrefillOptions(hasError = false) {
         supplySelect.appendChild(new Option(optionLabel, supply.id));
     });
     supplySelect.disabled = false;
+    updateSupplyPrefillStatus('Selecting a supply will auto-fill details and lock the category.');
 }
 
 function handleSupplyPrefillChange(selectedId) {
     if (!selectedId) {
         pendingSupplyCategoryName = '';
         unlockAssetCategoryLock();
+        updateSupplyPrefillStatus('Prefill cleared. You can choose any category.');
         return;
     }
 
     const supply = supplyPrefillMap.get(String(selectedId)) || supplyPrefillMap.get(Number(selectedId));
     if (!supply) {
         showNotification('Selected supply could not be loaded. Please refresh the list.', 'warning');
+        updateSupplyPrefillStatus('Selected supply could not be loaded. Please refresh.', true);
         return;
     }
 
     fillAssetFormFromSupply(supply);
+}
+
+function updateSupplyPrefillStatus(message, isError = false) {
+    const status = document.getElementById('supplyPrefillStatus');
+    if (!status) {
+        return;
+    }
+
+    status.textContent = message;
+    status.classList.toggle('text-red-600', Boolean(isError));
+    status.classList.toggle('text-gray-500', !isError);
 }
 
 function fillAssetFormFromSupply(supply) {

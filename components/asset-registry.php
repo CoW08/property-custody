@@ -129,13 +129,18 @@
             <input type="hidden" id="assetId" name="asset_id">
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Prefill from Supplies Inventory</label>
+                <div class="flex items-center justify-between mb-2">
+                    <label for="assetSupplySelect" class="block text-sm font-medium text-gray-700">Prefill from Supplies Inventory</label>
+                    <button type="button" onclick="refreshSupplyPrefillOptions()" class="text-xs text-blue-600 hover:text-blue-800 focus:outline-none">
+                        Refresh
+                    </button>
+                </div>
                 <select id="assetSupplySelect"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Loading supplies...</option>
                 </select>
-                <p class="text-xs text-gray-500 mt-1">
-                    Selecting a supply will auto-fill item details and lock the category so it matches the originating inventory entry.
+                <p id="supplyPrefillStatus" class="text-xs text-gray-500 mt-1">
+                    Loading supplies from inventory…
                 </p>
             </div>
 

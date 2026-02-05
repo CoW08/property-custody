@@ -33,9 +33,10 @@ ob_start();
 <?php include 'components/modal.php'; ?>
 <?php include 'components/detail_modal.php'; ?>
 
-<script src="js/api.js"></script>
-<script src="js/asset_management.js"></script>
-<script src="js/detail_handlers.js"></script>
+<script src="js/api.js?v=20240205"></script>
+<script src="js/asset_management.js?v=20240205"></script>
+<script src="js/detail_handlers.js?v=20240205"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('assetsTable')) {
