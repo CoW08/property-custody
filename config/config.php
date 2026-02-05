@@ -138,7 +138,7 @@ define('SMTP_USERNAME', 'jerickdellosa3131@gmail.com');
 define('SMTP_PASSWORD', 'ilhraidghbytwnzj');
 define('FROM_EMAIL', 'jerickdellosa3131@gmail.com');
 define('FROM_NAME', 'Property Management System');
-define('OTP_DEV_MODE', false);
+define('OTP_DEV_MODE', true);
 
 // Timezone
 date_default_timezone_set('Asia/Manila');
