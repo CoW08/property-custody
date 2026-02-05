@@ -60,7 +60,9 @@ $staffPermissions = [
     'view_dashboard',
     'view_items',
     'view_supplies',
-    'submit_supply_request'
+    'submit_supply_request',
+    'track_request_status',
+    'report_lost_damaged'
 ];
 
 $maintenancePermissions = [

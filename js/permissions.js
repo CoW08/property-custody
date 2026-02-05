@@ -22,8 +22,9 @@ const PERMISSIONS = {
         'ai_demand_forecasting', 'track_request_status', 'report_lost_damaged'
     ],
     staff: [
-        'login', 'manage_user_profile', 'view_dashboard', 'submit_supply_request',
-        'track_request_status', 'report_lost_damaged', 'view_assigned_items'
+        'login', 'manage_user_profile', 'view_dashboard', 'view_items',
+        'view_supplies', 'submit_supply_request', 'track_request_status',
+        'report_lost_damaged', 'view_assigned_items'
     ],
     finance: [
         'login', 'manage_user_profile', 'view_dashboard', 'approve_budget',
