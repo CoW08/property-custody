@@ -1,11 +1,16 @@
 <?php
 class Database {
-    private $host = '127.0.0.1';
-    private $db_name = 'systems';
+    private $host = 'localhost';
+    private $db_name = 'prop_custodian_db';
     private $db_port = "3306"; 
+<<<<<<< HEAD
     private $username = 'root';
     private $password = 'root';
 
+=======
+    private $username = 'prop_custodian_db';
+    private $password = '123';
+>>>>>>> fa6a104dc6be42e918703977ce565121b21da755
     public $conn;
 
     public function getConnection() {
