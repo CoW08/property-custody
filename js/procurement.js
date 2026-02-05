@@ -4,11 +4,14 @@ let currentPage = 1;
 let currentFilters = {};
 let currentUserRole = null;
 let itemIndexCounter = 0;
+let supplyCatalog = [];
+let supplySelectMarkup = '<option value="">Loading inventory...</option>';
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
     // Get current user role from session
     getCurrentUserRole();
+    loadSupplyCatalog();
     loadProcurementStats();
     loadProcurementRequests();
     setupEventListeners();
@@ -17,12 +20,88 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Get current user role
 function getCurrentUserRole() {
+
     const savedUser = sessionStorage.getItem('currentUser');
     if (savedUser) {
         const user = JSON.parse(savedUser);
         currentUserRole = user.role;
     }
     return currentUserRole;
+}
+
+async function loadSupplyCatalog() {
+    try {
+        const supplies = await API.getSupplies();
+        supplyCatalog = Array.isArray(supplies)
+            ? supplies
+            : (Array.isArray(supplies?.data) ? supplies.data : []);
+        supplySelectMarkup = buildSupplySelectMarkup();
+    } catch (error) {
+        console.error('Error loading supply catalog:', error);
+        supplyCatalog = [];
+        supplySelectMarkup = '<option value="">Unable to load inventory</option>';
+    } finally {
+        refreshSupplySelectors();
+    }
+}
+
+function buildSupplySelectMarkup() {
+    if (!supplyCatalog.length) {
+        return '<option value="">No inventory items available</option>';
+    }
+
+    const options = supplyCatalog.map(item => {
+        const code = item.item_code ? `${item.item_code} - ` : '';
+        const label = `${code}${item.name || 'Unnamed Item'}`;
+        return `<option value="${item.id}">${label}</option>`;
+    }).join('');
+
+    return `<option value="">Select inventory item</option>${options}`;
+}
+
+function refreshSupplySelectors() {
+    const options = supplySelectMarkup;
+    document.querySelectorAll('.item-supply-select').forEach(select => {
+        const previousValue = select.value;
+        select.innerHTML = options;
+        select.disabled = supplyCatalog.length === 0;
+        if (previousValue) {
+            select.value = previousValue;
+        }
+    });
+}
+
+function handleSupplySelection(index, supplyId) {
+    const supplyIdInput = document.querySelector(`input[name="items[${index}][supply_id]"]`);
+    if (supplyIdInput) {
+        supplyIdInput.value = supplyId || '';
+    }
+
+    if (!supplyId) {
+        return;
+    }
+
+    const supply = supplyCatalog.find(item => String(item.id) === String(supplyId));
+    if (!supply) {
+        return;
+    }
+
+    const itemName = supply.name || supply.item_code || '';
+    const combinedName = supply.item_code && supply.name
+        ? `${supply.item_code} - ${supply.name}`
+        : itemName;
+
+    setItemFields(index, {
+        item_name: combinedName,
+        quantity: 1,
+        unit: supply.unit || 'piece',
+        estimated_unit_cost: supply.unit_cost != null ? Number(supply.unit_cost) : '',
+        total_cost: supply.unit_cost != null ? Number(supply.unit_cost) : '',
+        description: supply.description || '',
+        specifications: supply.category ? `Category: ${supply.category}` : ''
+    });
+
+    calculateItemTotal(index);
 }
 
 // View request details
@@ -184,7 +263,8 @@ async function submitProcurementRequest(event) {
                 unit: (formData.get(`items[${index}][unit]`) || 'piece').trim(),
                 estimated_unit_cost: parseFloat(formData.get(`items[${index}][estimated_unit_cost]`)) || 0,
                 description: (formData.get(`items[${index}][description]`) || '').trim(),
-                specifications: (formData.get(`items[${index}][specifications]`) || '').trim()
+                specifications: (formData.get(`items[${index}][specifications]`) || '').trim(),
+                supply_id: formData.get(`items[${index}][supply_id]`) || ''
             });
         }
 
@@ -510,6 +590,17 @@ function addRequestItem(itemData) {
                 </button>
             </div>
 
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Inventory Item (optional)</label>
+                <select class="item-supply-select w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        data-index="${itemIndex}"
+                        onchange="handleSupplySelection(${itemIndex}, this.value)">
+                    ${supplySelectMarkup}
+                </select>
+                <input type="hidden" name="items[${itemIndex}][supply_id]" value="">
+                <p class="text-xs text-gray-500 mt-1">Selecting an inventory item will auto-fill the fields below.</p>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <div class="sm:col-span-2 lg:col-span-1">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
@@ -575,6 +666,8 @@ function setItemFields(index, item = {}) {
     const totalCostInput = document.querySelector(`input[name="items[${index}][total_cost]"]`);
     const descriptionInput = document.querySelector(`textarea[name="items[${index}][description]"]`);
     const specsInput = document.querySelector(`textarea[name="items[${index}][specifications]"]`);
+    const supplyIdInput = document.querySelector(`input[name="items[${index}][supply_id]"]`);
+    const supplySelect = document.querySelector(`.item-supply-select[data-index="${index}"]`);
 
     if (nameInput) nameInput.value = item.item_name || '';
     if (quantityInput) quantityInput.value = item.quantity || 1;
@@ -583,6 +676,8 @@ function setItemFields(index, item = {}) {
     if (totalCostInput) totalCostInput.value = item.total_cost != null ? item.total_cost : '';
     if (descriptionInput) descriptionInput.value = item.description || '';
     if (specsInput) specsInput.value = item.specifications || '';
+    if (supplyIdInput && item.supply_id) supplyIdInput.value = item.supply_id;
+    if (supplySelect && item.supply_id) supplySelect.value = item.supply_id;
 }
 
 function calculateItemTotal(index) {
