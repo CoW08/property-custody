@@ -985,27 +985,10 @@ function formatPriorityLabel(label) {
 }
 
 const HISTORICAL_INVENTORY_ITEMS = [
-    { item_code: 'LIB-BOND', name: 'Bond Paper (reams)', category: 'library', unit: 'reams', default_stock: 110, minimum_stock: 80, location: 'Library Supply Room', unit_cost: 280, description: 'Multi-purpose bond paper for print production.' },
-    { item_code: 'LIB-INK', name: 'Printer Ink (pcs)', category: 'library', unit: 'pcs', default_stock: 9, minimum_stock: 5, location: 'Library Supply Room', unit_cost: 950, description: 'Ink cartridges for library printers.' },
-    { item_code: 'LIB-STAP', name: 'Staples (boxes)', category: 'library', unit: 'boxes', default_stock: 14, minimum_stock: 8, location: 'Library Supply Room', unit_cost: 120, description: 'Staple wires for binding.' },
-    { item_code: 'LIB-FOLD', name: 'Folders (pcs)', category: 'library', unit: 'pcs', default_stock: 180, minimum_stock: 120, location: 'Records Archive', unit_cost: 25, description: 'Document folders for filing.' },
-    { item_code: 'LIB-MARK', name: 'Markers (pcs)', category: 'library', unit: 'pcs', default_stock: 28, minimum_stock: 15, location: 'Records Archive', unit_cost: 45, description: 'Whiteboard and labeling markers.' },
-    { item_code: 'CLN-ALC', name: 'Alcohol (bottles)', category: 'clinic', unit: 'bottles', default_stock: 60, minimum_stock: 30, location: 'Clinic Storage', unit_cost: 65, description: 'Disinfecting ethyl alcohol.' },
-    { item_code: 'CLN-MASK', name: 'Face Masks (boxes)', category: 'clinic', unit: 'boxes', default_stock: 20, minimum_stock: 10, location: 'Clinic Storage', unit_cost: 120, description: 'Disposable surgical masks.' },
-    { item_code: 'CLN-PARA', name: 'Paracetamol (tabs)', category: 'clinic', unit: 'tabs', default_stock: 300, minimum_stock: 200, location: 'Clinic Storage', unit_cost: 6, description: 'Tablets for fever management.' },
-    { item_code: 'CLN-SYR', name: 'Syringes (pcs)', category: 'clinic', unit: 'pcs', default_stock: 120, minimum_stock: 80, location: 'Clinic Storage', unit_cost: 18, description: 'Sterile syringes for medical procedures.' },
-    { item_code: 'CLN-GLOV', name: 'Gloves (boxes)', category: 'clinic', unit: 'boxes', default_stock: 15, minimum_stock: 8, location: 'Clinic Storage', unit_cost: 150, description: 'Disposable gloves for health bay.' },
-    { item_code: 'CLN-VITA', name: 'Vitamins (tabs)', category: 'clinic', unit: 'tabs', default_stock: 200, minimum_stock: 120, location: 'Clinic Storage', unit_cost: 8, description: 'Multivitamins for student welfare.' },
-    { item_code: 'FA-BAND', name: 'Bandages (pcs)', category: 'first_aid', unit: 'pcs', default_stock: 38, minimum_stock: 20, location: 'First Aid Cabinets', unit_cost: 12, description: 'Elastic bandages for first aid.' },
-    { item_code: 'FA-ANT', name: 'Antiseptic (bottles)', category: 'first_aid', unit: 'bottles', default_stock: 9, minimum_stock: 5, location: 'First Aid Cabinets', unit_cost: 55, description: 'Topical antiseptic solution.' },
-    { item_code: 'FA-GAUZ', name: 'Gauze Pads (pcs)', category: 'first_aid', unit: 'pcs', default_stock: 75, minimum_stock: 40, location: 'First Aid Cabinets', unit_cost: 10, description: 'Sterile gauze pads for wound care.' },
-    { item_code: 'FA-TAPE', name: 'Medical Tape (rolls)', category: 'first_aid', unit: 'rolls', default_stock: 18, minimum_stock: 10, location: 'First Aid Cabinets', unit_cost: 35, description: 'Hypoallergenic medical tape.' },
-    { item_code: 'FA-COLD', name: 'Cold Packs (pcs)', category: 'first_aid', unit: 'pcs', default_stock: 14, minimum_stock: 8, location: 'First Aid Cabinets', unit_cost: 45, description: 'Instant cold packs for injuries.' },
-    { item_code: 'EVT-KIT', name: 'Event Kits', category: 'events', unit: 'kits', default_stock: 3, minimum_stock: 2, location: 'Events Storage', unit_cost: 1500, description: 'Standard campus event kits.' },
-    { item_code: 'EVT-CHAIR', name: 'Chairs & Tables', category: 'events', unit: 'sets', default_stock: 60, minimum_stock: 40, location: 'Events Storage', unit_cost: 950, description: 'Folding chairs and tables.' },
-    { item_code: 'EVT-SOUND', name: 'Sound System Units', category: 'events', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Events Storage', unit_cost: 8500, description: 'Portable sound systems.' },
-    { item_code: 'EVT-CORD', name: 'Extension Cords', category: 'events', unit: 'pcs', default_stock: 12, minimum_stock: 8, location: 'Events Storage', unit_cost: 250, description: 'Heavy-duty extension cords.' },
-    { item_code: 'EVT-BAN', name: 'Banners', category: 'events', unit: 'pcs', default_stock: 6, minimum_stock: 4, location: 'Events Storage', unit_cost: 300, description: 'Reusable tarpaulin banners.' }
+    { item_code: 'LIB-LOUNGE', name: 'Library Lounge Chairs', category: 'library', unit: 'pcs', default_stock: 2, minimum_stock: 1, location: 'Library Reading Corner', unit_cost: 4200, description: 'Comfort seating reserved for the library space.' },
+    { item_code: 'LIB-PROJ', name: 'Library Mini Projectors', category: 'library', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Library AV Booth', unit_cost: 8700, description: 'Portable projectors assigned to the library.' },
+    { item_code: 'CLN-COT', name: 'Clinic Recovery Cots', category: 'clinic', unit: 'pcs', default_stock: 2, minimum_stock: 1, location: 'Clinic Treatment Room', unit_cost: 9800, description: 'Lightweight cots stationed in the clinic.' },
+    { item_code: 'CLN-MON', name: 'Clinic Vital Monitors', category: 'clinic', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Clinic Nurses Station', unit_cost: 15500, description: 'Portable monitors dedicated to clinic staff.' }
 ];
 
 function getFallbackLiveSupplies() {
