@@ -472,34 +472,14 @@ function getFallbackUsageDataset()
     ];
 
     $items = [
-        // Library supplies
-        ['code' => 'LIB-BOND', 'name' => 'Bond Paper (reams)', 'usage' => [120, 140, 160, 130, 170, 180, 150, 160, 190, 200, 170, 110]],
-        ['code' => 'LIB-INK', 'name' => 'Printer Ink (pcs)', 'usage' => [10, 12, 14, 11, 15, 16, 13, 14, 17, 18, 15, 9]],
-        ['code' => 'LIB-STAP', 'name' => 'Staples (boxes)', 'usage' => [15, 18, 20, 16, 22, 25, 19, 20, 26, 28, 22, 14]],
-        ['code' => 'LIB-FOLD', 'name' => 'Folders (pcs)', 'usage' => [200, 220, 250, 210, 260, 280, 240, 250, 300, 320, 260, 180]],
-        ['code' => 'LIB-MARK', 'name' => 'Markers (pcs)', 'usage' => [30, 35, 40, 32, 45, 48, 38, 40, 50, 55, 45, 28]],
-
-        // Clinic supplies
-        ['code' => 'CLN-ALCO', 'name' => 'Alcohol (bottles)', 'usage' => [60, 70, 80, 65, 75, 85, 70, 75, 90, 95, 80, 60]],
-        ['code' => 'CLN-MASK', 'name' => 'Face Masks (boxes)', 'usage' => [20, 25, 30, 22, 28, 35, 25, 28, 40, 45, 30, 20]],
-        ['code' => 'CLN-PARA', 'name' => 'Paracetamol (tabs)', 'usage' => [300, 320, 350, 310, 340, 380, 330, 350, 400, 420, 360, 300]],
-        ['code' => 'CLN-SYR', 'name' => 'Syringes (pcs)', 'usage' => [120, 140, 160, 130, 150, 180, 145, 150, 190, 200, 160, 120]],
-        ['code' => 'CLN-GLOV', 'name' => 'Gloves (boxes)', 'usage' => [15, 18, 20, 16, 19, 22, 18, 19, 25, 28, 20, 15]],
-        ['code' => 'CLN-VITA', 'name' => 'Vitamins (tabs)', 'usage' => [200, 220, 250, 210, 240, 280, 230, 240, 300, 320, 260, 200]],
-
-        // First aid supplies
-        ['code' => 'FA-BAND', 'name' => 'Bandages (pcs)', 'usage' => [40, 45, 50, 42, 55, 60, 48, 52, 65, 70, 55, 38]],
-        ['code' => 'FA-ANT', 'name' => 'Antiseptic (bottles)', 'usage' => [10, 11, 12, 10, 13, 15, 12, 13, 16, 18, 14, 9]],
-        ['code' => 'FA-GAUZ', 'name' => 'Gauze Pads (pcs)', 'usage' => [80, 90, 100, 85, 110, 120, 95, 100, 130, 140, 115, 75]],
-        ['code' => 'FA-TAPE', 'name' => 'Medical Tape (rolls)', 'usage' => [20, 22, 25, 21, 28, 30, 24, 26, 32, 35, 29, 18]],
-        ['code' => 'FA-COLD', 'name' => 'Cold Packs (pcs)', 'usage' => [15, 18, 20, 16, 22, 25, 19, 21, 28, 30, 23, 14]],
-
-        // Event-related supplies
-        ['code' => 'EVT-KIT', 'name' => 'Event Kits (sets)', 'usage' => [2, 3, 4, 2, 5, 6, 3, 4, 6, 7, 5, 3]],
-        ['code' => 'EVT-CHR', 'name' => 'Chairs & Tables (sets)', 'usage' => [50, 60, 80, 55, 100, 120, 70, 85, 130, 150, 100, 60]],
-        ['code' => 'EVT-SND', 'name' => 'Sound System Units', 'usage' => [2, 2, 3, 2, 3, 4, 2, 3, 4, 5, 3, 2]],
-        ['code' => 'EVT-EXT', 'name' => 'Extension Cords', 'usage' => [10, 12, 15, 11, 18, 20, 13, 15, 22, 25, 18, 12]],
-        ['code' => 'EVT-BNR', 'name' => 'Banners', 'usage' => [5, 6, 8, 5, 10, 12, 7, 9, 13, 15, 10, 6]],
+        ['code' => 'LIB-LOUNGE', 'name' => 'Library Lounge Chairs', 'usage' => [8, 10, 12, 9, 14, 15, 11, 12, 16, 18, 14, 9]],
+        ['code' => 'LIB-PROJ', 'name' => 'Library Mini Projectors', 'usage' => [3, 4, 5, 3, 6, 6, 4, 5, 7, 8, 6, 4]],
+        ['code' => 'CLN-COT', 'name' => 'Clinic Recovery Cots', 'usage' => [2, 2, 3, 2, 3, 4, 2, 3, 4, 5, 3, 2]],
+        ['code' => 'CLN-MON', 'name' => 'Clinic Vital Monitors', 'usage' => [1, 1, 2, 1, 2, 2, 1, 2, 3, 3, 2, 1]],
+        ['code' => 'OSAS-LANY', 'name' => 'OSAS ID Card Lanyards', 'usage' => [20, 22, 25, 21, 26, 28, 23, 24, 30, 32, 27, 20]],
+        ['code' => 'OSAS-FORM', 'name' => 'OSAS Permit Forms', 'usage' => [12, 14, 16, 13, 17, 18, 15, 16, 20, 22, 18, 12]],
+        ['code' => 'EVT-KIT', 'name' => 'Event Kits', 'usage' => [2, 3, 4, 2, 5, 6, 3, 4, 6, 7, 5, 3]],
+        ['code' => 'EVT-SPEAK', 'name' => 'Portable Speakers', 'usage' => [1, 1, 2, 1, 2, 2, 1, 2, 3, 3, 2, 1]],
     ];
 
     $cache = [
