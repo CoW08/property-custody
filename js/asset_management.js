@@ -230,10 +230,12 @@ function applyPendingSupplyCategoryLock() {
             select.value = pendingSupplyCategoryName;
         }
         select.disabled = true;
+        setLockedCategoryHiddenValue(select.value);
         categoryLockedBySupply = true;
         select.dataset.lockMessage = 'Category locked by selected supply';
     } else {
         select.disabled = false;
+        clearLockedCategoryHiddenValue();
         categoryLockedBySupply = false;
         showNotification(`Supply category "${pendingSupplyCategoryName}" is not yet part of the shared list. Please update supplies inventory.`, 'warning');
     }
@@ -247,7 +249,31 @@ function unlockAssetCategoryLock() {
 
     if (categoryLockedBySupply) {
         select.disabled = false;
+        clearLockedCategoryHiddenValue();
         categoryLockedBySupply = false;
+    }
+}
+
+function setLockedCategoryHiddenValue(value) {
+    const form = document.getElementById('assetForm');
+    if (!form) {
+        return;
+    }
+    let hidden = document.getElementById('assetCategoryHidden');
+    if (!hidden) {
+        hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.id = 'assetCategoryHidden';
+        hidden.name = 'category';
+        form.appendChild(hidden);
+    }
+    hidden.value = value ?? '';
+}
+
+function clearLockedCategoryHiddenValue() {
+    const hidden = document.getElementById('assetCategoryHidden');
+    if (hidden) {
+        hidden.remove();
     }
 }
 
