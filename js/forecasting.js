@@ -429,7 +429,19 @@ class ForecastingPage {
             return;
         }
 
-        this.reorderTableBody.innerHTML = data.map(item => `
+        const uniqueItems = this.deduplicateReorders(data);
+        if (uniqueItems.length === 0) {
+            this.reorderTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-10 text-slate-500 text-sm">
+                        No reorder recommendations yet.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        this.reorderTableBody.innerHTML = uniqueItems.map(item => `
             <tr>
                 <td>
                     <div class="font-semibold text-slate-800">${item.name}</div>
@@ -442,6 +454,75 @@ class ForecastingPage {
                 <td>${this.renderPriorityChip(item.priority)}</td>
             </tr>
         `).join('');
+    }
+
+    deduplicateReorders(items) {
+        const normalized = Array.isArray(items) ? items : [];
+        const result = [];
+        const indexByKey = new Map();
+
+        normalized.forEach(item => {
+            const key = this.normalizeReorderKey(item);
+            if (!key) {
+                result.push(item);
+                return;
+            }
+
+            if (!indexByKey.has(key)) {
+                indexByKey.set(key, result.length);
+                result.push(item);
+                return;
+            }
+
+            const existingIndex = indexByKey.get(key);
+            const existing = result[existingIndex];
+            if (this.isHigherPriorityReorder(item, existing)) {
+                result[existingIndex] = item;
+            }
+        });
+
+        return result;
+    }
+
+    normalizeReorderKey(item) {
+        const nameKey = typeof item?.name === 'string' ? item.name.trim().toLowerCase() : '';
+        if (nameKey) return nameKey;
+        const codeKey = typeof item?.item_code === 'string' ? item.item_code.trim().toLowerCase() : '';
+        return codeKey || '';
+    }
+
+    isHigherPriorityReorder(candidate, existing) {
+        const candidateWeight = this.priorityWeight(candidate?.priority);
+        const existingWeight = this.priorityWeight(existing?.priority);
+        if (candidateWeight !== existingWeight) {
+            return candidateWeight > existingWeight;
+        }
+
+        const candidateQty = Number(candidate?.recommended_reorder_qty ?? 0);
+        const existingQty = Number(existing?.recommended_reorder_qty ?? 0);
+        if (candidateQty !== existingQty) {
+            return candidateQty > existingQty;
+        }
+
+        const candidateStock = Number(candidate?.current_stock ?? 0);
+        const existingStock = Number(existing?.current_stock ?? 0);
+        return candidateStock > existingStock;
+    }
+
+    priorityWeight(priority) {
+        const value = (priority || '').toLowerCase();
+        switch (value) {
+            case 'critical':
+                return 4;
+            case 'high':
+                return 3;
+            case 'medium':
+                return 2;
+            case 'overstock':
+                return 1;
+            default:
+                return 0;
+        }
     }
 
     renderPriorityChip(priority) {

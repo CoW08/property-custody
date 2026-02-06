@@ -900,7 +900,13 @@ function renderForecastReorders(reorders) {
         return;
     }
 
-    body.innerHTML = reorders.slice(0, 6).map(item => `
+    const uniqueItems = deduplicateForecastReorders(reorders);
+    if (!uniqueItems.length) {
+        body.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-sm text-slate-500">No reorder signals yet.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = uniqueItems.slice(0, 6).map(item => `
         <tr class="hover:bg-slate-50">
             <td class="px-4 py-3">
                 <div class="font-semibold text-slate-900">${item.name || item.item_code}</div>
@@ -917,6 +923,74 @@ function renderForecastReorders(reorders) {
             </td>
         </tr>
     `).join('');
+}
+
+function deduplicateForecastReorders(items) {
+    const normalized = Array.isArray(items) ? items : [];
+    const result = [];
+    const indexByKey = new Map();
+
+    normalized.forEach(item => {
+        const key = normalizeForecastKey(item);
+        if (!key) {
+            result.push(item);
+            return;
+        }
+
+        if (!indexByKey.has(key)) {
+            indexByKey.set(key, result.length);
+            result.push(item);
+            return;
+        }
+
+        const existingIndex = indexByKey.get(key);
+        const existing = result[existingIndex];
+        if (isHigherPriorityForecast(item, existing)) {
+            result[existingIndex] = item;
+        }
+    });
+
+    return result;
+}
+
+function normalizeForecastKey(item) {
+    const nameKey = typeof item?.name === 'string' ? item.name.trim().toLowerCase() : '';
+    if (nameKey) return nameKey;
+    const codeKey = typeof item?.item_code === 'string' ? item.item_code.trim().toLowerCase() : '';
+    return codeKey || '';
+}
+
+function isHigherPriorityForecast(candidate, existing) {
+    const candidateWeight = forecastPriorityWeight(candidate?.priority);
+    const existingWeight = forecastPriorityWeight(existing?.priority);
+    if (candidateWeight !== existingWeight) {
+        return candidateWeight > existingWeight;
+    }
+
+    const candidateQty = Number(candidate?.recommended_reorder_qty ?? 0);
+    const existingQty = Number(existing?.recommended_reorder_qty ?? 0);
+    if (candidateQty !== existingQty) {
+        return candidateQty > existingQty;
+    }
+
+    const candidateStock = Number(candidate?.current_stock ?? 0);
+    const existingStock = Number(existing?.current_stock ?? 0);
+    return candidateStock > existingStock;
+}
+
+function forecastPriorityWeight(priority) {
+    switch ((priority || '').toLowerCase()) {
+        case 'critical':
+            return 4;
+        case 'high':
+            return 3;
+        case 'medium':
+            return 2;
+        case 'overstock':
+            return 1;
+        default:
+            return 0;
+    }
 }
 
 function renderForecastAlerts(alerts) {

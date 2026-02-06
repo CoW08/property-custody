@@ -174,6 +174,7 @@ function bindPurchaseOrderEvents() {
 
     if (editShippingInput) {
         editShippingInput.addEventListener('input', recalculateEditPurchaseOrderTotals);
+    }
 
     if (form) {
         form.addEventListener('submit', submitPurchaseOrderForm);

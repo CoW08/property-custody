@@ -160,7 +160,7 @@ ob_start();
 </div>
 
 <script src="js/api.js"></script>
-<script src="js/forecasting.js"></script>
+<script src="js/forecasting.js?v=2026020709"></script>
 <?php
 $content = ob_get_clean();
 include 'layouts/layout.php';
