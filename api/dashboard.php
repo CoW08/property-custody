@@ -131,15 +131,37 @@ function getStats($db) {
             $stmt->execute();
             $maintenanceStats = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-            $stats['maintenanceItems'] = (int)($maintenanceStats['active'] ?? 0);
+            $unionMaintenanceQuery = "
+                SELECT COUNT(DISTINCT asset_id) as total
+                FROM (
+                    SELECT id AS asset_id FROM assets WHERE status = 'maintenance'
+                    UNION
+                    SELECT asset_id FROM maintenance_schedules WHERE status IN ('scheduled','in_progress')
+                ) AS maintenance_assets
+            ";
+            $unionStmt = $db->prepare($unionMaintenanceQuery);
+            $unionStmt->execute();
+            $stats['maintenanceItems'] = (int)($unionStmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
             $stats['maintenanceDueToday'] = (int)($maintenanceStats['due_today'] ?? 0);
             $stats['maintenanceOverdue'] = (int)($maintenanceStats['overdue'] ?? 0);
+        } else {
+            $query = "SELECT COUNT(*) as total FROM assets WHERE status = 'maintenance'";
+            $stmt = $db->prepare($query);
+            $stmt->execute();
+            $stats['maintenanceItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
         }
 
         // Damaged/Lost items derived from damaged_items table when available
         $checkDamaged = $db->query("SHOW TABLES LIKE 'damaged_items'");
         if ($checkDamaged && $checkDamaged->rowCount() > 0) {
-            $query = "SELECT COUNT(*) as total FROM damaged_items WHERE status IN ('reported','under_repair','write_off')";
+            $query = "
+                SELECT COUNT(DISTINCT asset_id) as total
+                FROM (
+                    SELECT id AS asset_id FROM assets WHERE status IN ('damaged', 'lost')
+                    UNION
+                    SELECT asset_id FROM damaged_items WHERE status IN ('reported','under_repair','write_off')
+                ) AS damaged_assets
+            ";
             $stmt = $db->prepare($query);
             $stmt->execute();
             $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
