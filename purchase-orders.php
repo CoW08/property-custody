@@ -414,7 +414,7 @@ ob_start();
 </div>
 
 <script src="js/api.js"></script>
-<script src="js/purchase_orders.js"></script>
+<script src="js/purchase_orders.js?v=2026020710"></script>
 
 <?php
 $content = ob_get_clean();
