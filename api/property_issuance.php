@@ -15,23 +15,58 @@ function debug_log($message, $data = null) {
     error_log($log_message);
 }
 
-function ensureIssuanceSignatureColumn(PDO $db): void
+function ensurePropertyIssuanceColumns(PDO $db): void
 {
     static $checked = false;
     if ($checked) {
         return;
     }
 
-    try {
-        $stmt = $db->query("SHOW COLUMNS FROM property_issuances LIKE 'recipient_signature'");
-        if ($stmt->rowCount() === 0) {
-            $db->exec("ALTER TABLE property_issuances ADD COLUMN recipient_signature LONGTEXT NULL");
+    $columns = [
+        'requester_name' => "ALTER TABLE property_issuances ADD COLUMN requester_name varchar(255) NULL",
+        'requester_department' => "ALTER TABLE property_issuances ADD COLUMN requester_department varchar(100) NULL",
+        'request_submitted_at' => "ALTER TABLE property_issuances ADD COLUMN request_submitted_at datetime NULL",
+        'request_item_details' => "ALTER TABLE property_issuances ADD COLUMN request_item_details text NULL",
+        'approval_status' => "ALTER TABLE property_issuances ADD COLUMN approval_status varchar(20) NULL",
+        'approval_by' => "ALTER TABLE property_issuances ADD COLUMN approval_by int(11) NULL",
+        'approval_at' => "ALTER TABLE property_issuances ADD COLUMN approval_at datetime NULL"
+    ];
+
+    foreach ($columns as $column => $statement) {
+        try {
+            $stmt = $db->query("SHOW COLUMNS FROM property_issuances LIKE " . $db->quote($column));
+            if ($stmt->rowCount() === 0) {
+                $db->exec($statement);
+            }
+        } catch (Throwable $throwable) {
+            debug_log('Failed to ensure property issuance column', ['column' => $column, 'error' => $throwable->getMessage()]);
         }
-    } catch (Throwable $throwable) {
-        debug_log('Failed to ensure recipient_signature column', ['error' => $throwable->getMessage()]);
     }
 
     $checked = true;
+}
+
+function logIssuanceActivity(PDO $db, $user_id, $action, $record_id): void
+{
+    try {
+        ensurePropertyIssuanceColumns($db);
+        $check = $db->query("SHOW TABLES LIKE 'system_logs'");
+        if ($check->rowCount() === 0) {
+            return;
+        }
+
+        $query = "INSERT INTO system_logs (user_id, action, table_name, record_id, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $db->prepare($query);
+        $stmt->execute([
+            $user_id,
+            $action,
+            'property_issuances',
+            $record_id,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Throwable $throwable) {
+    }
 }
 
 // Test if we get this far
@@ -126,6 +161,7 @@ function getIssuances($db) {
             return;
         }
         debug_log("property_issuances table exists");
+        ensurePropertyIssuanceColumns($db);
 
         $whereClause = "";
         $params = array();
@@ -162,10 +198,12 @@ function getIssuances($db) {
 
         $query = "SELECT pi.*,
                   a.asset_code, a.name as asset_name, a.description as asset_description,
-                  u.full_name as issued_by_name
+                  u.full_name as issued_by_name,
+                  au.full_name as approval_by_name
                   FROM property_issuances pi
                   LEFT JOIN assets a ON pi.asset_id = a.id
-                  LEFT JOIN users u ON pi.issued_by = u.id" .
+                  LEFT JOIN users u ON pi.issued_by = u.id
+                  LEFT JOIN users au ON pi.approval_by = au.id" .
                   $whereClause . "
                   ORDER BY pi.created_at DESC
                   LIMIT " . intval($limit) . " OFFSET " . intval($offset);
@@ -200,12 +238,15 @@ function getIssuances($db) {
 
 function getIssuance($db, $id) {
     try {
+        ensurePropertyIssuanceColumns($db);
         $query = "SELECT pi.*,
                   a.asset_code, a.name as asset_name, a.description as asset_description,
-                  u.full_name as issued_by_name
+                  u.full_name as issued_by_name,
+                  au.full_name as approval_by_name
                   FROM property_issuances pi
                   LEFT JOIN assets a ON pi.asset_id = a.id
                   LEFT JOIN users u ON pi.issued_by = u.id
+                  LEFT JOIN users au ON pi.approval_by = au.id
                   WHERE pi.id = ?";
         $stmt = $db->prepare($query);
         $stmt->bindParam(1, $id);
@@ -242,7 +283,7 @@ function createIssuance($db, $input = null) {
     }
 
     try {
-        ensureIssuanceSignatureColumn($db);
+        ensurePropertyIssuanceColumns($db);
 
         // Check if asset exists and is available
         $assetQuery = "SELECT id, status FROM assets WHERE id = ?";
@@ -262,12 +303,33 @@ function createIssuance($db, $input = null) {
             return;
         }
 
+        $requesterName = $data->requester_name ?? $data->recipient_name ?? null;
+        $requesterDepartment = $data->requester_department ?? $data->department ?? null;
+        $requestSubmittedAt = $data->request_submitted_at ?? date('Y-m-d H:i:s');
+        $requestItemDetails = null;
+        if (isset($data->request_item_details)) {
+            if (is_string($data->request_item_details)) {
+                $requestItemDetails = $data->request_item_details;
+            } else {
+                $requestItemDetails = json_encode($data->request_item_details);
+            }
+        }
+
+        $approvalStatusInput = $data->approval_status ?? null;
+        $approvalStatus = in_array($approvalStatusInput, ['approved', 'rejected', 'pending'], true) ? $approvalStatusInput : 'approved';
+        $approvalBy = null;
+        $approvalAt = null;
+        if ($approvalStatus !== 'pending') {
+            $approvalBy = $_SESSION['user_id'] ?? 1;
+            $approvalAt = date('Y-m-d H:i:s');
+        }
+
         $db->beginTransaction();
 
         // Create issuance record
         $insertQuery = "INSERT INTO property_issuances
-                       (asset_id, employee_id, recipient_name, department, issue_date, expected_return_date, purpose, recipient_signature, status, issued_by, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?, CURRENT_TIMESTAMP)";
+                       (asset_id, employee_id, recipient_name, department, issue_date, expected_return_date, purpose, status, issued_by, created_at, requester_name, requester_department, request_submitted_at, request_item_details, approval_status, approval_by, approval_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 'issued', ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?)";
 
         $insertStmt = $db->prepare($insertQuery);
         $insertStmt->execute([
@@ -278,8 +340,14 @@ function createIssuance($db, $input = null) {
             $data->issue_date ?? date('Y-m-d'),
             $data->expected_return_date ?? null,
             $data->purpose ?? null,
-            isset($data->recipient_signature) ? $data->recipient_signature : null,
-            $_SESSION['user_id'] ?? 1
+            $_SESSION['user_id'] ?? 1,
+            $requesterName,
+            $requesterDepartment,
+            $requestSubmittedAt,
+            $requestItemDetails,
+            $approvalStatus,
+            $approvalBy,
+            $approvalAt
         ]);
 
         $issuance_id = $db->lastInsertId();
@@ -290,6 +358,11 @@ function createIssuance($db, $input = null) {
         $updateAssetStmt->execute([$data->asset_id]);
 
         $db->commit();
+
+        if ($approvalStatus === 'approved' || $approvalStatus === 'rejected') {
+            $action = $approvalStatus === 'rejected' ? 'reject_issuance' : 'approve_issuance';
+            logIssuanceActivity($db, $approvalBy ?? ($_SESSION['user_id'] ?? 1), $action, $issuance_id);
+        }
 
         // Generate PDF URL
         $pdf_url = 'generate_issuance_pdf.php?issuance_id=' . $issuance_id;
@@ -339,6 +412,8 @@ function updateIssuance($db, $id, $input = null) {
 
         $updateFields = array();
         $updateValues = array();
+        $approvalAction = null;
+        $approvalActor = null;
 
         if (isset($data->status)) {
             $updateFields[] = 'status = ?';
@@ -371,6 +446,27 @@ function updateIssuance($db, $id, $input = null) {
             $updateValues[] = $data->remarks;
         }
 
+        if (isset($data->approval_status)) {
+            $approvalStatusInput = $data->approval_status;
+            if (in_array($approvalStatusInput, ['approved', 'rejected', 'pending'], true)) {
+                $updateFields[] = 'approval_status = ?';
+                $updateValues[] = $approvalStatusInput;
+                if ($approvalStatusInput === 'pending') {
+                    $updateFields[] = 'approval_by = ?';
+                    $updateValues[] = null;
+                    $updateFields[] = 'approval_at = ?';
+                    $updateValues[] = null;
+                } else {
+                    $approvalActor = $_SESSION['user_id'] ?? 1;
+                    $updateFields[] = 'approval_by = ?';
+                    $updateValues[] = $approvalActor;
+                    $updateFields[] = 'approval_at = ?';
+                    $updateValues[] = date('Y-m-d H:i:s');
+                    $approvalAction = $approvalStatusInput;
+                }
+            }
+        }
+
         $updateFields[] = 'updated_at = CURRENT_TIMESTAMP';
         $updateValues[] = $id;
 
@@ -378,6 +474,10 @@ function updateIssuance($db, $id, $input = null) {
         $stmt = $db->prepare($query);
 
         if($stmt->execute($updateValues)) {
+            if ($approvalAction === 'approved' || $approvalAction === 'rejected') {
+                $action = $approvalAction === 'rejected' ? 'reject_issuance' : 'approve_issuance';
+                logIssuanceActivity($db, $approvalActor ?? ($_SESSION['user_id'] ?? 1), $action, $id);
+            }
             http_response_code(200);
             echo json_encode(array("message" => "Issuance updated successfully"));
         } else {

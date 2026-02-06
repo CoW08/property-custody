@@ -263,7 +263,7 @@ ob_start();
             <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                 <div>
                     <p class="text-xs uppercase text-gray-500">Issuance</p>
-                    <h3 class="text-lg font-semibold text-gray-900">Record Issued Signature</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">Record Issuance</h3>
                 </div>
                 <button onclick="hideModal('issueModal')" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times"></i>
@@ -271,10 +271,6 @@ ob_start();
             </div>
             <form id="issueAssignmentForm" class="p-6 space-y-4">
                 <input type="hidden" id="issueAssignmentId">
-                <div>
-                    <label class="text-sm font-medium text-gray-700">Issuer Signature / Initials</label>
-                    <input type="text" id="issuerSignatureInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Type full name or initials" required>
-                </div>
                 <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2">
                     <i class="fas fa-check-circle"></i><span>Mark as Issued</span>
                 </button>
@@ -307,10 +303,6 @@ ob_start();
                 <div>
                     <label class="text-sm font-medium text-gray-700">Reason</label>
                     <textarea id="transferReasonInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" rows="3" placeholder="Why is this transfer needed?" required></textarea>
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-700">Releasing Signature</label>
-                    <input type="text" id="transferSignatureInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Current custodian signature" required>
                 </div>
                 <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 py-2">
                     <i class="fas fa-paper-plane"></i><span>Start Transfer</span>

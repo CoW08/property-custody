@@ -239,56 +239,30 @@ class IssuanceReceiptPDF {
     </div>
     
     <div class="acknowledgment-box">
-        <h3><i class="fas fa-exclamation-triangle"></i> Recipient Acknowledgment</h3>
-        <p>I hereby acknowledge receipt of the above-mentioned property/item in good condition.</p>
-        <p>I understand and agree to:</p>
-        <ul>
-            <li>Take full responsibility for the proper care and use of the issued item</li>
-            <li>Use the item only for authorized and legitimate purposes</li>
-            <li>Report any damage, loss, or malfunction immediately</li>
-            <li>Return the item in good condition on or before the expected return date</li>
-            <li>Be liable for any damage or loss resulting from negligence or misuse</li>
-        </ul>
-    </div>
-    
-    <div class="signature-section">
-        <div class="signature-box">';
-        
-        // Recipient signature (uploaded or drawn)
-        if (!empty($this->data['recipient_signature'])) {
-            $html .= '<div style="text-align: center; margin-bottom: 10px;">
-                <img src="' . htmlspecialchars($this->data['recipient_signature']) . '" alt="Recipient Signature" class="signature-image">
-            </div>';
-        } else {
-            $staffSignaturePath = __DIR__ . '/signatures/staff_signature.png';
-            if (file_exists($staffSignaturePath)) {
-                $html .= '<div style="text-align: center; margin-bottom: 10px;">
-                    <img src="signatures/staff_signature.png" alt="Signature" class="signature-image">
-                </div>';
-            }
-        }
-        
-        $html .= '<div class="signature-line">
-                <strong>' . htmlspecialchars($this->data['recipient_name'] ?? 'Recipient') . '</strong><br>
-                Recipient Signature<br>
-                Date: _________________
-            </div>
+        <h3><i class="fas fa-exclamation-triangle"></i> Authorization Details</h3>
+        <div class="info-row">
+            <div class="info-label">Requester Name:</div>
+            <div class="info-value">' . htmlspecialchars($this->data['requester_name'] ?? $this->data['recipient_name'] ?? 'N/A') . '</div>
         </div>
-        <div class="signature-box">';
-        
-        // Check if custodian signature image exists
-        $custodianSignaturePath = __DIR__ . '/signatures/custodian_signature.png';
-        if (file_exists($custodianSignaturePath)) {
-            $html .= '<div style="text-align: center; margin-bottom: 10px;">
-                <img src="signatures/custodian_signature.png" alt="Signature" class="signature-image">
-            </div>';
-        }
-        
-        $html .= '<div class="signature-line">
-                <strong>' . htmlspecialchars($this->data['issued_by_name'] ?? 'Property Custodian') . '</strong><br>
-                Property Custodian<br>
-                Date: ' . date('F d, Y', strtotime($this->data['issue_date'] ?? 'now')) . '
-            </div>
+        <div class="info-row">
+            <div class="info-label">Requester Department:</div>
+            <div class="info-value">' . htmlspecialchars($this->data['requester_department'] ?? $this->data['department'] ?? 'N/A') . '</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Submitted At:</div>
+            <div class="info-value">' . htmlspecialchars($this->data['request_submitted_at'] ?? $this->data['created_at'] ?? 'N/A') . '</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Approval Status:</div>
+            <div class="info-value">' . htmlspecialchars($this->data['approval_status'] ?? 'approved') . '</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Custodian:</div>
+            <div class="info-value">' . htmlspecialchars($this->data['approval_by_name'] ?? $this->data['issued_by_name'] ?? 'Property Custodian') . '</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Approved At:</div>
+            <div class="info-value">' . htmlspecialchars($this->data['approval_at'] ?? $this->data['issue_date'] ?? 'N/A') . '</div>
         </div>
     </div>
     
@@ -326,7 +300,12 @@ if (isset($_GET['issuance_id'])) {
                 pi.asset_id,
                 pi.employee_id,
                 pi.recipient_name,
-                pi.recipient_signature,
+                pi.requester_name,
+                pi.requester_department,
+                pi.request_submitted_at,
+                pi.approval_status,
+                pi.approval_at,
+                pi.created_at,
                 pi.issue_date,
                 pi.expected_return_date,
                 pi.purpose,
@@ -340,10 +319,12 @@ if (isset($_GET['issuance_id'])) {
                 a.purchase_cost,
                 a.condition_status,
                 a.location,
-                issuer.full_name as issued_by_name
+                issuer.full_name as issued_by_name,
+                approver.full_name as approval_by_name
               FROM property_issuances pi
               JOIN assets a ON pi.asset_id = a.id
               LEFT JOIN users issuer ON pi.issued_by = issuer.id
+              LEFT JOIN users approver ON pi.approval_by = approver.id
               WHERE pi.id = :issuance_id";
     
     $stmt = $db->prepare($query);

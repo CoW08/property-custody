@@ -192,7 +192,7 @@ function applyPendingSupplyCategoryLock() {
 
     const matchingOption = allCategories.find(category => String(category.id) === String(pendingSupplyCategoryName) || category.name === pendingSupplyCategoryName);
     if (matchingOption) {
-        select.value = matchingOption.id;
+        select.value = matchingOption.name;
         select.disabled = true;
         categoryLockedBySupply = true;
         select.dataset.lockMessage = 'Category locked by selected supply';
@@ -356,8 +356,8 @@ function populateCategoryFilters() {
     assetCategory.innerHTML = '<option value="">Select Category</option>';
 
     allCategories.forEach(category => {
-        categoryFilter.innerHTML += `<option value="${category.id}">${category.name}</option>`;
-        assetCategory.innerHTML += `<option value="${category.id}">${category.name}</option>`;
+        categoryFilter.innerHTML += `<option value="${category.name}">${category.name}</option>`;
+        assetCategory.innerHTML += `<option value="${category.name}">${category.name}</option>`;
     });
 }
 
@@ -750,7 +750,11 @@ async function loadAssetForEdit(assetId) {
             document.getElementById('assetCode').value = asset.asset_code || '';
             document.getElementById('assetName').value = asset.name || '';
             document.getElementById('assetDescription').value = asset.description || '';
-            document.getElementById('assetCategory').value = asset.category || '';
+            if (!allCategories.length) {
+                await loadCategories();
+            }
+            const matchedCategory = allCategories.find(category => String(category.id) === String(asset.category) || category.name === asset.category);
+            document.getElementById('assetCategory').value = matchedCategory ? matchedCategory.name : (asset.category || '');
             document.getElementById('assetStatus').value = asset.status || 'available';
             document.getElementById('assetLocation').value = asset.location || '';
             document.getElementById('assetPurchaseDate').value = asset.purchase_date || '';

@@ -15,6 +15,11 @@ let editPurchaseOrderItems = [];
 let selectedRequestDetails = null;
 let selectedEditPurchaseOrder = null;
 let purchaseOrderSupplies = [];
+const SHIPPING_RATES = {
+    Standard: 100,
+    Express: 250,
+    Pickup: 0
+};
 
 window.addEventListener('DOMContentLoaded', () => {
     bindPurchaseOrderEvents();
@@ -39,8 +44,10 @@ function bindPurchaseOrderEvents() {
     const requestSelect = document.getElementById('purchaseOrderRequest');
     const itemSupplySelect = document.getElementById('purchaseOrderSupplySelect');
     const addItemBtn = document.getElementById('purchaseOrderAddItemBtn');
-    const taxInput = document.getElementById('purchaseOrderTaxAmount');
     const shippingInput = document.getElementById('purchaseOrderShippingCost');
+    const shippingMethodSelect = document.getElementById('purchaseOrderShippingMethod');
+    const editShippingInput = document.getElementById('editShippingCost');
+    const editShippingMethodSelect = document.getElementById('editShippingMethod');
     const form = document.getElementById('purchaseOrderForm');
     const editForm = document.getElementById('editPurchaseOrderForm');
 
@@ -134,13 +141,39 @@ function bindPurchaseOrderEvents() {
         });
     }
 
-    if (taxInput) {
-        taxInput.addEventListener('input', recalculatePurchaseOrderTotals);
+    if (itemSupplySelect) {
+        itemSupplySelect.addEventListener('change', () => {
+            if (addItemBtn) {
+                addItemBtn.disabled = !itemSupplySelect.value;
+            }
+        });
     }
+
+    if (addItemBtn) {
+        addItemBtn.addEventListener('click', () => {
+            addSupplyItemToPurchaseOrder();
+        });
+    }
+
+    if (shippingMethodSelect) {
+        shippingMethodSelect.addEventListener('change', () => {
+            applyShippingCostFromMethod(shippingMethodSelect, shippingInput, recalculatePurchaseOrderTotals);
+        });
+    }
+
 
     if (shippingInput) {
         shippingInput.addEventListener('input', recalculatePurchaseOrderTotals);
     }
+    if (editShippingMethodSelect) {
+        editShippingMethodSelect.addEventListener('change', () => {
+            applyShippingCostFromMethod(editShippingMethodSelect, editShippingInput, recalculateEditPurchaseOrderTotals);
+        });
+    }
+
+
+    if (editShippingInput) {
+        editShippingInput.addEventListener('input', recalculateEditPurchaseOrderTotals);
 
     if (form) {
         form.addEventListener('submit', submitPurchaseOrderForm);
@@ -149,6 +182,120 @@ function bindPurchaseOrderEvents() {
     if (editForm) {
         editForm.addEventListener('submit', submitEditPurchaseOrderForm);
     }
+}
+
+function applyShippingCostFromMethod(methodSelect, costInput, recalc) {
+    if (!methodSelect || !costInput) return;
+    const rate = SHIPPING_RATES[methodSelect.value] ?? 0;
+    costInput.value = rate.toFixed(2);
+    if (typeof recalc === 'function') {
+        recalc();
+    }
+}
+
+function getSupplyMatchKey(value) {
+    return (value || '').toString().trim().toLowerCase();
+}
+
+function findSupplyForName(name) {
+    const key = getSupplyMatchKey(name);
+    if (!key) return null;
+    return purchaseOrderSupplies.find(supply => getSupplyMatchKey(supply.name) === key) || null;
+}
+
+function applyInventoryPricing(items) {
+    return items.map(item => {
+        const matchedSupply = findSupplyForName(item.item_name);
+        const unitCost = matchedSupply && matchedSupply.unit_cost != null
+            ? Number(matchedSupply.unit_cost)
+            : (parseFloat(item.unit_cost) || 0);
+        const quantity = parseFloat(item.quantity) || 0;
+        return {
+            ...item,
+            unit_cost: unitCost,
+            total_cost: quantity * unitCost
+        };
+    });
+}
+
+async function loadSupplyCatalogForPO() {
+    const itemSupplySelect = document.getElementById('purchaseOrderSupplySelect');
+    const addItemBtn = document.getElementById('purchaseOrderAddItemBtn');
+
+    try {
+        const supplies = await API.getSupplies();
+        purchaseOrderSupplies = Array.isArray(supplies)
+            ? supplies
+            : (Array.isArray(supplies?.data) ? supplies.data : []);
+
+        if (!itemSupplySelect) return;
+
+        if (!purchaseOrderSupplies.length) {
+            itemSupplySelect.innerHTML = '<option value="">No inventory items available</option>';
+            if (addItemBtn) addItemBtn.disabled = true;
+            return;
+        }
+
+        const options = purchaseOrderSupplies.map(item => {
+            const code = item.item_code ? `${item.item_code} - ` : '';
+            const label = `${code}${item.name || 'Unnamed Item'}`;
+            return `<option value="${item.id}">${label}</option>`;
+        }).join('');
+
+        itemSupplySelect.innerHTML = `<option value="">Select inventory item</option>${options}`;
+        if (addItemBtn) addItemBtn.disabled = true;
+
+        if (purchaseOrderItems.length) {
+            purchaseOrderItems = applyInventoryPricing(purchaseOrderItems);
+            renderPurchaseOrderItems();
+            recalculatePurchaseOrderTotals();
+        }
+
+        if (editPurchaseOrderItems.length) {
+            editPurchaseOrderItems = applyInventoryPricing(editPurchaseOrderItems);
+            renderEditPurchaseOrderItems();
+            recalculateEditPurchaseOrderTotals();
+        }
+    } catch (error) {
+        console.error('Failed to load inventory for purchase orders:', error);
+        if (itemSupplySelect) {
+            itemSupplySelect.innerHTML = '<option value="">Unable to load inventory</option>';
+        }
+        if (addItemBtn) addItemBtn.disabled = true;
+    }
+}
+
+function addSupplyItemToPurchaseOrder() {
+    const itemSupplySelect = document.getElementById('purchaseOrderSupplySelect');
+    if (!itemSupplySelect) return;
+    const supplyId = itemSupplySelect.value;
+    if (!supplyId) return;
+
+    const supply = purchaseOrderSupplies.find(item => String(item.id) === String(supplyId));
+    if (!supply) return;
+
+    const unitCost = supply.unit_cost != null ? Number(supply.unit_cost) : 0;
+    const quantity = 1;
+
+    purchaseOrderItems.push({
+        request_item_id: null,
+        item_name: supply.name || supply.item_code || '',
+        description: supply.description || '',
+        quantity,
+        unit: supply.unit || 'piece',
+        unit_cost: unitCost,
+        total_cost: quantity * unitCost,
+        expected_delivery_date: null,
+        status: 'pending',
+        notes: ''
+    });
+
+    renderPurchaseOrderItems();
+    recalculatePurchaseOrderTotals();
+
+    itemSupplySelect.value = '';
+    const addItemBtn = document.getElementById('purchaseOrderAddItemBtn');
+    if (addItemBtn) addItemBtn.disabled = true;
 }
 
 async function loadPurchaseOrderStats() {
@@ -372,6 +519,11 @@ function openPurchaseOrderModal() {
     if (orderDateInput) {
         orderDateInput.value = today;
     }
+    const shippingMethodSelect = document.getElementById('purchaseOrderShippingMethod');
+    const shippingInput = document.getElementById('purchaseOrderShippingCost');
+    if (shippingMethodSelect && shippingInput) {
+        applyShippingCostFromMethod(shippingMethodSelect, shippingInput, recalculatePurchaseOrderTotals);
+    }
 
     showModal(modal);
 }
@@ -409,7 +561,7 @@ function populatePurchaseOrderFromRequest(request) {
         requestSelect.value = request.id;
     }
 
-    purchaseOrderItems = (request.items || []).map(item => ({
+    purchaseOrderItems = applyInventoryPricing((request.items || []).map(item => ({
         request_item_id: item.id,
         item_name: item.item_name,
         description: item.description || '',
@@ -420,7 +572,7 @@ function populatePurchaseOrderFromRequest(request) {
         expected_delivery_date: request.required_date || null,
         status: 'pending',
         notes: ''
-    }));
+    })));
 
     renderPurchaseOrderItems();
     recalculatePurchaseOrderTotals();
@@ -457,11 +609,13 @@ function renderPurchaseOrderItems() {
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Unit Cost</label>
                     <input type="number" step="0.01" min="0" value="${item.unit_cost}" class="w-full px-2 py-1 border border-gray-300 rounded"
+                        readonly
                         onchange="updatePurchaseOrderItem(${index}, 'unit_cost', this.value)" />
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Total</label>
                     <input type="number" step="0.01" min="0" value="${item.total_cost}" class="w-full px-2 py-1 border border-gray-300 rounded"
+                        readonly
                         onchange="updatePurchaseOrderItem(${index}, 'total_cost', this.value)" />
                 </div>
                 <div>
@@ -503,14 +657,12 @@ function removePurchaseOrderItem(index) {
 
 function recalculatePurchaseOrderTotals() {
     const subtotalInput = document.getElementById('purchaseOrderSubtotal');
-    const taxInput = document.getElementById('purchaseOrderTaxAmount');
     const shippingInput = document.getElementById('purchaseOrderShippingCost');
     const totalInput = document.getElementById('purchaseOrderTotalAmount');
 
     const subtotal = purchaseOrderItems.reduce((sum, item) => sum + (parseFloat(item.total_cost) || 0), 0);
-    const taxAmount = parseFloat(taxInput?.value) || 0;
     const shippingCost = parseFloat(shippingInput?.value) || 0;
-    const total = subtotal + taxAmount + shippingCost;
+    const total = subtotal + shippingCost;
 
     if (subtotalInput) subtotalInput.value = subtotal.toFixed(2);
     if (totalInput) totalInput.value = total.toFixed(2);
@@ -540,7 +692,6 @@ async function submitPurchaseOrderForm(event) {
         status: formData.get('status') || 'pending',
         notes: formData.get('notes') || null,
         subtotal: parseFloat(formData.get('subtotal')) || 0,
-        tax_amount: parseFloat(formData.get('tax_amount')) || 0,
         shipping_cost: parseFloat(formData.get('shipping_cost')) || 0,
         total_amount: parseFloat(formData.get('total_amount')) || 0,
         items: purchaseOrderItems.map(item => ({
@@ -764,10 +915,6 @@ function renderPurchaseOrderDetails(po) {
                 <p class="text-sm font-semibold text-gray-900">${formatCurrency(po.subtotal || 0)}</p>
             </div>
             <div class="border border-gray-200 rounded-lg p-3">
-                <p class="text-xs text-gray-500">Tax Amount</p>
-                <p class="text-sm font-semibold text-gray-900">${formatCurrency(po.tax_amount || 0)}</p>
-            </div>
-            <div class="border border-gray-200 rounded-lg p-3">
                 <p class="text-xs text-gray-500">Shipping Cost</p>
                 <p class="text-sm font-semibold text-gray-900">${formatCurrency(po.shipping_cost || 0)}</p>
             </div>
@@ -789,9 +936,10 @@ function populateEditPurchaseOrderForm(po) {
     const vendorName = document.getElementById('editVendorName');
     const orderDate = document.getElementById('editOrderDate');
     const expectedDate = document.getElementById('editExpectedDeliveryDate');
+    const paymentMethod = document.getElementById('editPaymentMethod');
+    const shippingMethod = document.getElementById('editShippingMethod');
     const status = document.getElementById('editStatus');
     const notes = document.getElementById('editNotes');
-    const tax = document.getElementById('editTaxAmount');
     const shipping = document.getElementById('editShippingCost');
     const subtotal = document.getElementById('editSubtotal');
     const total = document.getElementById('editTotalAmount');
@@ -800,14 +948,19 @@ function populateEditPurchaseOrderForm(po) {
     if (vendorName) vendorName.value = po.vendor_name || '';
     if (orderDate) orderDate.value = po.order_date ? po.order_date.substring(0, 10) : '';
     if (expectedDate) expectedDate.value = po.expected_delivery_date ? po.expected_delivery_date.substring(0, 10) : '';
+    if (paymentMethod) paymentMethod.value = po.payment_terms || '';
+    if (shippingMethod) shippingMethod.value = po.shipping_method || '';
     if (status) status.value = po.status || 'pending';
     if (notes) notes.value = po.notes || '';
-    if (tax) tax.value = po.tax_amount || 0;
     if (shipping) shipping.value = po.shipping_cost || 0;
     if (subtotal) subtotal.value = (po.subtotal || 0).toFixed(2);
     if (total) total.value = (po.total_amount || 0).toFixed(2);
 
-    editPurchaseOrderItems = (po.items || []).map(item => ({
+    if (shippingMethod && shipping) {
+        applyShippingCostFromMethod(shippingMethod, shipping, recalculateEditPurchaseOrderTotals);
+    }
+
+    editPurchaseOrderItems = applyInventoryPricing((po.items || []).map(item => ({
         id: item.id,
         request_item_id: item.request_item_id,
         item_name: item.item_name,
@@ -819,7 +972,7 @@ function populateEditPurchaseOrderForm(po) {
         expected_delivery_date: item.expected_delivery_date || null,
         status: item.status || 'pending',
         notes: item.notes || ''
-    }));
+    })));
 
     renderEditPurchaseOrderItems();
     recalculateEditPurchaseOrderTotals();
@@ -856,11 +1009,13 @@ function renderEditPurchaseOrderItems() {
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Unit Cost</label>
                     <input type="number" step="0.01" min="0" value="${item.unit_cost}" class="w-full px-2 py-1 border border-gray-300 rounded"
+                        readonly
                         onchange="updateEditPurchaseOrderItem(${index}, 'unit_cost', this.value)" />
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Total</label>
                     <input type="number" step="0.01" min="0" value="${item.total_cost}" class="w-full px-2 py-1 border border-gray-300 rounded"
+                        readonly
                         onchange="updateEditPurchaseOrderItem(${index}, 'total_cost', this.value)" />
                 </div>
                 <div>
@@ -903,14 +1058,12 @@ function removeEditPurchaseOrderItem(index) {
 
 function recalculateEditPurchaseOrderTotals() {
     const subtotalInput = document.getElementById('editSubtotal');
-    const taxInput = document.getElementById('editTaxAmount');
     const shippingInput = document.getElementById('editShippingCost');
     const totalInput = document.getElementById('editTotalAmount');
 
     const subtotal = editPurchaseOrderItems.reduce((sum, item) => sum + (parseFloat(item.total_cost) || 0), 0);
-    const taxAmount = parseFloat(taxInput?.value) || 0;
     const shippingCost = parseFloat(shippingInput?.value) || 0;
-    const total = subtotal + taxAmount + shippingCost;
+    const total = subtotal + shippingCost;
 
     if (subtotalInput) subtotalInput.value = subtotal.toFixed(2);
     if (totalInput) totalInput.value = total.toFixed(2);
@@ -932,10 +1085,11 @@ async function submitEditPurchaseOrderForm(event) {
         vendor_name: formData.get('vendor_name'),
         order_date: formData.get('order_date'),
         expected_delivery_date: formData.get('expected_delivery_date') || null,
+        payment_terms: formData.get('payment_terms') || null,
+        shipping_method: formData.get('shipping_method') || null,
         status: formData.get('status') || 'pending',
         notes: formData.get('notes') || null,
         subtotal: parseFloat(formData.get('subtotal')) || 0,
-        tax_amount: parseFloat(formData.get('tax_amount')) || 0,
         shipping_cost: parseFloat(formData.get('shipping_cost')) || 0,
         total_amount: parseFloat(formData.get('total_amount')) || 0,
         items: editPurchaseOrderItems.map(item => ({

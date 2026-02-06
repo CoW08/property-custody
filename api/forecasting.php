@@ -211,8 +211,13 @@ function getReorderRecommendations(PDO $db)
         $safetyStock = max($item['minimum_stock'], (int) ceil($avg * $safetyDays));
         $targetStock = (int) ceil($avg * ($leadTimeDays + $safetyDays) + $safetyStock);
         $reorderQty = max($targetStock - $item['current_stock'], 0);
-        $runoutDays = $avg > 0 ? round($item['current_stock'] / max($avg, 0.0001), 1) : null;
-        $stockCoverage = $avg > 0 ? round($item['current_stock'] / $avg, 1) : null;
+        if ($item['current_stock'] <= 0) {
+            $runoutDays = 0;
+            $stockCoverage = 0;
+        } else {
+            $runoutDays = $avg > 0 ? round($item['current_stock'] / max($avg, 0.0001), 1) : null;
+            $stockCoverage = $avg > 0 ? round($item['current_stock'] / $avg, 1) : null;
+        }
 
         $priority = classifyPriority($reorderQty, $runoutDays, $stockCoverage, $item['current_stock'], $item['forecast_30_day']);
 
@@ -240,6 +245,10 @@ function getReorderRecommendations(PDO $db)
 
 function classifyPriority($reorderQty, $runoutDays, $stockCoverage, $currentStock, $forecast30)
 {
+    if ($currentStock <= 0) {
+        return 'critical';
+    }
+
     if ($forecast30 > 0 && $currentStock >= ($forecast30 * 1.8)) {
         return 'overstock';
     }

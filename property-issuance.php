@@ -32,9 +32,6 @@ ob_start();
                     <p class="text-sm text-gray-500 mt-1">Issue, track, and recover assets assigned to personnel.</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <button id="testApiBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition duration-200 text-sm sm:text-base shadow-sm">
-                        <i class="fas fa-bug mr-2"></i>Test API
-                    </button>
                     <button id="newIssuanceBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200 text-sm sm:text-base shadow-sm">
                         <i class="fas fa-plus mr-2"></i>New Issuance
                     </button>
@@ -49,18 +46,18 @@ ob_start();
                 </div>
                 <form id="issuanceForm">
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                        <!-- Asset Selection -->
+                        <!-- Item Selection -->
                         <div class="space-y-4">
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900">Select Asset</h3>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900">Select Item</h3>
                             <div class="space-y-3">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Asset Code</label>
-                                    <input type="text" id="assetCode" name="asset_code" class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter asset code or scan QR">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Item Code</label>
+                                    <input type="text" id="assetCode" name="asset_code" class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter item code or scan QR">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
                                     <select id="assetSelect" name="asset_id" class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                        <option value="">Select Asset</option>
+                                        <option value="">Select Item</option>
                                     </select>
                                 </div>
                                 <div id="assetDetails" class="hidden bg-blue-50 border border-blue-200 p-3 rounded-md">
@@ -119,20 +116,6 @@ ob_start();
                         </div>
                     </div>
 
-                    <div class="space-y-3 mb-6">
-                        <h3 class="text-base sm:text-lg font-semibold text-gray-900">Recipient Signature</h3>
-                        <p class="text-sm text-gray-500">Capture the recipient's signature below to acknowledge receipt of the property.</p>
-                        <div class="border border-gray-300 rounded-xl bg-white overflow-hidden shadow-sm">
-                            <canvas id="signatureCanvas" class="w-full" style="height: 220px; touch-action: none;"></canvas>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <button type="button" id="clearSignatureBtn" class="inline-flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition duration-200">
-                                <i class="fas fa-eraser"></i><span>Clear Signature</span>
-                            </button>
-                            <span class="text-xs text-gray-500">Use a touchscreen, mouse, or trackpad to sign.</span>
-                        </div>
-                    </div>
-
                     <!-- Action Buttons -->
                     <div class="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
                         <button type="button" id="cancelBtn" class="w-full sm:w-auto px-4 sm:px-6 py-2 text-sm sm:text-base border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition duration-200">
@@ -158,8 +141,8 @@ ob_start();
                         <table class="min-w-full divide-y divide-gray-200 table-striped text-sm">
                             <thead class="bg-gray-50 text-xs">
                                 <tr>
-                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset Code</th>
-                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Asset Name</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Code</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Item Name</th>
                                     <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
                                     <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Department</th>
                                     <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Issue Date</th>
@@ -187,7 +170,6 @@ ob_start();
 
 <script src="js/api.js?v=<?php echo time(); ?>"></script>
 <script src="js/detail_handlers.js"></script>
-<script src="js/signature_pad.min.js?v=<?php echo time(); ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Debug: Check if API class and methods are available
@@ -213,10 +195,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Add test method
-    API.testPropertyIssuanceAPI = function() {
-        return API.request('test_property_issuance.php');
-    };
 
     if (typeof API.createPropertyIssuance !== 'function') {
         console.log('Adding fallback createPropertyIssuance method');
@@ -257,25 +235,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelBtn = document.getElementById('cancelBtn');
     const submitBtn = document.getElementById('submitBtn');
     const refreshBtn = document.getElementById('refreshIssuances');
-    const signatureCanvas = document.getElementById('signatureCanvas');
-    const clearSignatureBtn = document.getElementById('clearSignatureBtn');
-    let signaturePad = null;
-
-    if (signatureCanvas && window.SimpleSignaturePad) {
-        signaturePad = new SimpleSignaturePad(signatureCanvas);
-    }
-
-    function ensureSignaturePrepared() {
-        if (signaturePad) {
-            signaturePad.resizeCanvas();
-            signaturePad.clear();
-        }
-    }
-
     // Initialize form hidden and preset date
     issueDate.value = new Date().toISOString().split('T')[0];
     hideIssuanceForm();
-    ensureSignaturePrepared();
 
     // Load available assets
     loadAvailableAssets();
@@ -313,6 +275,14 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
 
         const formData = new FormData(this);
+        const selectedOption = assetSelect.options[assetSelect.selectedIndex];
+        const requestItemDetails = {
+            asset_code: selectedOption?.dataset?.assetCode || assetCodeInput.value || null,
+            asset_name: selectedOption?.dataset?.assetName || null,
+            description: selectedOption?.dataset?.description || null,
+            location: selectedOption?.dataset?.location || null,
+            condition_status: selectedOption?.dataset?.condition || null
+        };
         const issuanceData = {
             asset_id: formData.get('asset_id'),
             employee_id: formData.get('employee_id'),
@@ -320,25 +290,17 @@ document.addEventListener('DOMContentLoaded', function() {
             department: formData.get('department'),
             issue_date: formData.get('issue_date'),
             expected_return_date: formData.get('expected_return_date') || null,
-            purpose: formData.get('purpose') || null
+            purpose: formData.get('purpose') || null,
+            requester_name: formData.get('recipient_name'),
+            requester_department: formData.get('department'),
+            request_submitted_at: new Date().toISOString(),
+            request_item_details: requestItemDetails
         };
 
         // Validate required fields
         if (!issuanceData.asset_id || !issuanceData.employee_id || !issuanceData.recipient_name || !issuanceData.department) {
             showNotification('Please fill in all required fields', 'error');
             return;
-        }
-
-        if (signaturePad && signaturePad.isEmpty()) {
-            showNotification('Recipient signature is required before issuing property', 'error');
-            return;
-        }
-
-        if (signaturePad && !signaturePad.isEmpty()) {
-            const signatureData = signaturePad.toDataURL();
-            if (signatureData) {
-                issuanceData.recipient_signature = signatureData;
-            }
         }
 
         try {
@@ -363,7 +325,6 @@ document.addEventListener('DOMContentLoaded', function() {
             issueDate.value = new Date().toISOString().split('T')[0];
             hideAssetDetails();
             hideIssuanceForm();
-            ensureSignaturePrepared();
 
             // Reload data
             loadAvailableAssets();
@@ -384,7 +345,6 @@ document.addEventListener('DOMContentLoaded', function() {
         issueDate.value = new Date().toISOString().split('T')[0];
         hideAssetDetails();
         hideIssuanceForm();
-        ensureSignaturePrepared();
     });
 
     // Refresh button
@@ -392,21 +352,6 @@ document.addEventListener('DOMContentLoaded', function() {
         loadRecentIssuances();
     });
 
-    // Test API button
-    const testApiBtn = document.getElementById('testApiBtn');
-    if (testApiBtn) {
-        testApiBtn.addEventListener('click', async function() {
-            console.log('Testing API...');
-            try {
-                const result = await API.testPropertyIssuanceAPI();
-                console.log('Test API result:', result);
-                showNotification('Test API successful: ' + result.message, 'success');
-            } catch (error) {
-                console.error('Test API failed:', error);
-                showNotification('Test API failed: ' + error.message, 'error');
-            }
-        });
-    }
 
     // New Issuance button
     const newIssuanceBtn = document.getElementById('newIssuanceBtn');
@@ -437,20 +382,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 500);
 
             showNotification('Ready to create new property issuance', 'success');
-            ensureSignaturePrepared();
-        });
-    }
-
-    if (clearSignatureBtn) {
-        clearSignatureBtn.addEventListener('click', function() {
-            ensureSignaturePrepared();
         });
     }
 
     // Functions
     function showIssuanceForm() {
         formContainer.classList.remove('hidden');
-        setTimeout(() => ensureSignaturePrepared(), 10);
     }
 
     function hideIssuanceForm() {
@@ -463,13 +400,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const assets = response.assets || [];
 
             // Clear existing options (except the first one)
-            assetSelect.innerHTML = '<option value="">Select Asset</option>';
+            assetSelect.innerHTML = '<option value="">Select Item</option>';
 
             assets.forEach(asset => {
                 const option = document.createElement('option');
                 option.value = asset.id;
                 option.textContent = `${asset.asset_code} - ${asset.name}`;
                 option.dataset.assetCode = asset.asset_code;
+                option.dataset.assetName = asset.name || '';
                 option.dataset.description = asset.description || '';
                 option.dataset.location = asset.location || '';
                 option.dataset.condition = asset.condition_status || '';
@@ -644,11 +582,11 @@ async function viewIssuanceDetails(issuanceId) {
         };
         
         const content = `
-            ${createDetailSection('Asset Information', [
-                { label: 'Asset Code', value: issuance.asset_code },
-                { label: 'Asset Name', value: issuance.asset_name || 'N/A' },
+            ${createDetailSection('Item Information', [
+                { label: 'Item Code', value: issuance.asset_code },
+                { label: 'Item Name', value: issuance.asset_name || 'N/A' },
                 { label: 'Category', value: issuance.category || 'N/A' },
-                { label: 'Asset Condition', value: issuance.condition_status || 'N/A' }
+                { label: 'Item Condition', value: issuance.condition_status || 'N/A' }
             ])}
             
             ${createDetailSection('Recipient Information', [

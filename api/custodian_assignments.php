@@ -140,12 +140,16 @@ function getAssignments($db) {
                      u.full_name as custodian_name, u.email as custodian_email,
                      a.asset_code, a.name as asset_name, a.description as asset_description,
                      a.category as asset_category,
-                     assigned_user.full_name as assigned_by_name
+                     assigned_user.full_name as assigned_by_name,
+                     approved_user.full_name as approved_by_name,
+                     issued_user.full_name as issued_by_name
               FROM property_assignments pa
               JOIN custodians c ON pa.custodian_id = c.id
               LEFT JOIN users u ON c.user_id = u.id
               JOIN assets a ON pa.asset_id = a.id
               LEFT JOIN users assigned_user ON pa.assigned_by = assigned_user.id
+              LEFT JOIN users approved_user ON pa.approved_by = approved_user.id
+              LEFT JOIN users issued_user ON pa.issued_by = issued_user.id
               WHERE pa.status = 'active'
               ORDER BY pa.assignment_date DESC";
 
@@ -168,12 +172,16 @@ function getAssignmentDetails($db, $id) {
                      u.full_name as custodian_name, u.email as custodian_email,
                      a.asset_code, a.name as asset_name, a.description as asset_description,
                      a.category as asset_category,
-                     assigned_user.full_name as assigned_by_name
+                     assigned_user.full_name as assigned_by_name,
+                     approved_user.full_name as approved_by_name,
+                     issued_user.full_name as issued_by_name
               FROM property_assignments pa
               JOIN custodians c ON pa.custodian_id = c.id
               LEFT JOIN users u ON c.user_id = u.id
               JOIN assets a ON pa.asset_id = a.id
               LEFT JOIN users assigned_user ON pa.assigned_by = assigned_user.id
+              LEFT JOIN users approved_user ON pa.approved_by = approved_user.id
+              LEFT JOIN users issued_user ON pa.issued_by = issued_user.id
               WHERE pa.id = :id";
 
     $stmt = $db->prepare($query);
@@ -287,11 +295,13 @@ function createAssignment($db) {
         $assignment_query = "INSERT INTO property_assignments (
                                 asset_id, custodian_id, assigned_by, assignment_date,
                                 expected_return_date, assignment_purpose, conditions, notes,
-                                approved_by, approved_signature, approved_at, current_custodian_id
+                                approved_by, approved_signature, approved_at,
+                                issued_by, issued_at, current_custodian_id
                             ) VALUES (
                                 :asset_id, :custodian_id, :assigned_by, :assignment_date,
                                 :expected_return_date, :assignment_purpose, :conditions, :notes,
-                                :approved_by, :approved_signature, NOW(), :current_custodian_id
+                                :approved_by, :approved_signature, NOW(),
+                                :issued_by, NOW(), :current_custodian_id
                             )";
 
         $assignment_stmt = $db->prepare($assignment_query);
@@ -299,7 +309,7 @@ function createAssignment($db) {
         $assignment_purpose = $input['assignment_purpose'] ?? null;
         $conditions = $input['conditions'] ?? null;
         $notes = $input['notes'] ?? null;
-        $approved_signature = $input['approved_signature'] ?? null;
+        $approved_signature = null;
         $assignment_stmt->bindValue(':asset_id', $input['asset_id']);
         $assignment_stmt->bindValue(':custodian_id', $input['custodian_id']);
         $assignment_stmt->bindValue(':assigned_by', $_SESSION['user_id']);
@@ -310,6 +320,7 @@ function createAssignment($db) {
         $assignment_stmt->bindValue(':notes', $notes);
         $assignment_stmt->bindValue(':approved_by', $_SESSION['user_id']);
         $assignment_stmt->bindValue(':approved_signature', $approved_signature);
+        $assignment_stmt->bindValue(':issued_by', $_SESSION['user_id']);
         $assignment_stmt->bindValue(':current_custodian_id', $input['custodian_id']);
         $assignment_stmt->execute();
 
@@ -329,6 +340,10 @@ function createAssignment($db) {
             'custodian_id' => $input['custodian_id'],
             'assigned_by' => $_SESSION['user_id']
         ]));
+
+        logAssignmentHistory($db, $assignment_id, $input['asset_id'], 'asset_issued', [
+            'issued_by' => $_SESSION['user_id']
+        ]);
 
         echo json_encode([
             'success' => true,
@@ -542,7 +557,7 @@ function createAssignmentRequest($db) {
 function approveAssignmentRequest($db) {
     $input = json_decode(file_get_contents('php://input'), true);
     $request_id = $input['request_id'] ?? null;
-    $approver_signature = $input['approver_signature'] ?? null;
+    $approver_signature = null;
     $expected_return_date = $input['expected_return_date'] ?? null;
     $additional_notes = $input['notes'] ?? null;
 
@@ -597,11 +612,13 @@ function approveAssignmentRequest($db) {
         $assignment_query = "INSERT INTO property_assignments (
                                 asset_id, custodian_id, assigned_by, assignment_date,
                                 expected_return_date, assignment_purpose, notes, status,
-                                approved_by, approved_signature, approved_at, current_custodian_id
+                                approved_by, approved_signature, approved_at,
+                                issued_by, issued_at, current_custodian_id
                              ) VALUES (
                                 :asset_id, :custodian_id, :assigned_by, CURDATE(),
                                 :expected_return_date, :assignment_purpose, :notes, 'active',
-                                :approved_by, :approved_signature, NOW(), :current_custodian_id
+                                :approved_by, :approved_signature, NOW(),
+                                :issued_by, NOW(), :current_custodian_id
                              )";
 
         $assignment_stmt = $db->prepare($assignment_query);
@@ -614,6 +631,7 @@ function approveAssignmentRequest($db) {
             ':notes' => $additional_notes ?? $request['justification'],
             ':approved_by' => $_SESSION['user_id'],
             ':approved_signature' => $approver_signature,
+            ':issued_by' => $_SESSION['user_id'],
             ':current_custodian_id' => $custodian_id
         ]);
 
@@ -645,6 +663,10 @@ function approveAssignmentRequest($db) {
             'created_via' => 'request',
             'custodian_id' => $custodian_id,
             'request_id' => $request_id
+        ]);
+
+        logAssignmentHistory($db, $assignment_id, $request['asset_id'], 'asset_issued', [
+            'issued_by' => $_SESSION['user_id']
         ]);
 
         $pdf_url = 'generate_accountability_pdf.php?assignment_id=' . $assignment_id;

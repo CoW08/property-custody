@@ -57,7 +57,7 @@ switch($method) {
 
 function getCategories($db) {
     $query = "SELECT ac.*,
-              (SELECT COUNT(*) FROM assets a WHERE a.category = ac.id) as asset_count
+              (SELECT COUNT(*) FROM assets a WHERE a.category = ac.id OR a.category = ac.name) as asset_count
               FROM asset_categories ac
               ORDER BY ac.name";
     $stmt = $db->prepare($query);
@@ -85,7 +85,7 @@ function getCategories($db) {
 
 function getCategory($db, $id) {
     $query = "SELECT ac.*,
-              (SELECT COUNT(*) FROM assets a WHERE a.category = ac.id) as asset_count
+              (SELECT COUNT(*) FROM assets a WHERE a.category = ac.id OR a.category = ac.name) as asset_count
               FROM asset_categories ac
               WHERE ac.id = ?";
     $stmt = $db->prepare($query);
@@ -153,9 +153,9 @@ function updateCategory($db, $id) {
 
 function deleteCategory($db, $id) {
     // Check if category is in use
-    $checkQuery = "SELECT COUNT(*) as asset_count FROM assets WHERE category = ?";
+    $checkQuery = "SELECT COUNT(*) as asset_count FROM assets WHERE category = ? OR category = (SELECT name FROM asset_categories WHERE id = ?)";
     $checkStmt = $db->prepare($checkQuery);
-    $checkStmt->execute([$id]);
+    $checkStmt->execute([$id, $id]);
     $usage = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
     if($usage['asset_count'] > 0) {

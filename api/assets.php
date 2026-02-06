@@ -400,8 +400,8 @@ function generateAssetCode($db, $category = null) {
     
     // Add category prefix if provided
     if ($category) {
-        $categoryStmt = $db->prepare("SELECT name FROM asset_categories WHERE id = ?");
-        $categoryStmt->execute([$category]);
+        $categoryStmt = $db->prepare("SELECT name FROM asset_categories WHERE id = ? OR name = ? LIMIT 1");
+        $categoryStmt->execute([$category, $category]);
         if ($categoryStmt->rowCount() > 0) {
             $categoryName = $categoryStmt->fetch(PDO::FETCH_ASSOC)['name'];
             // Get first 3 letters of category

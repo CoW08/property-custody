@@ -201,12 +201,24 @@ ob_start();
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
-                        <input type="text" name="payment_terms" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                        <select name="payment_terms" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select payment method</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Check">Check</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="GCash">GCash</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Shipping Method</label>
-                        <input type="text" name="shipping_method" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <select name="shipping_method" id="purchaseOrderShippingMethod" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select shipping method</option>
+                            <option value="Standard">Standard</option>
+                            <option value="Express">Express</option>
+                            <option value="Pickup">Pickup</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
@@ -254,12 +266,8 @@ ob_start();
                         <input type="number" name="subtotal" step="0.01" min="0" id="purchaseOrderSubtotal" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" readonly />
                     </div>
                     <div class="border border-gray-200 rounded-lg p-3">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tax Amount</label>
-                        <input type="number" name="tax_amount" step="0.01" min="0" id="purchaseOrderTaxAmount" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div class="border border-gray-200 rounded-lg p-3">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Shipping Cost</label>
-                        <input type="number" name="shipping_cost" step="0.01" min="0" id="purchaseOrderShippingCost" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="number" name="shipping_cost" step="0.01" min="0" id="purchaseOrderShippingCost" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" readonly />
                     </div>
                     <div class="border border-gray-200 rounded-lg p-3">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
@@ -329,6 +337,28 @@ ob_start();
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                        <select name="payment_terms" id="editPaymentMethod"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select payment method</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Check">Check</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="GCash">GCash</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Shipping Method</label>
+                        <select name="shipping_method" id="editShippingMethod"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select shipping method</option>
+                            <option value="Standard">Standard</option>
+                            <option value="Express">Express</option>
+                            <option value="Pickup">Pickup</option>
+                        </select>
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                         <select name="status" id="editStatus"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -361,12 +391,8 @@ ob_start();
                         <input type="number" name="subtotal" step="0.01" min="0" id="editSubtotal" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" readonly />
                     </div>
                     <div class="border border-gray-200 rounded-lg p-3">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tax Amount</label>
-                        <input type="number" name="tax_amount" step="0.01" min="0" id="editTaxAmount" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div class="border border-gray-200 rounded-lg p-3">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Shipping Cost</label>
-                        <input type="number" name="shipping_cost" step="0.01" min="0" id="editShippingCost" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="number" name="shipping_cost" step="0.01" min="0" id="editShippingCost" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" readonly />
                     </div>
                     <div class="border border-gray-200 rounded-lg p-3">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>

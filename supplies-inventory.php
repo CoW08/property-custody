@@ -89,8 +89,8 @@ ob_start();
             <div class="bg-white border border-gray-200 rounded-xl shadow overflow-hidden">
                 <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Historical Data Catalog</h2>
-                        <p class="text-sm text-gray-500">Repository of past inventory records showing simulated consumption patterns across major supplies.</p>
+                        <h2 id="catalogTitle" class="text-lg font-semibold text-gray-900">Historical Data Catalog</h2>
+                        <p id="catalogDescription" class="text-sm text-gray-500">Repository of past inventory records showing simulated consumption patterns across major supplies.</p>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-sm text-gray-500">View mode:</span>
@@ -1068,6 +1068,7 @@ function setActiveView(mode = 'inventory') {
     filterSupplies({ skipSummary: true });
     updateSummaryCards();
     toggleForecastSectionForView();
+    updateCatalogHeader();
 }
 
 function toggleForecastSectionForView() {
@@ -1075,6 +1076,21 @@ function toggleForecastSectionForView() {
     if (!section) return;
     const shouldHide = currentView === 'historical';
     section.classList.toggle('hidden', shouldHide);
+}
+
+function updateCatalogHeader() {
+    const title = document.getElementById('catalogTitle');
+    const description = document.getElementById('catalogDescription');
+    if (!title || !description) return;
+
+    if (currentView === 'historical') {
+        title.textContent = 'Historical Data Catalog';
+        description.textContent = 'Repository of past inventory records showing simulated consumption patterns across major supplies.';
+        return;
+    }
+
+    title.textContent = 'Live Inventory';
+    description.textContent = 'Current supply counts and availability across all storage locations.';
 }
 
 function updateToggleState() {

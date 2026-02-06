@@ -575,9 +575,6 @@ function displayProcurementRequests(requests) {
                         <button onclick="editRequest(${request.id})" class="text-yellow-600 hover:text-yellow-900" title="Edit">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="deleteRequest(${request.id})" class="text-red-600 hover:text-red-900" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
                     ` : ''}
                     ${request.status === 'submitted' && (currentUserRole === 'admin' || currentUserRole === 'custodian' || currentUserRole === 'finance') ? `
                         <button onclick="approveRequest(${request.id})" class="text-green-600 hover:text-green-900" title="Approve">
@@ -641,9 +638,6 @@ function displayProcurementRequests(requests) {
                     ${canEditRequest(request.status) ? `
                         <button onclick="editRequest(${request.id})" class="text-yellow-600 hover:text-yellow-900 text-sm" title="Edit">
                             <i class="fas fa-edit mr-1"></i>Edit
-                        </button>
-                        <button onclick="deleteRequest(${request.id})" class="text-red-600 hover:text-red-900 text-sm" title="Delete">
-                            <i class="fas fa-trash mr-1"></i>Delete
                         </button>
                     ` : ''}
                     ${request.status === 'submitted' ? `

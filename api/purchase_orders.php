@@ -160,14 +160,12 @@ function listPurchaseOrders(PDO $pdo): void
         // Calculate dataset-level totals (based on current page results)
         $pageTotals = [
             'subtotal' => 0.0,
-            'tax_amount' => 0.0,
             'shipping_cost' => 0.0,
             'total_amount' => 0.0
         ];
 
         foreach ($rows as $row) {
             $pageTotals['subtotal'] += (float)($row['subtotal'] ?? 0);
-            $pageTotals['tax_amount'] += (float)($row['tax_amount'] ?? 0);
             $pageTotals['shipping_cost'] += (float)($row['shipping_cost'] ?? 0);
             $pageTotals['total_amount'] += (float)($row['total_amount'] ?? 0);
         }
@@ -240,7 +238,7 @@ function createPurchaseOrder(PDO $pdo): void
 
         $poNumber = generatePurchaseOrderNumber($pdo);
         $itemsInput = is_array($input['items'] ?? null) ? $input['items'] : [];
-        $taxAmount = isset($input['tax_amount']) ? (float)$input['tax_amount'] : 0.0;
+        $taxAmount = 0.0;
         $shippingCost = isset($input['shipping_cost']) ? (float)$input['shipping_cost'] : 0.0;
 
         $itemsToPersist = [];
@@ -300,7 +298,7 @@ function createPurchaseOrder(PDO $pdo): void
             $subtotal = (float)$input['subtotal'];
         }
 
-        $totalAmount = $subtotal + $taxAmount + $shippingCost;
+        $totalAmount = $subtotal + $shippingCost;
 
         $insertSql = "INSERT INTO purchase_orders (
                             po_number,
@@ -418,6 +416,14 @@ function createPurchaseOrder(PDO $pdo): void
             $updateRequestStmt->execute([':id' => $requestId]);
         }
 
+        $newStatus = $input['status'] ?? 'pending';
+        if ($newStatus === 'received') {
+            applyPurchaseOrderReceipt($pdo, $purchaseOrderId, $poNumber, $requestId, $currentUser['id'] ?? null);
+            $requestStatusSql = "UPDATE procurement_requests SET status = 'received' WHERE id = :id";
+            $requestStatusStmt = $pdo->prepare($requestStatusSql);
+            $requestStatusStmt->execute([':id' => $requestId]);
+        }
+
         $pdo->commit();
 
         echo json_encode([
@@ -515,7 +521,6 @@ function updatePurchaseOrder(PDO $pdo): void
             'payment_terms',
             'shipping_method',
             'subtotal',
-            'tax_amount',
             'shipping_cost',
             'total_amount',
             'status',
@@ -539,6 +544,7 @@ function updatePurchaseOrder(PDO $pdo): void
             $stmt->execute($params);
         }
 
+        $subtotal = null;
         if (isset($input['items']) && is_array($input['items'])) {
             $deleteSql = 'DELETE FROM purchase_order_items WHERE purchase_order_id = :id';
             $deleteStmt = $pdo->prepare($deleteSql);
@@ -597,9 +603,17 @@ function updatePurchaseOrder(PDO $pdo): void
                 ]);
             }
 
-            $taxAmount = isset($input['tax_amount']) ? (float)$input['tax_amount'] : (float)$po['tax_amount'];
-            $shippingCost = isset($input['shipping_cost']) ? (float)$input['shipping_cost'] : (float)$po['shipping_cost'];
-            $totalAmount = $subtotal + $taxAmount + $shippingCost;
+        }
+
+        $shouldRecalculate = $subtotal !== null
+            || array_key_exists('subtotal', $input)
+            || array_key_exists('shipping_cost', $input);
+
+        if ($shouldRecalculate) {
+            $taxAmount = 0.0;
+            $finalSubtotal = $subtotal ?? (array_key_exists('subtotal', $input) ? (float)$input['subtotal'] : (float)$po['subtotal']);
+            $shippingCost = array_key_exists('shipping_cost', $input) ? (float)$input['shipping_cost'] : (float)$po['shipping_cost'];
+            $totalAmount = $finalSubtotal + $shippingCost;
 
             $totalsSql = "UPDATE purchase_orders
                           SET subtotal = :subtotal,
@@ -610,12 +624,20 @@ function updatePurchaseOrder(PDO $pdo): void
                           WHERE id = :id";
             $totalsStmt = $pdo->prepare($totalsSql);
             $totalsStmt->execute([
-                ':subtotal' => $subtotal,
+                ':subtotal' => $finalSubtotal,
                 ':tax_amount' => $taxAmount,
                 ':shipping_cost' => $shippingCost,
                 ':total_amount' => $totalAmount,
                 ':id' => $id
             ]);
+        }
+
+        $newStatus = $input['status'] ?? $po['status'];
+        if ($po['status'] !== 'received' && $newStatus === 'received') {
+            applyPurchaseOrderReceipt($pdo, $id, $po['po_number'], (int)$po['request_id'], $_SESSION['user_id'] ?? null);
+            $requestStatusSql = "UPDATE procurement_requests SET status = 'received' WHERE id = :id";
+            $requestStatusStmt = $pdo->prepare($requestStatusSql);
+            $requestStatusStmt->execute([':id' => $po['request_id']]);
         }
 
         $pdo->commit();
@@ -719,6 +741,128 @@ function fetchPurchaseOrder(PDO $pdo, int $id): ?array
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $row ?: null;
+}
+
+function fetchPurchaseOrderItems(PDO $pdo, int $purchaseOrderId): array
+{
+    $sql = 'SELECT * FROM purchase_order_items WHERE purchase_order_id = :id ORDER BY id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':id' => $purchaseOrderId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function mapStorageLocation(?string $department): string
+{
+    $value = strtolower(trim((string)$department));
+    if ($value !== '') {
+        if (stripos($value, 'clinic') !== false) {
+            return 'Clinic Storage';
+        }
+        if (stripos($value, 'library') !== false) {
+            return 'Library Storage';
+        }
+        if (stripos($value, 'osas') !== false) {
+            return 'OSAS Storage';
+        }
+        if (stripos($value, 'event') !== false) {
+            return 'Event Storage';
+        }
+    }
+
+    return 'Event Storage';
+}
+
+function generateSupplyCode(string $poNumber, int $index): string
+{
+    $suffix = str_pad((string)($index + 1), 2, '0', STR_PAD_LEFT);
+    return 'PO-' . preg_replace('/[^A-Z0-9-]+/', '', strtoupper($poNumber)) . '-' . $suffix;
+}
+
+function applyPurchaseOrderReceipt(PDO $pdo, int $purchaseOrderId, string $poNumber, int $requestId, ?int $userId): void
+{
+    $existingSql = "SELECT COUNT(*) FROM supply_transactions WHERE reference_number = :ref AND transaction_type = 'in'";
+    $existingStmt = $pdo->prepare($existingSql);
+    $existingStmt->execute([':ref' => $poNumber]);
+    if ((int)$existingStmt->fetchColumn() > 0) {
+        return;
+    }
+
+    $request = fetchProcurementRequest($pdo, $requestId);
+    $location = mapStorageLocation($request['department'] ?? null);
+    $items = fetchPurchaseOrderItems($pdo, $purchaseOrderId);
+
+    if (empty($items)) {
+        return;
+    }
+
+    $findSupplySql = "SELECT id, current_stock, unit_cost FROM supplies WHERE archived_at IS NULL AND LOWER(name) = LOWER(:name) LIMIT 1";
+    $findSupplyStmt = $pdo->prepare($findSupplySql);
+    $updateSupplySql = "UPDATE supplies SET current_stock = :current_stock, unit_cost = :unit_cost, total_value = :total_value, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+    $updateSupplyStmt = $pdo->prepare($updateSupplySql);
+
+    $insertSupplySql = "INSERT INTO supplies (item_code, name, description, category, unit, current_stock, minimum_stock, unit_cost, total_value, location, status)
+                        VALUES (:item_code, :name, :description, :category, :unit, :current_stock, :minimum_stock, :unit_cost, :total_value, :location, :status)";
+    $insertSupplyStmt = $pdo->prepare($insertSupplySql);
+
+    $transactionSql = "INSERT INTO supply_transactions (supply_id, transaction_type, quantity, reference_number, transaction_date, requested_by, approved_by, purpose, notes)
+                       VALUES (:supply_id, 'in', :quantity, :reference_number, :transaction_date, :requested_by, :approved_by, :purpose, :notes)";
+    $transactionStmt = $pdo->prepare($transactionSql);
+
+    foreach ($items as $index => $item) {
+        $name = trim((string)($item['item_name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+
+        $quantity = max(1, (int)($item['quantity'] ?? 1));
+        $unitCost = (float)($item['unit_cost'] ?? 0);
+        $unit = $item['unit'] ?? 'pcs';
+        $description = $item['description'] ?? null;
+
+        $findSupplyStmt->execute([':name' => $name]);
+        $existing = $findSupplyStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existing) {
+            $currentStock = (int)$existing['current_stock'] + $quantity;
+            $finalUnitCost = $unitCost > 0 ? $unitCost : (float)$existing['unit_cost'];
+            $totalValue = $finalUnitCost > 0 ? $currentStock * $finalUnitCost : 0;
+            $updateSupplyStmt->execute([
+                ':current_stock' => $currentStock,
+                ':unit_cost' => $finalUnitCost,
+                ':total_value' => $totalValue,
+                ':id' => $existing['id']
+            ]);
+            $supplyId = (int)$existing['id'];
+        } else {
+            $itemCode = generateSupplyCode($poNumber, $index);
+            $totalValue = $unitCost > 0 ? $quantity * $unitCost : 0;
+            $insertSupplyStmt->execute([
+                ':item_code' => $itemCode,
+                ':name' => $name,
+                ':description' => $description,
+                ':category' => null,
+                ':unit' => $unit,
+                ':current_stock' => $quantity,
+                ':minimum_stock' => 1,
+                ':unit_cost' => $unitCost > 0 ? $unitCost : 0,
+                ':total_value' => $totalValue,
+                ':location' => $location,
+                ':status' => 'active'
+            ]);
+            $supplyId = (int)$pdo->lastInsertId();
+        }
+
+        $transactionStmt->execute([
+            ':supply_id' => $supplyId,
+            ':quantity' => $quantity,
+            ':reference_number' => $poNumber,
+            ':transaction_date' => date('Y-m-d'),
+            ':requested_by' => $userId,
+            ':approved_by' => $userId,
+            ':purpose' => 'Purchase order received',
+            ':notes' => 'Received via PO ' . $poNumber
+        ]);
+    }
 }
 
 function generatePurchaseOrderNumber(PDO $pdo): string
