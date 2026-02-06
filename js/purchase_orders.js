@@ -326,23 +326,29 @@ async function loadApprovedRequests() {
     try {
         const params = new URLSearchParams({
             action: 'list',
-            status: 'approved',
             limit: 100
         });
         const res = await fetch(`api/procurement.php?${params}`);
         const data = await res.json();
         if (!data.success) return;
 
-        const options = data.data || [];
+        const options = Array.isArray(data.data) ? data.data : [];
+        const allowedStatuses = new Set(['approved', 'ordered', 'received']);
+        const filtered = options.filter(request => allowedStatuses.has(String(request.status || '').toLowerCase()));
+        const labelFor = request => {
+            const requester = request.requestor_name || 'N/A';
+            const status = request.status ? ` (${request.status})` : '';
+            return `${request.request_code} - ${requester}${status}`;
+        };
         const optionMarkup = ['<option value="">All Requests</option>'].concat(
-            options.map(request => `<option value="${request.id}">${request.request_code} - ${request.requestor_name || 'N/A'}</option>`) ?? []
+            filtered.map(request => `<option value="${request.id}">${labelFor(request)}</option>`)
         );
         if (requestFilter) {
             requestFilter.innerHTML = optionMarkup.join('');
         }
         if (requestSelect) {
             const formOptions = ['<option value="">Select Approved Request</option>'].concat(
-                options.map(request => `<option value="${request.id}">${request.request_code} - ${request.requestor_name || 'N/A'}</option>`) ?? []
+                filtered.map(request => `<option value="${request.id}">${labelFor(request)}</option>`)
             );
             requestSelect.innerHTML = formOptions.join('');
         }
