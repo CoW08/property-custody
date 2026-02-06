@@ -16,7 +16,6 @@ let supplyPrefillLoading = false;
 let supplyPrefillInitialized = false;
 let pendingSupplyCategoryName = '';
 let categoryLockedBySupply = false;
-let currentPagination = {
 const ASSET_CATEGORY_OVERRIDES = ['Clinic', 'Library', 'OSAS', 'Event'];
 let currentPagination = {
     current_page: 1,
