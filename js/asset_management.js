@@ -180,6 +180,19 @@ function lockAssetCategoryFromSupply(categoryName) {
     applyPendingSupplyCategoryLock();
 }
 
+function getAllowedCategories() {
+    return allCategories.filter(category => ASSET_CATEGORY_OVERRIDES.includes(category.name));
+}
+
+function getSelectedCategoryFilterName() {
+    const select = document.getElementById('categoryFilter');
+    if (!select || !select.value) {
+        return '';
+    }
+    const option = select.options[select.selectedIndex];
+    return option?.dataset?.name || option?.text || select.value;
+}
+
 function applyPendingSupplyCategoryLock() {
     const select = document.getElementById('assetCategory');
     if (!select) {
@@ -192,7 +205,10 @@ function applyPendingSupplyCategoryLock() {
     }
 
     if (ASSET_CATEGORY_OVERRIDES.includes(pendingSupplyCategoryName)) {
-        select.value = pendingSupplyCategoryName;
+        const matchedCategory = allCategories.find(category => category.name === pendingSupplyCategoryName);
+        if (matchedCategory) {
+            select.value = matchedCategory.id;
+        }
         select.disabled = true;
         categoryLockedBySupply = true;
         select.dataset.lockMessage = 'Category locked by selected supply';
@@ -355,10 +371,15 @@ function populateCategoryFilters() {
     categoryFilter.innerHTML = '<option value="">All Categories</option>';
     assetCategory.innerHTML = '<option value="">Select Category</option>';
 
-    const categoryNames = [...ASSET_CATEGORY_OVERRIDES];
-    categoryNames.forEach(name => {
-        categoryFilter.innerHTML += `<option value="${name}">${name}</option>`;
-        assetCategory.innerHTML += `<option value="${name}">${name}</option>`;
+    const categories = getAllowedCategories();
+    categories.forEach(category => {
+        const filterOption = new Option(category.name, category.id);
+        filterOption.dataset.name = category.name;
+        categoryFilter.appendChild(filterOption);
+
+        const formOption = new Option(category.name, category.id);
+        formOption.dataset.name = category.name;
+        assetCategory.appendChild(formOption);
     });
 }
 
@@ -517,7 +538,7 @@ function getStatusBadgeClass(status) {
 function filterAssets() {
     const filters = {
         search: document.getElementById('searchAssets').value,
-        category: document.getElementById('categoryFilter').value,
+        category: getSelectedCategoryFilterName(),
         status: document.getElementById('statusFilter').value,
         tag: document.getElementById('tagFilter').value
     };
@@ -726,7 +747,7 @@ async function handleAssetSubmit(event) {
 
             const filters = {
                 search: document.getElementById('searchAssets').value,
-                category: document.getElementById('categoryFilter').value,
+                category: getSelectedCategoryFilterName(),
                 status: document.getElementById('statusFilter').value,
                 tag: document.getElementById('tagFilter').value
             };
@@ -765,7 +786,7 @@ async function loadAssetForEdit(assetId) {
                 await loadCategories();
             }
             const matchedCategory = allCategories.find(category => String(category.id) === String(asset.category) || category.name === asset.category);
-            document.getElementById('assetCategory').value = matchedCategory ? matchedCategory.name : (asset.category || '');
+            document.getElementById('assetCategory').value = matchedCategory ? matchedCategory.id : '';
             document.getElementById('assetStatus').value = asset.status || 'available';
             document.getElementById('assetLocation').value = asset.location || '';
             document.getElementById('assetPurchaseDate').value = asset.purchase_date || '';
@@ -815,7 +836,7 @@ async function deleteAsset(assetId) {
             showNotification(result.message, 'success');
             const filters = {
                 search: document.getElementById('searchAssets').value,
-                category: document.getElementById('categoryFilter').value,
+                category: getSelectedCategoryFilterName(),
                 status: document.getElementById('statusFilter').value,
                 tag: document.getElementById('tagFilter').value
             };
@@ -1096,7 +1117,7 @@ async function generateQRCode(assetId) {
             showNotification(result.message, 'success');
             const filters = {
                 search: document.getElementById('searchAssets').value,
-                category: document.getElementById('categoryFilter').value,
+                category: getSelectedCategoryFilterName(),
                 status: document.getElementById('statusFilter').value,
                 tag: document.getElementById('tagFilter').value
             };
@@ -1173,9 +1194,9 @@ function exportAssets() {
     }
     
     // Add category filter if active
-    const categoryFilter = document.getElementById('categoryFilter');
-    if (categoryFilter && categoryFilter.value) {
-        exportUrl += '&category=' + encodeURIComponent(categoryFilter.value);
+    const categoryFilterValue = getSelectedCategoryFilterName();
+    if (categoryFilterValue) {
+        exportUrl += '&category=' + encodeURIComponent(categoryFilterValue);
     }
     
     // Add status filter if active
