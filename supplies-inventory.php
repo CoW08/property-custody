@@ -673,12 +673,7 @@ function renderCategoryOptions() {
     filter.appendChild(new Option('All Categories', ''));
     formSelect.appendChild(new Option('Select Category', ''));
 
-    const categoryNames = assetCategories.map(category => category.name);
-    SUPPLY_CATEGORY_OVERRIDES.forEach(name => {
-        if (!categoryNames.includes(name)) {
-            categoryNames.push(name);
-        }
-    });
+    const categoryNames = [...SUPPLY_CATEGORY_OVERRIDES];
 
     categoryNames.forEach(name => {
         filter.appendChild(new Option(name, name));
@@ -773,9 +768,6 @@ function setFormCategoryValue(categoryName) {
 function isSharedCategoryValid(categoryName) {
     if (!categoryName) {
         return false;
-    }
-    if (assetCategories.some(category => category.name === categoryName)) {
-        return true;
     }
     return SUPPLY_CATEGORY_OVERRIDES.includes(categoryName);
 }
