@@ -985,10 +985,14 @@ function formatPriorityLabel(label) {
 }
 
 const HISTORICAL_INVENTORY_ITEMS = [
-    { item_code: 'LIB-LOUNGE', name: 'Library Lounge Chairs', category: 'library', unit: 'pcs', default_stock: 2, minimum_stock: 1, location: 'Library Reading Corner', unit_cost: 4200, description: 'Comfort seating reserved for the library space.' },
-    { item_code: 'LIB-PROJ', name: 'Library Mini Projectors', category: 'library', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Library AV Booth', unit_cost: 8700, description: 'Portable projectors assigned to the library.' },
-    { item_code: 'CLN-COT', name: 'Clinic Recovery Cots', category: 'clinic', unit: 'pcs', default_stock: 2, minimum_stock: 1, location: 'Clinic Treatment Room', unit_cost: 9800, description: 'Lightweight cots stationed in the clinic.' },
-    { item_code: 'CLN-MON', name: 'Clinic Vital Monitors', category: 'clinic', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Clinic Nurses Station', unit_cost: 15500, description: 'Portable monitors dedicated to clinic staff.' }
+    { item_code: 'LIB-LOUNGE', name: 'Library Lounge Chairs', category: 'library', unit: 'pcs', default_stock: 2, minimum_stock: 1, location: 'Library Storage', unit_cost: 4200, description: 'Comfort seating reserved for the library space.' },
+    { item_code: 'LIB-PROJ', name: 'Library Mini Projectors', category: 'library', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Library Storage', unit_cost: 8700, description: 'Portable projectors assigned to the library.' },
+    { item_code: 'CLN-COT', name: 'Clinic Recovery Cots', category: 'clinic', unit: 'pcs', default_stock: 2, minimum_stock: 1, location: 'Clinic Storage', unit_cost: 9800, description: 'Lightweight cots stationed in the clinic.' },
+    { item_code: 'CLN-MON', name: 'Clinic Vital Monitors', category: 'clinic', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Clinic Storage', unit_cost: 15500, description: 'Portable monitors dedicated to clinic staff.' },
+    { item_code: 'OSAS-LANY', name: 'OSAS ID Card Lanyards', category: 'osas', unit: 'pack', default_stock: 2, minimum_stock: 1, location: 'OSAS Storage', unit_cost: 35, description: 'Student ID lanyards for issuance and events.' },
+    { item_code: 'OSAS-FORM', name: 'OSAS Permit Forms', category: 'osas', unit: 'ream', default_stock: 2, minimum_stock: 1, location: 'OSAS Storage', unit_cost: 250, description: 'Printed forms for student activity permits.' },
+    { item_code: 'EVT-KIT', name: 'Event Kits', category: 'event', unit: 'kits', default_stock: 2, minimum_stock: 1, location: 'Event Storage', unit_cost: 550, description: 'Prepared kits containing standard event materials.' },
+    { item_code: 'EVT-SPEAK', name: 'Portable Speakers', category: 'event', unit: 'units', default_stock: 2, minimum_stock: 1, location: 'Event Storage', unit_cost: 4800, description: 'Compact audio speakers for school events.' }
 ];
 
 function getFallbackLiveSupplies() {
