@@ -640,9 +640,12 @@ function displayProcurementRequests(requests) {
                             <i class="fas fa-edit mr-1"></i>Edit
                         </button>
                     ` : ''}
-                    ${request.status === 'submitted' ? `
+                    ${request.status === 'submitted' && (currentUserRole === 'admin' || currentUserRole === 'custodian' || currentUserRole === 'finance') ? `
                         <button onclick="approveRequest(${request.id})" class="text-green-600 hover:text-green-900 text-sm" title="Approve">
                             <i class="fas fa-check mr-1"></i>Approve
+                        </button>
+                        <button onclick="rejectRequest(${request.id})" class="text-red-600 hover:text-red-900 text-sm" title="Reject">
+                            <i class="fas fa-times mr-1"></i>Reject
                         </button>
                     ` : ''}
                 </div>
