@@ -280,7 +280,7 @@ function getAssets($db) {
         // First get the total count
         $countQuery = "SELECT COUNT(DISTINCT a.id) as total
                        FROM assets a
-                       LEFT JOIN asset_categories ac ON a.category = ac.id
+                       LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
                        LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id
                        LEFT JOIN asset_tags at ON atr.tag_id = at.id" . $whereClause;
 
@@ -290,10 +290,10 @@ function getAssets($db) {
 
         // Then get the paginated results
         $query = "SELECT a.*,
-                  COALESCE(ac.name, 'Uncategorized') as category_name,
+                  COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name,
                   GROUP_CONCAT(DISTINCT CONCAT(COALESCE(at.id, ''), ':', COALESCE(at.name, ''), ':', COALESCE(at.color, '#3B82F6')) SEPARATOR '|') as tags
                   FROM assets a
-                  LEFT JOIN asset_categories ac ON a.category = ac.id
+                  LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
                   LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id
                   LEFT JOIN asset_tags at ON atr.tag_id = at.id" .
                   $whereClause . "
@@ -353,10 +353,10 @@ function getAssets($db) {
 }
 
 function getAsset($db, $id) {
-    $query = "SELECT a.*, COALESCE(ac.name, 'Uncategorized') as category_name,
+    $query = "SELECT a.*, COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name,
               GROUP_CONCAT(DISTINCT CONCAT(at.id, ':', at.name, ':', at.color) SEPARATOR '|') as tags
               FROM assets a
-              LEFT JOIN asset_categories ac ON a.category = ac.id
+              LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
               LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id
               LEFT JOIN asset_tags at ON atr.tag_id = at.id
               WHERE a.id = ?
@@ -879,7 +879,7 @@ function exportAssetsToExcel($db) {
         $query = "SELECT 
                     a.asset_code,
                     a.name,
-                    COALESCE(ac.name, 'Uncategorized') as category,
+                    COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category,
                     a.description,
                     a.status,
                     a.condition_status,
@@ -892,7 +892,7 @@ function exportAssetsToExcel($db) {
                     a.qr_code,
                     a.created_at
                   FROM assets a
-                  LEFT JOIN asset_categories ac ON a.category = ac.id
+                  LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
                   LEFT JOIN users u ON a.assigned_to = u.id" .
                   $whereClause . "
                   ORDER BY a.created_at DESC";

@@ -181,7 +181,11 @@ function lockAssetCategoryFromSupply(categoryName) {
 }
 
 function getAllowedCategories() {
-    return allCategories.filter(category => ASSET_CATEGORY_OVERRIDES.includes(category.name));
+    const allowed = allCategories.filter(category => ASSET_CATEGORY_OVERRIDES.includes(category.name));
+    if (allowed.length) {
+        return allowed;
+    }
+    return ASSET_CATEGORY_OVERRIDES.map(name => ({ id: name, name }));
 }
 
 function getSelectedCategoryFilterName() {
@@ -191,6 +195,19 @@ function getSelectedCategoryFilterName() {
     }
     const option = select.options[select.selectedIndex];
     return option?.dataset?.name || option?.text || select.value;
+}
+
+function ensureCategoryOption(select, value, label, name) {
+    if (!select) {
+        return;
+    }
+    const exists = Array.from(select.options).some(option => String(option.value) === String(value));
+    if (exists) {
+        return;
+    }
+    const option = new Option(label ?? value, value);
+    option.dataset.name = name ?? label ?? value;
+    select.appendChild(option);
 }
 
 function applyPendingSupplyCategoryLock() {
@@ -208,6 +225,9 @@ function applyPendingSupplyCategoryLock() {
         const matchedCategory = allCategories.find(category => category.name === pendingSupplyCategoryName);
         if (matchedCategory) {
             select.value = matchedCategory.id;
+        } else {
+            ensureCategoryOption(select, pendingSupplyCategoryName, pendingSupplyCategoryName, pendingSupplyCategoryName);
+            select.value = pendingSupplyCategoryName;
         }
         select.disabled = true;
         categoryLockedBySupply = true;
@@ -635,7 +655,7 @@ function goToPage(page) {
 
     const filters = {
         search: document.getElementById('searchAssets').value,
-        category: document.getElementById('categoryFilter').value,
+        category: getSelectedCategoryFilterName(),
         status: document.getElementById('statusFilter').value,
         tag: document.getElementById('tagFilter').value
     };
@@ -651,6 +671,9 @@ App.openAssetModal = function(assetId = null) {
 
     // Show modal first
     document.getElementById('assetModal').classList.remove('hidden');
+    if (!allTags.length) {
+        loadTags();
+    }
 
     if (assetId) {
         // Edit mode
@@ -786,7 +809,15 @@ async function loadAssetForEdit(assetId) {
                 await loadCategories();
             }
             const matchedCategory = allCategories.find(category => String(category.id) === String(asset.category) || category.name === asset.category);
-            document.getElementById('assetCategory').value = matchedCategory ? matchedCategory.id : '';
+            const categorySelect = document.getElementById('assetCategory');
+            if (matchedCategory) {
+                categorySelect.value = matchedCategory.id;
+            } else if (asset.category) {
+                ensureCategoryOption(categorySelect, asset.category, asset.category, asset.category);
+                categorySelect.value = asset.category;
+            } else {
+                categorySelect.value = '';
+            }
             document.getElementById('assetStatus').value = asset.status || 'available';
             document.getElementById('assetLocation').value = asset.location || '';
             document.getElementById('assetPurchaseDate').value = asset.purchase_date || '';
