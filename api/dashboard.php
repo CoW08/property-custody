@@ -116,62 +116,19 @@ function getStats($db) {
         $stmt->execute();
         $stats['availableItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-        // Maintenance metrics derived from maintenance schedules if available
-        $checkMaintenance = $db->query("SHOW TABLES LIKE 'maintenance_schedules'");
-        if ($checkMaintenance && $checkMaintenance->rowCount() > 0) {
-            $query = "
-                SELECT
-                    SUM(CASE WHEN status IN ('scheduled','in_progress') THEN 1 ELSE 0 END) AS active,
-                    SUM(CASE WHEN status = 'scheduled' AND scheduled_date = CURDATE() THEN 1 ELSE 0 END) AS due_today,
-                    SUM(CASE WHEN status = 'scheduled' AND scheduled_date < CURDATE() THEN 1 ELSE 0 END) AS overdue
-                FROM maintenance_schedules
-            ";
+        // Maintenance metrics derived only from assets
+        $query = "SELECT COUNT(*) as total FROM assets WHERE status = 'maintenance'";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $stats['maintenanceItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+        $stats['maintenanceDueToday'] = 0;
+        $stats['maintenanceOverdue'] = 0;
 
-            $stmt = $db->prepare($query);
-            $stmt->execute();
-            $maintenanceStats = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-
-            $unionMaintenanceQuery = "
-                SELECT COUNT(DISTINCT asset_id) as total
-                FROM (
-                    SELECT id AS asset_id FROM assets WHERE status = 'maintenance'
-                    UNION
-                    SELECT asset_id FROM maintenance_schedules WHERE status IN ('scheduled','in_progress')
-                ) AS maintenance_assets
-            ";
-            $unionStmt = $db->prepare($unionMaintenanceQuery);
-            $unionStmt->execute();
-            $stats['maintenanceItems'] = (int)($unionStmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
-            $stats['maintenanceDueToday'] = (int)($maintenanceStats['due_today'] ?? 0);
-            $stats['maintenanceOverdue'] = (int)($maintenanceStats['overdue'] ?? 0);
-        } else {
-            $query = "SELECT COUNT(*) as total FROM assets WHERE status = 'maintenance'";
-            $stmt = $db->prepare($query);
-            $stmt->execute();
-            $stats['maintenanceItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
-        }
-
-        // Damaged/Lost items derived from damaged_items table when available
-        $checkDamaged = $db->query("SHOW TABLES LIKE 'damaged_items'");
-        if ($checkDamaged && $checkDamaged->rowCount() > 0) {
-            $query = "
-                SELECT COUNT(DISTINCT asset_id) as total
-                FROM (
-                    SELECT id AS asset_id FROM assets WHERE status IN ('damaged', 'lost') OR condition_status = 'damaged'
-                    UNION
-                    SELECT asset_id FROM damaged_items WHERE status IN ('reported','under_repair','write_off')
-                ) AS damaged_assets
-            ";
-            $stmt = $db->prepare($query);
-            $stmt->execute();
-            $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
-        } else {
-            // Fallback to assets table if damaged_items table is not present
-            $query = "SELECT COUNT(*) as total FROM assets WHERE status IN ('damaged', 'lost') OR condition_status = 'damaged'";
-            $stmt = $db->prepare($query);
-            $stmt->execute();
-            $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
-        }
+        // Damaged/Lost items derived only from assets
+        $query = "SELECT COUNT(*) as total FROM assets WHERE status IN ('damaged', 'lost') OR condition_status = 'damaged'";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
         http_response_code(200);
         echo json_encode($stats);
