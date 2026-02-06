@@ -31,6 +31,8 @@ switch($method) {
     case 'POST':
         if(isset($_GET['assign'])) {
             assignTagToAsset($db);
+        } elseif(isset($_GET['unassign'])) {
+            unassignTagFromAsset($db);
         } else {
             createTag($db);
         }

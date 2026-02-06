@@ -1072,7 +1072,7 @@ async function updateAssetTags(assetId, newTags) {
         for (const tagId of tagsToRemove) {
             try {
                 const removeResponse = await fetch('./api/asset_tags.php?unassign=1', {
-                    method: 'DELETE',
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },

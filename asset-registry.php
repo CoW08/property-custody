@@ -34,7 +34,7 @@ ob_start();
 <?php include 'components/detail_modal.php'; ?>
 
 <script src="js/api.js?v=20240205"></script>
-<script src="js/asset_management.js?v=2026020705"></script>
+<script src="js/asset_management.js?v=2026020706"></script>
 <script src="js/detail_handlers.js?v=20240205"></script>
 
 <script>
