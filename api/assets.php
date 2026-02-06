@@ -436,14 +436,32 @@ function createAsset($db, $input = null) {
             // Check what columns actually exist in the assets table
             $checkStmt = $db->query("DESCRIBE assets");
             $columns = array();
+            $columnInfo = array();
             while ($row = $checkStmt->fetch(PDO::FETCH_ASSOC)) {
                 $columns[] = $row['Field'];
+                $columnInfo[$row['Field']] = $row;
             }
 
             // Build the INSERT query based on available columns
             $insertFields = array();
             $insertValues = array();
             $placeholders = array();
+
+            if (in_array('id', $columns)) {
+                $idMeta = $columnInfo['id'] ?? null;
+                $hasAutoIncrement = $idMeta && !empty($idMeta['Extra']) && stripos($idMeta['Extra'], 'auto_increment') !== false;
+                $idAllowsNull = $idMeta && ($idMeta['Null'] ?? '') === 'YES';
+                $idHasDefault = $idMeta && array_key_exists('Default', $idMeta) && $idMeta['Default'] !== null;
+
+                if (!$hasAutoIncrement && !$idAllowsNull && !$idHasDefault) {
+                    $nextIdStmt = $db->query("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM assets");
+                    $nextIdRow = $nextIdStmt ? $nextIdStmt->fetch(PDO::FETCH_ASSOC) : null;
+                    $nextId = isset($nextIdRow['next_id']) ? (int) $nextIdRow['next_id'] : 1;
+                    $insertFields[] = 'id';
+                    $insertValues[] = $nextId;
+                    $placeholders[] = '?';
+                }
+            }
 
             if (in_array('asset_code', $columns) && !empty($data->asset_code)) {
                 $insertFields[] = 'asset_code';
