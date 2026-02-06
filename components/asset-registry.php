@@ -198,6 +198,11 @@
                         <option value="excellent">Excellent</option>
                         <option value="good">Good</option>
                         <option value="fair">Fair</option>
+                        <option value="poor">Poor</option>
+                        <option value="damaged">Damaged</option>
+                    </select>
+                </div>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Acquisition Date</label>
