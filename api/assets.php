@@ -431,6 +431,26 @@ function generateAssetCode($db, $category = null) {
     return $prefix . '-' . $year . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 }
 
+function ensureUniqueAssetCode($db, $assetCode) {
+    $assetCode = trim((string) $assetCode);
+    if ($assetCode === '') {
+        return $assetCode;
+    }
+
+    $existsStmt = $db->prepare("SELECT id FROM assets WHERE asset_code = ? LIMIT 1");
+    $candidate = $assetCode;
+    $counter = 2;
+
+    while (true) {
+        $existsStmt->execute([$candidate]);
+        if ($existsStmt->rowCount() === 0) {
+            return $candidate;
+        }
+        $candidate = $assetCode . '-' . $counter;
+        $counter++;
+    }
+}
+
 function createAsset($db, $input = null) {
     debug_log("createAsset called");
     if ($input === null) {
@@ -441,11 +461,15 @@ function createAsset($db, $input = null) {
     $data = json_decode($input);
     debug_log("Parsed data", $data);
 
+    $originalAssetCode = $data->asset_code ?? '';
+
     // Auto-generate asset code if not provided
     if (empty($data->asset_code)) {
         $data->asset_code = generateAssetCode($db, $data->category ?? null);
         debug_log("Auto-generated asset code", $data->asset_code);
     }
+
+    $data->asset_code = ensureUniqueAssetCode($db, $data->asset_code);
 
     if(!empty($data->asset_code) && !empty($data->name)) {
         debug_log("Validation passed", ["asset_code" => $data->asset_code, "name" => $data->name]);
@@ -604,9 +628,14 @@ function createAsset($db, $input = null) {
                 // Log the activity
                 // logActivity($db, $_SESSION['user_id'], 'create', 'assets', $asset_id);
 
+                $message = "Asset created successfully";
+                if (!empty($originalAssetCode) && $originalAssetCode !== $data->asset_code) {
+                    $message = "Asset created successfully. Asset code updated to " . $data->asset_code;
+                }
+
                 http_response_code(201);
                 echo json_encode(array(
-                    "message" => "Asset created successfully",
+                    "message" => $message,
                     "id" => $asset_id,
                     "asset_code" => $data->asset_code,
                     "qr_code_id" => $qrCodeId,
