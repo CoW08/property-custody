@@ -489,6 +489,16 @@ function renderAssetTags(tags) {
     `).join('');
 }
 
+function highlightUpdatedAsset(assetId) {
+    const row = document.querySelector(`[data-asset-id="${assetId}"]`);
+    if (!row) return;
+    row.classList.add('bg-yellow-50');
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+        row.classList.remove('bg-yellow-50');
+    }, 2000);
+}
+
 // Get Status Badge Class
 function getStatusBadgeClass(status) {
     const classes = {
