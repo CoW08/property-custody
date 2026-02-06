@@ -17,6 +17,8 @@ let supplyPrefillInitialized = false;
 let pendingSupplyCategoryName = '';
 let categoryLockedBySupply = false;
 let currentPagination = {
+const ASSET_CATEGORY_OVERRIDES = ['Clinic', 'Library', 'OSAS', 'Event'];
+let currentPagination = {
     current_page: 1,
     total_pages: 1,
     total_items: 0,
@@ -190,9 +192,8 @@ function applyPendingSupplyCategoryLock() {
         return;
     }
 
-    const matchingOption = allCategories.find(category => String(category.id) === String(pendingSupplyCategoryName) || category.name === pendingSupplyCategoryName);
-    if (matchingOption) {
-        select.value = matchingOption.name;
+    if (ASSET_CATEGORY_OVERRIDES.includes(pendingSupplyCategoryName)) {
+        select.value = pendingSupplyCategoryName;
         select.disabled = true;
         categoryLockedBySupply = true;
         select.dataset.lockMessage = 'Category locked by selected supply';
@@ -355,9 +356,10 @@ function populateCategoryFilters() {
     categoryFilter.innerHTML = '<option value="">All Categories</option>';
     assetCategory.innerHTML = '<option value="">Select Category</option>';
 
-    allCategories.forEach(category => {
-        categoryFilter.innerHTML += `<option value="${category.name}">${category.name}</option>`;
-        assetCategory.innerHTML += `<option value="${category.name}">${category.name}</option>`;
+    const categoryNames = [...ASSET_CATEGORY_OVERRIDES];
+    categoryNames.forEach(name => {
+        categoryFilter.innerHTML += `<option value="${name}">${name}</option>`;
+        assetCategory.innerHTML += `<option value="${name}">${name}</option>`;
     });
 }
 
