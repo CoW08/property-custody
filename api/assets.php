@@ -291,7 +291,10 @@ function getAssets($db) {
         // Then get the paginated results
         $query = "SELECT a.*,
                   COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name,
-                  GROUP_CONCAT(DISTINCT CONCAT(COALESCE(at.id, ''), ':', COALESCE(at.name, ''), ':', COALESCE(at.color, '#3B82F6')) SEPARATOR '|') as tags
+                  GROUP_CONCAT(DISTINCT CASE
+                      WHEN at.id IS NULL THEN NULL
+                      ELSE CONCAT(at.id, ':', at.name, ':', COALESCE(at.color, '#3B82F6'))
+                  END SEPARATOR '|') as tags
                   FROM assets a
                   LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
                   LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id
@@ -354,7 +357,10 @@ function getAssets($db) {
 
 function getAsset($db, $id) {
     $query = "SELECT a.*, COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name,
-              GROUP_CONCAT(DISTINCT CONCAT(at.id, ':', at.name, ':', at.color) SEPARATOR '|') as tags
+              GROUP_CONCAT(DISTINCT CASE
+                  WHEN at.id IS NULL THEN NULL
+                  ELSE CONCAT(at.id, ':', at.name, ':', COALESCE(at.color, '#3B82F6'))
+              END SEPARATOR '|') as tags
               FROM assets a
               LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
               LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id

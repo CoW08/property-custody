@@ -545,11 +545,16 @@ function renderAssetsTable() {
 
 // Render Asset Tags
 function renderAssetTags(tags) {
-    if (!tags || tags.length === 0) {
+    if (!Array.isArray(tags) || tags.length === 0) {
         return '<span class="text-gray-400 text-xs">No tags</span>';
     }
 
-    return tags.map(tag => `
+    const visibleTags = tags.filter(tag => tag && (tag.id || tag.name));
+    if (visibleTags.length === 0) {
+        return '<span class="text-gray-400 text-xs">No tags</span>';
+    }
+
+    return visibleTags.map(tag => `
         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
               style="background-color: ${tag.color}15; color: ${tag.color}; border: 1px solid ${tag.color}40;">
             ${tag.name}
