@@ -204,14 +204,54 @@ function assignTagToAsset($db) {
             return;
         }
 
-        $query = "INSERT INTO asset_tag_relationships (asset_id, tag_id, assigned_by) VALUES (?, ?, ?)";
+        $columns = [];
+        $idIsAutoIncrement = false;
+        $idAllowsNull = false;
+        $idHasDefault = false;
+
+        try {
+            $checkColumns = $db->query("DESCRIBE asset_tag_relationships");
+            while($row = $checkColumns->fetch(PDO::FETCH_ASSOC)) {
+                $columns[] = $row['Field'];
+                if ($row['Field'] === 'id') {
+                    $idIsAutoIncrement = stripos((string) $row['Extra'], 'auto_increment') !== false;
+                    $idAllowsNull = ($row['Null'] ?? '') === 'YES';
+                    $idHasDefault = array_key_exists('Default', $row) && $row['Default'] !== null;
+                }
+            }
+        } catch (Exception $e) {
+            $columns = [];
+        }
+
+        $insertFields = [];
+        $insertValues = [];
+        $placeholders = [];
+
+        if (in_array('id', $columns) && !$idIsAutoIncrement && !$idAllowsNull && !$idHasDefault) {
+            $nextIdStmt = $db->query("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM asset_tag_relationships");
+            $nextIdRow = $nextIdStmt ? $nextIdStmt->fetch(PDO::FETCH_ASSOC) : null;
+            $nextId = isset($nextIdRow['next_id']) ? (int) $nextIdRow['next_id'] : 1;
+            $insertFields[] = 'id';
+            $insertValues[] = $nextId;
+            $placeholders[] = '?';
+        }
+
+        $insertFields[] = 'asset_id';
+        $insertValues[] = $data->asset_id;
+        $placeholders[] = '?';
+
+        $insertFields[] = 'tag_id';
+        $insertValues[] = $data->tag_id;
+        $placeholders[] = '?';
+
+        $insertFields[] = 'assigned_by';
+        $insertValues[] = $_SESSION['user_id'];
+        $placeholders[] = '?';
+
+        $query = "INSERT INTO asset_tag_relationships (" . implode(', ', $insertFields) . ") VALUES (" . implode(', ', $placeholders) . ")";
         $stmt = $db->prepare($query);
 
-        if($stmt->execute([
-            $data->asset_id,
-            $data->tag_id,
-            $_SESSION['user_id']
-        ])) {
+        if($stmt->execute($insertValues)) {
             $relationship_id = $db->lastInsertId();
             logActivity($db, $_SESSION['user_id'], 'assign_tag', 'asset_tag_relationships', $relationship_id);
 
