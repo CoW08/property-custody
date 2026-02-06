@@ -16,6 +16,7 @@ let supplyPrefillLoading = false;
 let supplyPrefillInitialized = false;
 let pendingSupplyCategoryName = '';
 let categoryLockedBySupply = false;
+let assetTagsTouched = false;
 const ASSET_CATEGORY_OVERRIDES = ['Clinic', 'Library', 'OSAS', 'Event'];
 let currentPagination = {
     current_page: 1,
@@ -305,6 +306,13 @@ function setupEventListeners() {
         checkboxes.forEach(checkbox => checkbox.checked = this.checked);
         updateBulkSelectionState();
     });
+
+    const tagSelect = document.getElementById('availableTags');
+    if (tagSelect) {
+        tagSelect.addEventListener('change', () => {
+            addTagToAsset();
+        });
+    }
 }
 
 // Debounce function for search
@@ -699,6 +707,7 @@ window.App = window.App || {};
 
 App.openAssetModal = function(assetId = null) {
     selectedAssetTags = [];
+    assetTagsTouched = false;
 
     // Show modal first
     document.getElementById('assetModal').classList.remove('hidden');
@@ -862,8 +871,10 @@ async function loadAssetForEdit(assetId) {
             }
 
             // Set selected tags
-            selectedAssetTags = asset.tags || [];
-            updateSelectedTagsDisplay();
+            if (!assetTagsTouched) {
+                selectedAssetTags = asset.tags || [];
+                updateSelectedTagsDisplay();
+            }
 
             showNotification('Asset data loaded successfully', 'success');
         } else {
@@ -1006,6 +1017,7 @@ function addTagToAsset() {
     }
 
     selectedAssetTags.push(tag);
+    assetTagsTouched = true;
     updateSelectedTagsDisplay();
     tagSelect.value = '';
 }
@@ -1013,6 +1025,7 @@ function addTagToAsset() {
 // Remove Tag from Asset
 function removeTagFromAsset(tagId) {
     selectedAssetTags = selectedAssetTags.filter(t => t.id != tagId);
+    assetTagsTouched = true;
     updateSelectedTagsDisplay();
 }
 
