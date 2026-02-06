@@ -25,6 +25,23 @@ function sanitizeIds($ids) {
     }));
 }
 
+function normalizeDateInput($value) {
+    if ($value === null) {
+        return null;
+    }
+    if (is_string($value)) {
+        $value = trim($value);
+    }
+    if ($value === '' || $value === '0000-00-00') {
+        return null;
+    }
+    $date = DateTime::createFromFormat('Y-m-d', (string) $value);
+    if ($date === false) {
+        return null;
+    }
+    return $date->format('Y-m-d');
+}
+
 function bulkUpdateStatus($db, $input) {
     $payload = json_decode($input, true);
     if (!is_array($payload)) {
