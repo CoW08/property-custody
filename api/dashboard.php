@@ -157,7 +157,7 @@ function getStats($db) {
             $query = "
                 SELECT COUNT(DISTINCT asset_id) as total
                 FROM (
-                    SELECT id AS asset_id FROM assets WHERE status IN ('damaged', 'lost')
+                    SELECT id AS asset_id FROM assets WHERE status IN ('damaged', 'lost') OR condition_status = 'damaged'
                     UNION
                     SELECT asset_id FROM damaged_items WHERE status IN ('reported','under_repair','write_off')
                 ) AS damaged_assets
@@ -167,7 +167,7 @@ function getStats($db) {
             $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
         } else {
             // Fallback to assets table if damaged_items table is not present
-            $query = "SELECT COUNT(*) as total FROM assets WHERE status IN ('damaged', 'lost')";
+            $query = "SELECT COUNT(*) as total FROM assets WHERE status IN ('damaged', 'lost') OR condition_status = 'damaged'";
             $stmt = $db->prepare($query);
             $stmt->execute();
             $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
