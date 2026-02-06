@@ -762,6 +762,13 @@ function setFormCategoryValue(categoryName) {
     }
 }
 
+function isSharedCategoryValid(categoryName) {
+    if (!categoryName) {
+        return false;
+    }
+    return assetCategories.some(category => category.name === categoryName);
+}
+
 function applyPendingCategoryValue() {
     if (!pendingCategoryValue) {
         return;
