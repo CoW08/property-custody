@@ -587,6 +587,7 @@ const STORAGE_LOCATIONS = [
     'Event Storage',
     'OSAS Storage'
 ];
+const SUPPLY_CATEGORY_OVERRIDES = ['Clinic', 'Library', 'OSAS', 'Event'];
 
 let assetCategories = [];
 let categoriesLoaded = false;
@@ -672,9 +673,16 @@ function renderCategoryOptions() {
     filter.appendChild(new Option('All Categories', ''));
     formSelect.appendChild(new Option('Select Category', ''));
 
-    assetCategories.forEach(category => {
-        filter.appendChild(new Option(category.name, category.name));
-        formSelect.appendChild(new Option(category.name, category.name));
+    const categoryNames = assetCategories.map(category => category.name);
+    SUPPLY_CATEGORY_OVERRIDES.forEach(name => {
+        if (!categoryNames.includes(name)) {
+            categoryNames.push(name);
+        }
+    });
+
+    categoryNames.forEach(name => {
+        filter.appendChild(new Option(name, name));
+        formSelect.appendChild(new Option(name, name));
     });
 
     const filterHasPrevious = Array.from(filter.options).some(option => option.value === previousFilterValue);
@@ -701,7 +709,7 @@ function updateLegacyCategoryFilters(supplies = []) {
 
     const legacyNames = new Set();
     supplies.forEach(supply => {
-        if (supply.category && !assetCategories.some(category => category.name === supply.category)) {
+        if (supply.category && !isSharedCategoryValid(supply.category)) {
             legacyNames.add(supply.category);
         }
     });
@@ -752,7 +760,7 @@ function setFormCategoryValue(categoryName) {
         return;
     }
 
-    const isStandardCategory = assetCategories.some(category => category.name === categoryName);
+    const isStandardCategory = isSharedCategoryValid(categoryName);
     if (isStandardCategory) {
         formSelect.value = categoryName;
         updateCategoryHelperText();
@@ -766,7 +774,10 @@ function isSharedCategoryValid(categoryName) {
     if (!categoryName) {
         return false;
     }
-    return assetCategories.some(category => category.name === categoryName);
+    if (assetCategories.some(category => category.name === categoryName)) {
+        return true;
+    }
+    return SUPPLY_CATEGORY_OVERRIDES.includes(categoryName);
 }
 
 function applyPendingCategoryValue() {
