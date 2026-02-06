@@ -523,7 +523,7 @@ function createAsset($db, $input = null) {
 
             if (in_array('purchase_date', $columns)) {
                 $insertFields[] = 'purchase_date';
-                $insertValues[] = $data->purchase_date ?? null;
+                $insertValues[] = normalizeDateInput($data->purchase_date ?? null);
                 $placeholders[] = '?';
             }
 
@@ -695,7 +695,7 @@ function updateAsset($db, $id, $input = null) {
 
         if (in_array('purchase_date', $columns)) {
             $updateFields[] = 'purchase_date = ?';
-            $updateValues[] = isset($data->purchase_date) ? $data->purchase_date : null;
+            $updateValues[] = normalizeDateInput($data->purchase_date ?? null);
         }
 
         if (in_array('purchase_cost', $columns)) {
