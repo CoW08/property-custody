@@ -374,6 +374,9 @@ function scheduleMaintenanceTask($db) {
     if ($result) {
         $maintenance_id = $db->lastInsertId();
 
+        $assetUpdate = $db->prepare("UPDATE assets SET status = 'maintenance' WHERE id = ?");
+        $assetUpdate->execute([$input['asset_id']]);
+
         // Log the action
         logAction($db, 'CREATE', 'maintenance_schedules', $maintenance_id);
 
@@ -422,7 +425,21 @@ function updateMaintenanceStatus($db) {
     $result = $stmt->execute($params);
 
     if ($result) {
-        // Log the action
+        $assetIdStmt = $db->prepare("SELECT asset_id FROM maintenance_schedules WHERE id = ?");
+        $assetIdStmt->execute([$input['id']]);
+        $row = $assetIdStmt->fetch(PDO::FETCH_ASSOC);
+        $assetId = $row ? (int)$row['asset_id'] : 0;
+
+        if ($assetId > 0) {
+            if (in_array($input['status'], ['scheduled', 'in_progress'])) {
+                $assetUpdate = $db->prepare("UPDATE assets SET status = 'maintenance' WHERE id = ?");
+                $assetUpdate->execute([$assetId]);
+            } elseif (in_array($input['status'], ['completed', 'cancelled'])) {
+                $assetUpdate = $db->prepare("UPDATE assets SET status = 'available' WHERE id = ?");
+                $assetUpdate->execute([$assetId]);
+            }
+        }
+
         logAction($db, 'UPDATE', 'maintenance_schedules', $input['id']);
 
         echo json_encode(['success' => true, 'message' => 'Maintenance status updated successfully']);
