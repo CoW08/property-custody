@@ -86,7 +86,8 @@ const WasteManagement = (() => {
             render();
         } catch (error) {
             console.error('Failed to load waste records', error);
-            showNotification('Failed to load waste management records', 'error');
+            const message = error && error.message ? error.message : 'Failed to load waste management records';
+            showNotification(message, 'error');
         }
     }
 

@@ -94,8 +94,8 @@ function listWasteRecords(PDO $db): void
 
     $query = "SELECT 
         wmr.*,
-        u1.name AS archived_by_name,
-        u2.name AS disposed_by_name
+        u1.full_name AS archived_by_name,
+        u2.full_name AS disposed_by_name
     FROM waste_management_records wmr
     LEFT JOIN users u1 ON wmr.archived_by = u1.id
     LEFT JOIN users u2 ON wmr.disposed_by = u2.id
