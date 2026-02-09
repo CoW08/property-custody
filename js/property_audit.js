@@ -63,6 +63,12 @@ class PropertyAuditManager {
                     previewImg.src = objectUrl;
                     preview.classList.remove('hidden');
                 }
+
+                if (window.jsQR) {
+                    this.handleQRImageUpload(file);
+                } else {
+                    this.showNotification('QR library still loading. Please click Scan Image again in a moment.', 'warning');
+                }
             } else {
                 this.qrImageFile = null;
                 if (fileNameEl) {
