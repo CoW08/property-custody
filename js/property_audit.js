@@ -17,37 +17,53 @@ class PropertyAuditManager {
     }
 
     bindEvents() {
-        // Create audit button
-        document.getElementById('createAuditBtn')?.addEventListener('click', () => {
-            this.showCreateAuditModal();
-        });
+        const createAuditBtn = document.getElementById('createAuditBtn');
+        if (createAuditBtn) {
+            createAuditBtn.addEventListener('click', () => {
+                this.showCreateAuditModal();
+            });
+        }
 
-        // Form submissions
-        document.getElementById('createAuditForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.createAudit();
-        });
+        const createAuditForm = document.getElementById('createAuditForm');
+        if (createAuditForm) {
+            createAuditForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.createAudit();
+            });
+        }
 
-        document.getElementById('editAuditForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.updateAudit();
-        });
+        const editAuditForm = document.getElementById('editAuditForm');
+        if (editAuditForm) {
+            editAuditForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.updateAudit();
+            });
+        }
 
-        // Quick actions
-        document.getElementById('scanQRBtn')?.addEventListener('click', () => {
-            this.showQRScannerModal();
-        });
+        const scanQRBtn = document.getElementById('scanQRBtn');
+        if (scanQRBtn) {
+            scanQRBtn.addEventListener('click', () => {
+                this.showQRScannerModal();
+            });
+        }
 
-        document.getElementById('markFoundBtn')?.addEventListener('click', () => {
-            this.showMarkFoundModal();
-        });
+        const markFoundBtn = document.getElementById('markFoundBtn');
+        if (markFoundBtn) {
+            markFoundBtn.addEventListener('click', () => {
+                this.showMarkFoundModal();
+            });
+        }
 
-        document.getElementById('reportDiscrepancyBtn')?.addEventListener('click', () => {
-            this.showDiscrepancyModal();
-        });
+        const reportDiscrepancyBtn = document.getElementById('reportDiscrepancyBtn');
+        if (reportDiscrepancyBtn) {
+            reportDiscrepancyBtn.addEventListener('click', () => {
+                this.showDiscrepancyModal();
+            });
+        }
 
-        // QR Scanner events
-        document.getElementById('qrImageInput')?.addEventListener('change', (e) => {
+        const qrImageInput = document.getElementById('qrImageInput');
+        if (qrImageInput) {
+            qrImageInput.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
             const fileNameEl = document.getElementById('qrImageFileName');
             const preview = document.getElementById('qrImagePreview');
@@ -79,9 +95,12 @@ class PropertyAuditManager {
                     preview.classList.add('hidden');
                 }
             }
-        });
+            });
+        }
 
-        document.getElementById('scanImageBtn')?.addEventListener('click', () => {
+        const scanImageBtn = document.getElementById('scanImageBtn');
+        if (scanImageBtn) {
+            scanImageBtn.addEventListener('click', () => {
             if (this.qrImageFile) {
                 this.handleQRImageUpload(this.qrImageFile);
                 return;
@@ -107,25 +126,37 @@ class PropertyAuditManager {
             input.addEventListener('change', handleOnce);
             input.click();
         });
+        }
 
-        document.getElementById('startScanBtn')?.addEventListener('click', () => {
-            this.startQRScanner();
-        });
+        const startScanBtn = document.getElementById('startScanBtn');
+        if (startScanBtn) {
+            startScanBtn.addEventListener('click', () => {
+                this.startQRScanner();
+            });
+        }
 
-        document.getElementById('stopScanBtn')?.addEventListener('click', () => {
-            this.stopQRScanner();
-        });
+        const stopScanBtn = document.getElementById('stopScanBtn');
+        if (stopScanBtn) {
+            stopScanBtn.addEventListener('click', () => {
+                this.stopQRScanner();
+            });
+        }
 
-        // Form submissions for quick actions
-        document.getElementById('markFoundForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.submitMarkFound();
-        });
+        const markFoundForm = document.getElementById('markFoundForm');
+        if (markFoundForm) {
+            markFoundForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.submitMarkFound();
+            });
+        }
 
-        document.getElementById('discrepancyForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.submitDiscrepancy();
-        });
+        const discrepancyForm = document.getElementById('discrepancyForm');
+        if (discrepancyForm) {
+            discrepancyForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.submitDiscrepancy();
+            });
+        }
 
         // Audit scope checkboxes
         document.querySelectorAll('input[name="audit_scope"]').forEach(checkbox => {
@@ -155,7 +186,9 @@ class PropertyAuditManager {
         // Close menu when clicking overlay
         if (overlay) {
             overlay.addEventListener('click', () => {
-                sidebar?.classList.remove('active');
+                if (sidebar) {
+                    sidebar.classList.remove('active');
+                }
                 overlay.classList.remove('active');
             });
         }
@@ -291,12 +324,21 @@ class PropertyAuditManager {
     }
 
     showCreateAuditModal() {
-        document.getElementById('createAuditModal')?.classList.remove('hidden');
+        const modal = document.getElementById('createAuditModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
     }
 
     hideCreateAuditModal() {
-        document.getElementById('createAuditModal')?.classList.add('hidden');
-        document.getElementById('createAuditForm')?.reset();
+        const modal = document.getElementById('createAuditModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        const form = document.getElementById('createAuditForm');
+        if (form) {
+            form.reset();
+        }
     }
 
     async createAudit() {
@@ -402,7 +444,10 @@ class PropertyAuditManager {
     }
 
     hideAuditDetails() {
-        document.getElementById('auditDetailsModal')?.classList.add('hidden');
+        const modal = document.getElementById('auditDetailsModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
     }
 
     async editAudit(auditId) {
@@ -436,12 +481,21 @@ class PropertyAuditManager {
     }
 
     showEditAuditModal() {
-        document.getElementById('editAuditModal')?.classList.remove('hidden');
+        const modal = document.getElementById('editAuditModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
     }
 
     hideEditAuditModal() {
-        document.getElementById('editAuditModal')?.classList.add('hidden');
-        document.getElementById('editAuditForm')?.reset();
+        const modal = document.getElementById('editAuditModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        const form = document.getElementById('editAuditForm');
+        if (form) {
+            form.reset();
+        }
     }
 
     async updateAudit() {
@@ -515,9 +569,13 @@ class PropertyAuditManager {
         const scopeOptions = document.getElementById('scopeOptions');
 
         if (checkbox.value === 'custom' && checkbox.checked) {
-            scopeOptions?.classList.remove('hidden');
+            if (scopeOptions) {
+                scopeOptions.classList.remove('hidden');
+            }
         } else if (checkbox.value === 'custom' && !checkbox.checked) {
-            scopeOptions?.classList.add('hidden');
+            if (scopeOptions) {
+                scopeOptions.classList.add('hidden');
+            }
         }
     }
 
@@ -558,14 +616,26 @@ class PropertyAuditManager {
 
     // QR Scanner Functions
     showQRScannerModal() {
-        document.getElementById('qrScannerModal')?.classList.remove('hidden');
+        const modal = document.getElementById('qrScannerModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
     }
 
     hideQRScannerModal() {
         this.stopQRScanner();
-        document.getElementById('qrScannerModal')?.classList.add('hidden');
-        document.getElementById('manualAssetCode').value = '';
-        document.getElementById('assetInfoDisplay')?.classList.add('hidden');
+        const modal = document.getElementById('qrScannerModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        const manualInput = document.getElementById('manualAssetCode');
+        if (manualInput) {
+            manualInput.value = '';
+        }
+        const assetInfoDisplay = document.getElementById('assetInfoDisplay');
+        if (assetInfoDisplay) {
+            assetInfoDisplay.classList.add('hidden');
+        }
     }
 
     async startQRScanner() {
@@ -805,12 +875,21 @@ class PropertyAuditManager {
     // Mark Asset Found Functions
     showMarkFoundModal() {
         this.loadActiveAudits(); // Refresh active audits
-        document.getElementById('markFoundModal')?.classList.remove('hidden');
+        const modal = document.getElementById('markFoundModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
     }
 
     hideMarkFoundModal() {
-        document.getElementById('markFoundModal')?.classList.add('hidden');
-        document.getElementById('markFoundForm')?.reset();
+        const modal = document.getElementById('markFoundModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        const form = document.getElementById('markFoundForm');
+        if (form) {
+            form.reset();
+        }
     }
 
     async submitMarkFound() {
@@ -862,12 +941,21 @@ class PropertyAuditManager {
     // Report Discrepancy Functions
     showDiscrepancyModal() {
         this.loadActiveAudits(); // Refresh active audits
-        document.getElementById('discrepancyModal')?.classList.remove('hidden');
+        const modal = document.getElementById('discrepancyModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
     }
 
     hideDiscrepancyModal() {
-        document.getElementById('discrepancyModal')?.classList.add('hidden');
-        document.getElementById('discrepancyForm')?.reset();
+        const modal = document.getElementById('discrepancyModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        const form = document.getElementById('discrepancyForm');
+        if (form) {
+            form.reset();
+        }
     }
 
     async submitDiscrepancy() {
