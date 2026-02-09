@@ -301,6 +301,15 @@ ob_start();
                     </div>
                 </div>
 
+                <!-- File Upload Section -->
+                <div class="border-t pt-4">
+                    <h4 class="text-md font-medium text-gray-700 mb-3">Or upload QR image:</h4>
+                    <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                        <input type="file" id="qrImageInput" accept="image/*" class="w-full sm:w-auto text-sm text-gray-700">
+                        <p class="text-xs text-gray-500">Upload a photo or screenshot of the QR code</p>
+                    </div>
+                </div>
+
                 <!-- Manual Input Section -->
                 <div class="border-t pt-4">
                     <h4 class="text-md font-medium text-gray-700 mb-3">Or enter item code manually:</h4>

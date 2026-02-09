@@ -46,6 +46,13 @@ class PropertyAuditManager {
         });
 
         // QR Scanner events
+        document.getElementById('qrImageInput')?.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                this.handleQRImageUpload(file);
+            }
+        });
+
         document.getElementById('startScanBtn')?.addEventListener('click', () => {
             this.startQRScanner();
         });
@@ -636,6 +643,47 @@ class PropertyAuditManager {
         this.showNotification(`QR code scanned: ${assetCode}`, 'success');
         this.processAssetCode();
         this.stopQRScanner();
+    }
+
+    handleQRImageUpload(file) {
+        if (!window.jsQR) {
+            this.showNotification('QR library not loaded. Please check your internet or refresh the page.', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.getElementById('qrCanvas');
+                const context = canvas.getContext('2d');
+
+                canvas.width = img.width;
+                canvas.height = img.height;
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                try {
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+                    if (code && code.data) {
+                        this.handleScannedData(code.data);
+                    } else {
+                        this.showNotification('No QR code detected in the uploaded image', 'warning');
+                    }
+                } catch (error) {
+                    console.error('QR image scanning error:', error);
+                    this.showNotification('Error scanning uploaded image', 'error');
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        const input = document.getElementById('qrImageInput');
+        if (input) {
+            input.value = '';
+        }
     }
 
     async processAssetCode() {
