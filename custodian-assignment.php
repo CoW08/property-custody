@@ -108,7 +108,7 @@ ob_start();
                                 </th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Requester</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Department</th>
-                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Item</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Purpose</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
