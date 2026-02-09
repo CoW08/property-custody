@@ -488,44 +488,51 @@ ob_start();
 <script src="js/api.js"></script>
 <script src="js/property_audit.js"></script>
 <script>
-const auditFormSection = document.getElementById('createAuditSection');
-const toggleAuditFormBtn = document.getElementById('toggleAuditFormBtn');
-const closeAuditFormBtn = document.getElementById('closeAuditFormBtn');
-const createAuditForm = document.getElementById('createAuditForm');
-const auditFirstInput = document.querySelector('#createAuditForm select[name="audit_type"]');
+// Create Audit toggle logic (compatible JavaScript)
+var auditFormSection = document.getElementById('createAuditSection');
+var toggleAuditFormBtn = document.getElementById('toggleAuditFormBtn');
+var closeAuditFormBtn = document.getElementById('closeAuditFormBtn');
+var createAuditFormEl = document.getElementById('createAuditForm');
+var auditFirstInput = document.querySelector('#createAuditForm select[name=\"audit_type\"]');
 
-const startButtonClasses = ['bg-green-600', 'hover:bg-green-700', 'text-white'];
-const closeButtonClasses = ['bg-gray-200', 'hover:bg-gray-300', 'text-gray-800'];
+var startButtonClasses = ['bg-green-600', 'hover:bg-green-700', 'text-white'];
+var closeButtonClasses = ['bg-gray-200', 'hover:bg-gray-300', 'text-gray-800'];
 
 function setToggleButton(isOpen) {
     if (!toggleAuditFormBtn) return;
-    toggleAuditFormBtn.classList.remove(...(isOpen ? startButtonClasses : closeButtonClasses));
-    toggleAuditFormBtn.classList.add(...(isOpen ? closeButtonClasses : startButtonClasses));
+    toggleAuditFormBtn.classList.remove.apply(toggleAuditFormBtn, (isOpen ? startButtonClasses : closeButtonClasses));
+    toggleAuditFormBtn.classList.add.apply(toggleAuditFormBtn, (isOpen ? closeButtonClasses : startButtonClasses));
     toggleAuditFormBtn.innerHTML = isOpen
-        ? '<i class="fas fa-times"></i><span>Close Audit Form</span>'
-        : '<i class="fas fa-plus"></i><span>Start New Audit</span>';
+        ? '<i class=\"fas fa-times\"></i><span>Close Audit Form</span>'
+        : '<i class=\"fas fa-plus\"></i><span>Start New Audit</span>';
 }
 
 function showCreateAuditForm() {
     if (!auditFormSection) return;
     auditFormSection.classList.remove('hidden');
     setToggleButton(true);
-    requestAnimationFrame(() => {
-        auditFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(() => {
-            if (auditFirstInput) {
-                auditFirstInput.focus();
-            }
-            auditFormSection.classList.add('ring-2', 'ring-blue-500');
-            setTimeout(() => auditFormSection.classList.remove('ring-2', 'ring-blue-500'), 1200);
-        }, 350);
-    });
+    if (window.requestAnimationFrame) {
+        requestAnimationFrame(function () {
+            auditFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(function () {
+                if (auditFirstInput && auditFirstInput.focus) {
+                    auditFirstInput.focus();
+                }
+                auditFormSection.classList.add('ring-2', 'ring-blue-500');
+                setTimeout(function () {
+                    auditFormSection.classList.remove('ring-2', 'ring-blue-500');
+                }, 1200);
+            }, 350);
+        });
+    }
 }
 
 function hideCreateAuditForm() {
     if (!auditFormSection) return;
     auditFormSection.classList.add('hidden');
-    createAuditForm?.reset();
+    if (createAuditFormEl && createAuditFormEl.reset) {
+        createAuditFormEl.reset();
+    }
     setToggleButton(false);
 }
 
@@ -538,17 +545,31 @@ function toggleCreateAuditForm() {
     }
 }
 
-toggleAuditFormBtn?.addEventListener('click', toggleCreateAuditForm);
-closeAuditFormBtn?.addEventListener('click', hideCreateAuditForm);
+if (toggleAuditFormBtn) {
+    toggleAuditFormBtn.addEventListener('click', toggleCreateAuditForm);
+}
+if (closeAuditFormBtn) {
+    closeAuditFormBtn.addEventListener('click', hideCreateAuditForm);
+}
 
-const qrImageInputEl = document.getElementById('qrImageInput');
-const qrImageFileNameEl = document.getElementById('qrImageFileName');
-const qrImagePreviewEl = document.getElementById('qrImagePreview');
-const qrImagePreviewImgEl = document.getElementById('qrImagePreviewImg');
+// QR image file name + preview + basic scan fallback
+var qrImageInputEl = document.getElementById('qrImageInput');
+var qrImageFileNameEl = document.getElementById('qrImageFileName');
+var qrImagePreviewEl = document.getElementById('qrImagePreview');
+var qrImagePreviewImgEl = document.getElementById('qrImagePreviewImg');
+var scanImageBtnEl = document.getElementById('scanImageBtn');
+var findItemBtnEl = document.getElementById('findItemBtn');
+var manualAssetCodeEl = document.getElementById('manualAssetCode');
+
+function showBasicAlert(message) {
+    if (window.alert) {
+        alert(message);
+    }
+}
 
 if (qrImageInputEl) {
     qrImageInputEl.addEventListener('change', function (e) {
-        const file = e.target.files && e.target.files[0];
+        var file = e.target.files && e.target.files[0];
 
         if (!file) {
             if (qrImageFileNameEl) {
@@ -565,10 +586,82 @@ if (qrImageInputEl) {
             qrImageFileNameEl.textContent = file.name;
         }
         if (qrImagePreviewEl && qrImagePreviewImgEl) {
-            const objectUrl = URL.createObjectURL(file);
-            qrImagePreviewImgEl.src = objectUrl;
+            var objectUrl = window.URL && window.URL.createObjectURL
+                ? URL.createObjectURL(file)
+                : null;
+            if (objectUrl) {
+                qrImagePreviewImgEl.src = objectUrl;
+            }
             qrImagePreviewEl.classList.remove('hidden');
         }
+    });
+}
+
+if (scanImageBtnEl && qrImageInputEl) {
+    scanImageBtnEl.addEventListener('click', function () {
+        var file = qrImageInputEl.files && qrImageInputEl.files[0];
+        if (!file) {
+            showBasicAlert('Please choose an image file first.');
+            return;
+        }
+        if (!window.jsQR) {
+            showBasicAlert('QR library not loaded. Please try again in a moment.');
+            return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function (event) {
+            var img = new Image();
+            img.onload = function () {
+                var canvas = document.getElementById('qrCanvas');
+                if (!canvas) {
+                    canvas = document.createElement('canvas');
+                    canvas.id = 'qrCanvas';
+                    canvas.style.display = 'none';
+                    document.body.appendChild(canvas);
+                }
+                var context = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                try {
+                    var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    var code = window.jsQR(imageData.data, canvas.width, canvas.height);
+                    if (code && code.data) {
+                        if (manualAssetCodeEl) {
+                            manualAssetCodeEl.value = code.data;
+                        }
+                        showBasicAlert('QR code scanned: ' + code.data);
+                        if (window.propertyAuditManager &&
+                            typeof window.propertyAuditManager.processAssetCode === 'function') {
+                            window.propertyAuditManager.processAssetCode();
+                        }
+                    } else {
+                        showBasicAlert('No QR code detected in the uploaded image.');
+                    }
+                } catch (err) {
+                    showBasicAlert('Error scanning uploaded image.');
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+if (findItemBtnEl) {
+    findItemBtnEl.addEventListener('click', function () {
+        if (window.propertyAuditManager &&
+            typeof window.propertyAuditManager.processAssetCode === 'function') {
+            window.propertyAuditManager.processAssetCode();
+            return;
+        }
+        if (!manualAssetCodeEl || !manualAssetCodeEl.value) {
+            showBasicAlert('Please enter an item code first.');
+            return;
+        }
+        showBasicAlert('Find Item clicked with code: ' + manualAssetCodeEl.value);
     });
 }
 
