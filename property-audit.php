@@ -629,13 +629,26 @@ if (scanImageBtnEl && qrImageInputEl) {
                     var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                     var code = window.jsQR(imageData.data, canvas.width, canvas.height);
                     if (code && code.data) {
-                        if (manualAssetCodeEl) {
-                            manualAssetCodeEl.value = code.data;
-                        }
-                        showBasicAlert('QR code scanned: ' + code.data);
                         if (window.propertyAuditManager &&
-                            typeof window.propertyAuditManager.processAssetCode === 'function') {
-                            window.propertyAuditManager.processAssetCode();
+                            typeof window.propertyAuditManager.handleScannedData === 'function') {
+                            window.propertyAuditManager.handleScannedData(code.data);
+                        } else {
+                            var assetCode = code.data;
+                            try {
+                                var parsed = JSON.parse(code.data);
+                                if (parsed.asset_code) {
+                                    assetCode = parsed.asset_code;
+                                } else if (parsed.assetCode) {
+                                    assetCode = parsed.assetCode;
+                                }
+                            } catch (parseErr) {
+                                // keep original code.data as fallback
+                            }
+
+                            if (manualAssetCodeEl) {
+                                manualAssetCodeEl.value = assetCode;
+                            }
+                            showBasicAlert('QR code scanned: ' + assetCode);
                         }
                     } else {
                         showBasicAlert('No QR code detected in the uploaded image.');
