@@ -318,6 +318,11 @@ function updateAuditStatus($db, $data) {
 
 function addAuditFinding($db, $data) {
     try {
+        $allowedFindingTypes = array('missing','damaged','location_mismatch','data_error','unauthorized_use');
+        if (!isset($data['finding_type']) || !in_array($data['finding_type'], $allowedFindingTypes, true)) {
+            $data['finding_type'] = 'data_error';
+        }
+
         $checkStmt = $db->query("DESCRIBE audit_findings");
         $columns = array();
         $columnInfo = array();
@@ -417,11 +422,16 @@ function addAuditFinding($db, $data) {
 
 function updateAuditFinding($db, $data) {
     try {
+        $allowedFindingTypes = array('missing','damaged','location_mismatch','data_error','unauthorized_use');
+
         $query = "UPDATE audit_findings SET ";
         $params = array();
         $updates = array();
 
         if(isset($data['finding_type'])) {
+            if (!in_array($data['finding_type'], $allowedFindingTypes, true)) {
+                $data['finding_type'] = 'data_error';
+            }
             $updates[] = "finding_type = ?";
             $params[] = $data['finding_type'];
         }
