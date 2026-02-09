@@ -76,7 +76,6 @@ async function viewAssetDetails(assetId) {
     }
 }
 
-// Supply Detail View
 async function viewSupplyDetails(supplyId) {
     try {
         const response = await fetch(`api/supplies.php?id=${supplyId}`);
@@ -85,6 +84,14 @@ async function viewSupplyDetails(supplyId) {
         if (!supply || supply.error) {
             throw new Error('Supply not found');
         }
+
+        const allSupplies = []
+            .concat(typeof liveSupplies !== 'undefined' && Array.isArray(liveSupplies) ? liveSupplies : [])
+            .concat(typeof historicalSupplies !== 'undefined' && Array.isArray(historicalSupplies) ? historicalSupplies : []);
+
+        const localSupply = allSupplies.find(function (s) {
+            return String(s.id) === String(supplyId);
+        }) || null;
         
         // Determine stock status
         let stockStatus = 'Normal';
@@ -97,9 +104,35 @@ async function viewSupplyDetails(supplyId) {
             stockType = 'warning';
         }
 
-        const storageLocation = supply.location || supply.storage_location || 'Not set';
-        const supplier = supply.supplier_name || supply.supplier || 'Not set';
-        const expiryLabel = supply.expiry_date ? formatDate(supply.expiry_date) : 'Not set';
+        var resolvedLocation = supply.location || supply.storage_location || null;
+        if (!resolvedLocation && localSupply) {
+            resolvedLocation = localSupply.location || localSupply.storage_location || null;
+        }
+
+        function inferStorageLocation(categoryValue) {
+            if (!categoryValue) return null;
+            var c = String(categoryValue).toLowerCase();
+            if (c.indexOf('clinic') !== -1) return 'Clinic Storage';
+            if (c.indexOf('library') !== -1) return 'Library Storage';
+            if (c.indexOf('event') !== -1) return 'Event Storage';
+            if (c.indexOf('osas') !== -1) return 'OSAS Storage';
+            return null;
+        }
+
+        if (!resolvedLocation) {
+            resolvedLocation = inferStorageLocation(supply.category) ||
+                (localSupply ? inferStorageLocation(localSupply.category) : null);
+        }
+
+        const storageLocation = resolvedLocation || 'Storage location not recorded';
+
+        const supplier = supply.supplier_name ||
+            supply.supplier ||
+            (localSupply ? (localSupply.supplier_name || localSupply.supplier) : null) ||
+            'Supplier not recorded';
+
+        const expirySource = supply.expiry_date || (localSupply ? localSupply.expiry_date : null);
+        const expiryLabel = expirySource ? formatDate(expirySource) : 'No expiry date recorded';
         
         const content = `
             ${createDetailSection('Basic Information', [
