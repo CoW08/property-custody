@@ -539,7 +539,37 @@ function toggleCreateAuditForm() {
 toggleAuditFormBtn?.addEventListener('click', toggleCreateAuditForm);
 closeAuditFormBtn?.addEventListener('click', hideCreateAuditForm);
 
-// Expose for legacy calls if needed
+const qrImageInputEl = document.getElementById('qrImageInput');
+const qrImageFileNameEl = document.getElementById('qrImageFileName');
+const qrImagePreviewEl = document.getElementById('qrImagePreview');
+const qrImagePreviewImgEl = document.getElementById('qrImagePreviewImg');
+
+if (qrImageInputEl) {
+    qrImageInputEl.addEventListener('change', function (e) {
+        const file = e.target.files && e.target.files[0];
+
+        if (!file) {
+            if (qrImageFileNameEl) {
+                qrImageFileNameEl.textContent = 'No file selected';
+            }
+            if (qrImagePreviewEl && qrImagePreviewImgEl) {
+                qrImagePreviewImgEl.removeAttribute('src');
+                qrImagePreviewEl.classList.add('hidden');
+            }
+            return;
+        }
+
+        if (qrImageFileNameEl) {
+            qrImageFileNameEl.textContent = file.name;
+        }
+        if (qrImagePreviewEl && qrImagePreviewImgEl) {
+            const objectUrl = URL.createObjectURL(file);
+            qrImagePreviewImgEl.src = objectUrl;
+            qrImagePreviewEl.classList.remove('hidden');
+        }
+    });
+}
+
 window.toggleCreateAuditForm = toggleCreateAuditForm;
 </script>
 
