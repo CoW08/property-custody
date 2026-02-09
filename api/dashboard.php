@@ -119,7 +119,7 @@ function getStats($db) {
         );
 
         // Total assets
-        $query = "SELECT COUNT(*) as total FROM assets";
+        $query = "SELECT COUNT(*) as total FROM assets WHERE status != 'disposed'";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $stats['totalAssets'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
