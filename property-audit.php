@@ -316,6 +316,10 @@ ob_start();
                             </button>
                         </div>
                         <p class="mt-2 text-xs text-gray-500">Upload a clear photo or screenshot of the QR code (PNG, JPG).</p>
+                        <div id="qrImagePreview" class="mt-3 hidden">
+                            <p class="text-xs text-gray-500 mb-1">Selected image preview:</p>
+                            <img id="qrImagePreviewImg" class="max-h-32 rounded border border-gray-200" alt="QR image preview">
+                        </div>
                         <input type="file" id="qrImageInput" accept="image/*" class="hidden">
                     </div>
                 </div>

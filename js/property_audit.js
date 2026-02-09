@@ -50,15 +50,27 @@ class PropertyAuditManager {
         document.getElementById('qrImageInput')?.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
             const fileNameEl = document.getElementById('qrImageFileName');
+            const preview = document.getElementById('qrImagePreview');
+            const previewImg = document.getElementById('qrImagePreviewImg');
+
             if (file) {
                 this.qrImageFile = file;
                 if (fileNameEl) {
                     fileNameEl.textContent = file.name;
                 }
+                if (preview && previewImg) {
+                    const objectUrl = URL.createObjectURL(file);
+                    previewImg.src = objectUrl;
+                    preview.classList.remove('hidden');
+                }
             } else {
                 this.qrImageFile = null;
                 if (fileNameEl) {
                     fileNameEl.textContent = 'No file selected';
+                }
+                if (preview && previewImg) {
+                    previewImg.removeAttribute('src');
+                    preview.classList.add('hidden');
                 }
             }
         });
@@ -697,16 +709,6 @@ class PropertyAuditManager {
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
-
-        const input = document.getElementById('qrImageInput');
-        if (input) {
-            input.value = '';
-        }
-        this.qrImageFile = null;
-        const fileNameEl = document.getElementById('qrImageFileName');
-        if (fileNameEl) {
-            fileNameEl.textContent = 'No file selected';
-        }
     }
 
     async processAssetCode() {
