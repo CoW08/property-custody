@@ -318,20 +318,91 @@ function updateAuditStatus($db, $data) {
 
 function addAuditFinding($db, $data) {
     try {
-        $query = "INSERT INTO audit_findings (audit_id, asset_id, finding_type, description, severity, corrective_action, responsible_person, target_date, status)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')";
+        $checkStmt = $db->query("DESCRIBE audit_findings");
+        $columns = array();
+        $columnInfo = array();
+        while ($row = $checkStmt->fetch(PDO::FETCH_ASSOC)) {
+            $columns[] = $row['Field'];
+            $columnInfo[$row['Field']] = $row;
+        }
 
+        $insertFields = array();
+        $insertValues = array();
+        $placeholders = array();
+
+        if (in_array('id', $columns)) {
+            $idMeta = $columnInfo['id'] ?? null;
+            $hasAutoIncrement = $idMeta && !empty($idMeta['Extra']) && stripos($idMeta['Extra'], 'auto_increment') !== false;
+            $idAllowsNull = $idMeta && ($idMeta['Null'] ?? '') === 'YES';
+            $idHasDefault = $idMeta && array_key_exists('Default', $idMeta) && $idMeta['Default'] !== null;
+
+            if (!$hasAutoIncrement && !$idAllowsNull && !$idHasDefault) {
+                $nextIdStmt = $db->query("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM audit_findings");
+                $nextIdRow = $nextIdStmt ? $nextIdStmt->fetch(PDO::FETCH_ASSOC) : null;
+                $nextId = isset($nextIdRow['next_id']) ? (int) $nextIdRow['next_id'] : 1;
+                $insertFields[] = 'id';
+                $insertValues[] = $nextId;
+                $placeholders[] = '?';
+            }
+        }
+
+        if (in_array('audit_id', $columns)) {
+            $insertFields[] = 'audit_id';
+            $insertValues[] = $data['audit_id'];
+            $placeholders[] = '?';
+        }
+
+        if (in_array('asset_id', $columns)) {
+            $insertFields[] = 'asset_id';
+            $insertValues[] = $data['asset_id'] ?? null;
+            $placeholders[] = '?';
+        }
+
+        if (in_array('finding_type', $columns)) {
+            $insertFields[] = 'finding_type';
+            $insertValues[] = $data['finding_type'];
+            $placeholders[] = '?';
+        }
+
+        if (in_array('description', $columns)) {
+            $insertFields[] = 'description';
+            $insertValues[] = $data['description'];
+            $placeholders[] = '?';
+        }
+
+        if (in_array('severity', $columns)) {
+            $insertFields[] = 'severity';
+            $insertValues[] = $data['severity'] ?? 'medium';
+            $placeholders[] = '?';
+        }
+
+        if (in_array('corrective_action', $columns)) {
+            $insertFields[] = 'corrective_action';
+            $insertValues[] = $data['corrective_action'] ?? '';
+            $placeholders[] = '?';
+        }
+
+        if (in_array('responsible_person', $columns)) {
+            $insertFields[] = 'responsible_person';
+            $insertValues[] = $data['responsible_person'] ?? null;
+            $placeholders[] = '?';
+        }
+
+        if (in_array('target_date', $columns)) {
+            $insertFields[] = 'target_date';
+            $insertValues[] = $data['target_date'] ?? null;
+            $placeholders[] = '?';
+        }
+
+        if (in_array('status', $columns)) {
+            $insertFields[] = 'status';
+            $insertValues[] = $data['status'] ?? 'open';
+            $placeholders[] = '?';
+        }
+
+        $query = "INSERT INTO audit_findings (" . implode(', ', $insertFields) . ") VALUES (" . implode(', ', $placeholders) . ")";
         $stmt = $db->prepare($query);
-        $success = $stmt->execute([
-            $data['audit_id'],
-            $data['asset_id'] ?? null,
-            $data['finding_type'],
-            $data['description'],
-            $data['severity'] ?? 'medium',
-            $data['corrective_action'] ?? '',
-            $data['responsible_person'] ?? null,
-            $data['target_date'] ?? null
-        ]);
+        $success = $stmt->execute($insertValues);
 
         if($success) {
             echo json_encode(array("status" => "success", "message" => "Audit finding added successfully"));
