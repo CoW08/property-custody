@@ -823,7 +823,7 @@ function archiveAsset(PDO $db, int $id, array $payload = []): void
     try {
         $db->beginTransaction();
 
-        $stmt = $db->prepare("SELECT id, asset_code, name, archived_at FROM assets WHERE id = :id LIMIT 1");
+        $stmt = $db->prepare("SELECT * FROM assets WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $asset = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -831,13 +831,6 @@ function archiveAsset(PDO $db, int $id, array $payload = []): void
             $db->rollBack();
             http_response_code(404);
             echo json_encode(["message" => "Asset not found"]);
-            return;
-        }
-
-        if (!empty($asset['archived_at'])) {
-            $db->rollBack();
-            http_response_code(200);
-            echo json_encode(["message" => "Asset already archived"]);
             return;
         }
 
@@ -849,11 +842,6 @@ function archiveAsset(PDO $db, int $id, array $payload = []): void
             ':id' => $id,
         ];
 
-        // Update asset as archived
-        $updateSql = "UPDATE assets SET archived_at = :archived_at, archived_by = :archived_by, archive_reason = :archive_reason, archive_notes = :archive_notes WHERE id = :id";
-        $updateStmt = $db->prepare($updateSql);
-        $updateStmt->execute($archiveData);
-
         recordWasteEntry($db, 'asset', $id, [
             'name' => $asset['name'] ?? 'Asset #' . $id,
             'identifier' => $asset['asset_code'] ?? null,
@@ -863,6 +851,10 @@ function archiveAsset(PDO $db, int $id, array $payload = []): void
             'archive_notes' => $archiveData[':archive_notes'],
             'metadata' => $asset,
         ]);
+
+        $deleteSql = "DELETE FROM assets WHERE id = :id";
+        $deleteStmt = $db->prepare($deleteSql);
+        $deleteStmt->execute([':id' => $id]);
 
         $db->commit();
 

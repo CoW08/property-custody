@@ -295,7 +295,7 @@ function archiveSupply(PDO $db, int $id): void
     try {
         $db->beginTransaction();
 
-        $stmt = $db->prepare("SELECT id, item_code, name FROM supplies WHERE id = :id LIMIT 1");
+        $stmt = $db->prepare("SELECT * FROM supplies WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $supply = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -311,12 +311,7 @@ function archiveSupply(PDO $db, int $id): void
             ':archived_by' => $_SESSION['user_id'] ?? null,
             ':archive_reason' => null,
             ':archive_notes' => null,
-            ':id' => $id,
         ];
-
-        $updateSql = "UPDATE supplies SET archived_at = :archived_at, archived_by = :archived_by, archive_reason = :archive_reason, archive_notes = :archive_notes WHERE id = :id";
-        $updateStmt = $db->prepare($updateSql);
-        $updateStmt->execute($archiveData);
 
         recordWasteEntry($db, 'supply', $id, [
             'name' => $supply['name'] ?? 'Supply #' . $id,
@@ -325,6 +320,10 @@ function archiveSupply(PDO $db, int $id): void
             'archived_by' => $archiveData[':archived_by'],
             'metadata' => $supply,
         ]);
+
+        $deleteSql = "DELETE FROM supplies WHERE id = :id";
+        $deleteStmt = $db->prepare($deleteSql);
+        $deleteStmt->execute([':id' => $id]);
 
         logActivity($db, $_SESSION['user_id'], 'archive', 'supplies', $id);
 
