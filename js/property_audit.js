@@ -568,21 +568,60 @@ class PropertyAuditManager {
         const canvas = document.getElementById('qrCanvas');
         const context = canvas.getContext('2d');
 
+        if (!video.videoWidth || !video.videoHeight) {
+            requestAnimationFrame(() => this.scanForQRCode(video));
+            return;
+        }
+
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         try {
-            // Simple QR detection simulation - in real implementation, use a QR library like jsQR
-            // For now, we'll simulate QR detection and use manual input
-            setTimeout(() => {
-                if (this.scanningActive) {
-                    this.scanForQRCode(video);
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+            if (window.jsQR) {
+                const code = jsQR(imageData.data, canvas.width, canvas.height);
+                if (code && code.data) {
+                    this.handleScannedData(code.data);
+                    return;
                 }
-            }, 100);
+            }
+
+            if (this.scanningActive) {
+                requestAnimationFrame(() => this.scanForQRCode(video));
+            }
         } catch (error) {
             console.error('QR scanning error:', error);
+            if (this.scanningActive) {
+                setTimeout(() => this.scanForQRCode(video), 200);
+            }
         }
+    }
+
+    handleScannedData(data) {
+        let assetCode = null;
+
+        try {
+            const parsed = JSON.parse(data);
+            assetCode = parsed.asset_code || parsed.assetCode || null;
+        } catch (e) {
+            assetCode = data;
+        }
+
+        if (!assetCode) {
+            this.showNotification('QR code scanned but no asset code found', 'warning');
+            return;
+        }
+
+        const input = document.getElementById('manualAssetCode');
+        if (input) {
+            input.value = assetCode;
+        }
+
+        this.showNotification(`QR code scanned: ${assetCode}`, 'success');
+        this.processAssetCode();
+        this.stopQRScanner();
     }
 
     async processAssetCode() {
@@ -598,8 +637,12 @@ class PropertyAuditManager {
             const response = await fetch(`api/assets.php?search=${encodeURIComponent(assetCode)}`);
             const result = await response.json();
 
-            if (result.status === 'success' && result.data.length > 0) {
-                const asset = result.data[0];
+            let asset = null;
+            if (Array.isArray(result.assets) && result.assets.length > 0) {
+                asset = result.assets[0];
+            }
+
+            if (asset) {
                 this.displayAssetInfo(asset);
             } else {
                 this.showNotification('Asset not found in system', 'warning');
