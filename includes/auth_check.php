@@ -3,9 +3,9 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Enforce session timeout (30 minutes idle)
+// Enforce session timeout (2 minutes idle)
 if (!defined('SESSION_TIMEOUT')) {
-    define('SESSION_TIMEOUT', 30 * 60);
+    define('SESSION_TIMEOUT', 2 * 60);
 }
 
 if (isset($_SESSION['LAST_ACTIVITY'])) {
