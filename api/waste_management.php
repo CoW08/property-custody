@@ -20,7 +20,8 @@ try {
     if (!$db) {
         throw new Exception('Database connection failed');
     }
-} catch (Exception $exception) {
+}
+catch (Exception $exception) {
     http_response_code(500);
     echo json_encode([
         'message' => 'Database connection error',
@@ -47,9 +48,11 @@ switch ($method) {
         $action = $_GET['action'] ?? ($_POST['action'] ?? '');
         if ($action === 'restore') {
             restoreWasteRecord($db, $payload);
-        } elseif ($action === 'dispose') {
+        }
+        elseif ($action === 'dispose') {
             disposeWasteRecord($db, $payload);
-        } else {
+        }
+        else {
             http_response_code(400);
             echo json_encode(['message' => 'Unknown action']);
         }
@@ -89,7 +92,15 @@ function listWasteRecords(PDO $db): void
         $whereClause = 'WHERE ' . implode(' AND ', $conditions);
     }
 
-    $query = "SELECT * FROM waste_management_records {$whereClause} ORDER BY archived_at DESC";
+    $query = "SELECT 
+        wmr.*,
+        u1.name AS archived_by_name,
+        u2.name AS disposed_by_name
+    FROM waste_management_records wmr
+    LEFT JOIN users u1 ON wmr.archived_by = u1.id
+    LEFT JOIN users u2 ON wmr.disposed_by = u2.id
+    {$whereClause} 
+    ORDER BY wmr.archived_at DESC";
 
     $stmt = $db->prepare($query);
     $stmt->execute($params);
@@ -133,7 +144,8 @@ function restoreWasteRecord(PDO $db, array $payload): void
 
         if ($entityType === 'asset') {
             clearArchiveState($db, 'assets', $entityId);
-        } elseif ($entityType === 'supply') {
+        }
+        elseif ($entityType === 'supply') {
             clearArchiveState($db, 'supplies', $entityId);
         }
 
@@ -147,7 +159,8 @@ function restoreWasteRecord(PDO $db, array $payload): void
 
         http_response_code(200);
         echo json_encode(['message' => 'Record restored successfully']);
-    } catch (Throwable $throwable) {
+    }
+    catch (Throwable $throwable) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
@@ -182,7 +195,8 @@ function disposeWasteRecord(PDO $db, array $payload): void
 
         http_response_code(200);
         echo json_encode(['message' => 'Record marked as disposed']);
-    } catch (Throwable $throwable) {
+    }
+    catch (Throwable $throwable) {
         http_response_code(500);
         echo json_encode([
             'message' => 'Failed to update record',

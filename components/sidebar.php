@@ -21,7 +21,7 @@
     </ul>
 
     <div class="mt-6">
-        <?php $inventoryActive = in_array(basename($_SERVER['PHP_SELF']), ['asset-registry.php','supplies-inventory.php','waste-management.php','damaged-items.php']); ?>
+        <?php $inventoryActive = in_array(basename($_SERVER['PHP_SELF']), ['asset-registry.php','supplies-inventory.php','library-resources.php','waste-management.php','damaged-items.php']); ?>
         <button type="button" class="dropdown-toggle w-full flex items-center justify-between px-6 py-2 text-xs font-semibold uppercase tracking-wide <?php echo $inventoryActive ? 'text-blue-600' : 'text-gray-500'; ?> hover:text-blue-600 transition" data-target="inventoryMenu" data-default-open="true" data-opened="<?php echo $inventoryActive ? 'true' : 'false'; ?>">
             <span>Inventory Lifecycle</span>
             <i class="fas fa-chevron-right text-xs chevron transition-transform duration-200"></i>
@@ -36,6 +36,12 @@
             <?php if (checkMenuAccess('supplies_inventory')): ?>
             <li><a href="supplies-inventory.php" class="menu-item flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 <?php echo (basename($_SERVER['PHP_SELF']) == 'supplies-inventory.php') ? 'border-r-4 border-blue-600 bg-blue-50 text-blue-600' : ''; ?>">
                 <i class="fas fa-boxes mr-3"></i> Supplies Inventory
+            </a></li>
+            <?php endif; ?>
+
+            <?php if (checkMenuAccess('library_resources')): ?>
+            <li><a href="library-resources.php" class="menu-item flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 <?php echo (basename($_SERVER['PHP_SELF']) == 'library-resources.php') ? 'border-r-4 border-blue-600 bg-blue-50 text-blue-600' : ''; ?>">
+                <i class="fas fa-book mr-3"></i> Books & eBooks
             </a></li>
             <?php endif; ?>
 

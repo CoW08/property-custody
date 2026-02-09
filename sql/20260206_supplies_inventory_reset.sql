@@ -26,7 +26,7 @@ SET
 WHERE archived_at IS NULL;
 
 -- Insert new historical items
--- Library (2 items -> Library Storage)
+-- Library (4 items -> Library Storage)
 INSERT INTO supplies (
   id, item_code, name, description, category, unit,
   current_stock, minimum_stock, unit_cost, total_value,
@@ -39,9 +39,17 @@ INSERT INTO supplies (
 (2, 'LIB-PROJ', 'Library Mini Projectors',
  'Portable projectors assigned to the library.', 'library', 'units',
  2, 1, 8700.00, 17400.00,
+ 'Library Storage', 'active', NOW(), NOW()),
+(11, 'LIB-TABLE', 'Library Study Tables',
+ 'Study tables for library reading areas.', 'library', 'pcs',
+ 6, 2, 3500.00, 21000.00,
+ 'Library Storage', 'active', NOW(), NOW()),
+(12, 'LIB-CHAIR', 'Library Study Chairs',
+ 'Chairs paired with library study tables.', 'library', 'pcs',
+ 24, 6, 1200.00, 28800.00,
  'Library Storage', 'active', NOW(), NOW());
 
--- Clinic (2 items -> Clinic Storage)
+-- Clinic (4 items -> Clinic Storage)
 INSERT INTO supplies (
   id, item_code, name, description, category, unit,
   current_stock, minimum_stock, unit_cost, total_value,
@@ -54,6 +62,14 @@ INSERT INTO supplies (
 (4, 'CLN-MON', 'Clinic Vital Monitors',
  'Portable monitors dedicated to clinic staff.', 'clinic', 'units',
  2, 1, 15500.00, 31000.00,
+ 'Clinic Storage', 'active', NOW(), NOW()),
+(9, 'CLN-GAUZE', 'Gauze Pads',
+ 'Sterile gauze pads for wound dressing.', 'clinic', 'boxes',
+ 50, 10, 120.00, 6000.00,
+ 'Clinic Storage', 'active', NOW(), NOW()),
+(10, 'CLN-TAPE', 'Medical Tape',
+ 'Adhesive medical tape for securing dressings.', 'clinic', 'rolls',
+ 40, 10, 80.00, 3200.00,
  'Clinic Storage', 'active', NOW(), NOW());
 
 -- OSAS (2 items -> OSAS Storage)

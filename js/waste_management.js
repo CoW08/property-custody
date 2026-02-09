@@ -264,12 +264,8 @@ const WasteManagement = (() => {
                         <p class="mt-1 text-sm text-slate-700">${escapeHtml(formatEntityType(record.entity_type))}</p>
                     </div>
                     <div>
-                        <p class="text-xs uppercase tracking-wide text-slate-500">Archived</p>
-                        <p class="mt-1 text-sm text-slate-700">${record.archived_at ? new Date(record.archived_at).toLocaleString() : '—'}</p>
-                    </div>
-                    <div>
                         <p class="text-xs uppercase tracking-wide text-slate-500">Archived by</p>
-                        <p class="mt-1 text-sm text-slate-700">${escapeHtml(record.archived_by_name || '—')}</p>
+                        <p class="mt-1 text-sm text-slate-700">${escapeHtml(record.status === 'disposed' ? (record.disposed_by_name || '—') : (record.archived_by_name || '—'))}</p>
                     </div>
                     <div>
                         <p class="text-xs uppercase tracking-wide text-slate-500">Current state</p>
@@ -310,14 +306,10 @@ const WasteManagement = (() => {
         return `
             <section class="mt-4">
                 <h3 class="text-sm font-semibold text-slate-700">Disposal details</h3>
-                <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="mt-2">
                     <div>
                         <p class="text-xs text-slate-500 uppercase tracking-wide">Disposed at</p>
                         <p class="text-sm text-slate-600">${record.disposed_at ? new Date(record.disposed_at).toLocaleString() : '—'}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-slate-500 uppercase tracking-wide">Disposed by</p>
-                        <p class="text-sm text-slate-600">${escapeHtml(record.disposed_by_name || '—')}</p>
                     </div>
                 </div>
                 <div class="mt-2 space-y-2">

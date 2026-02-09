@@ -100,6 +100,7 @@ define('ROLE_DISPLAY_NAMES', [
 define('MENU_PERMISSIONS', [
     'dashboard' => ['view_dashboard'],
     'asset_registry' => ['manage_assets', 'view_items'],
+    'library_resources' => ['manage_assets', 'view_items'],
     'property_issuance' => ['issue_supplies', 'submit_supply_request'],
     'supplies_inventory' => ['manage_supplies', 'manage_inventory', 'view_supplies'],
     'custodian_assignment' => ['custodian_assignment'],
