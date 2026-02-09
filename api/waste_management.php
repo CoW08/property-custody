@@ -181,22 +181,52 @@ function disposeWasteRecord(PDO $db, array $payload): void
         return;
     }
 
+    $stmt = $db->prepare('SELECT entity_type, entity_id FROM waste_management_records WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$record) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Waste record not found']);
+        return;
+    }
+
     $method = $payload['disposal_method'] ?? null;
     $notes = $payload['disposal_notes'] ?? null;
 
     try {
-        $stmt = $db->prepare('UPDATE waste_management_records SET status = "disposed", disposed_at = NOW(), disposed_by = :user_id, disposal_method = :method, disposal_notes = :notes WHERE id = :id');
-        $stmt->execute([
+        $db->beginTransaction();
+
+        $update = $db->prepare('UPDATE waste_management_records SET status = "disposed", disposed_at = NOW(), disposed_by = :user_id, disposal_method = :method, disposal_notes = :notes WHERE id = :id');
+        $update->execute([
             ':user_id' => $_SESSION['user_id'] ?? null,
             ':method' => $method,
             ':notes' => $notes,
             ':id' => $id,
         ]);
 
+        $entityType = $record['entity_type'] ?? null;
+        $entityId = isset($record['entity_id']) ? (int)$record['entity_id'] : 0;
+
+        if ($entityType && $entityId > 0) {
+            if ($entityType === 'asset') {
+                $assetStmt = $db->prepare('UPDATE assets SET status = "disposed" WHERE id = :entity_id');
+                $assetStmt->execute([':entity_id' => $entityId]);
+            } elseif ($entityType === 'supply') {
+                $supplyStmt = $db->prepare('UPDATE supplies SET status = "discontinued" WHERE id = :entity_id');
+                $supplyStmt->execute([':entity_id' => $entityId]);
+            }
+        }
+
+        $db->commit();
+
         http_response_code(200);
         echo json_encode(['message' => 'Record marked as disposed']);
     }
     catch (Throwable $throwable) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         http_response_code(500);
         echo json_encode([
             'message' => 'Failed to update record',
