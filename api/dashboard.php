@@ -150,18 +150,24 @@ function getStats($db) {
                             SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) AS assigned,
                             SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance,
                             SUM(CASE WHEN status IN ('damaged', 'lost') OR condition_status = 'damaged' THEN 1 ELSE 0 END) AS damaged_lost,
-                            SUM(CASE WHEN status = 'disposed' THEN 1 ELSE 0 END) AS disposed
+                            0 AS disposed
                         FROM assets";
         $statusStmt = $db->prepare($statusQuery);
         $statusStmt->execute();
         $statusRow = $statusStmt->fetch(PDO::FETCH_ASSOC) ?: array();
+
+        $disposedQuery = "SELECT COUNT(*) as total FROM waste_management_records WHERE status = 'disposed'";
+        $disposedStmt = $db->prepare($disposedQuery);
+        $disposedStmt->execute();
+        $disposedRow = $disposedStmt->fetch(PDO::FETCH_ASSOC) ?: array();
+        $disposedCount = (int)($disposedRow['total'] ?? 0);
 
         $stats['statusBreakdown'] = array(
             'available' => (int)($statusRow['available'] ?? 0),
             'assigned' => (int)($statusRow['assigned'] ?? 0),
             'maintenance' => (int)($statusRow['maintenance'] ?? 0),
             'damaged_lost' => (int)($statusRow['damaged_lost'] ?? 0),
-            'disposed' => (int)($statusRow['disposed'] ?? 0)
+            'disposed' => $disposedCount
         );
 
         http_response_code(200);
