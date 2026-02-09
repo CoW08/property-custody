@@ -834,6 +834,13 @@ function archiveAsset(PDO $db, int $id, array $payload = []): void
             return;
         }
 
+        if (!empty($asset['archived_at'])) {
+            $db->rollBack();
+            http_response_code(200);
+            echo json_encode(["message" => "Asset already archived"]);
+            return;
+        }
+
         $archiveData = [
             ':archived_at' => date('Y-m-d H:i:s'),
             ':archived_by' => $_SESSION['user_id'] ?? null,
@@ -841,6 +848,10 @@ function archiveAsset(PDO $db, int $id, array $payload = []): void
             ':archive_notes' => $payload['archive_notes'] ?? null,
             ':id' => $id,
         ];
+
+        $updateSql = "UPDATE assets SET archived_at = :archived_at, archived_by = :archived_by, archive_reason = :archive_reason, archive_notes = :archive_notes WHERE id = :id";
+        $updateStmt = $db->prepare($updateSql);
+        $updateStmt->execute($archiveData);
 
         recordWasteEntry($db, 'asset', $id, [
             'name' => $asset['name'] ?? 'Asset #' . $id,
@@ -851,10 +862,6 @@ function archiveAsset(PDO $db, int $id, array $payload = []): void
             'archive_notes' => $archiveData[':archive_notes'],
             'metadata' => $asset,
         ]);
-
-        $deleteSql = "DELETE FROM assets WHERE id = :id";
-        $deleteStmt = $db->prepare($deleteSql);
-        $deleteStmt->execute([':id' => $id]);
 
         $db->commit();
 
