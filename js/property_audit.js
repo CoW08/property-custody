@@ -76,11 +76,30 @@ class PropertyAuditManager {
         });
 
         document.getElementById('scanImageBtn')?.addEventListener('click', () => {
-            if (!this.qrImageFile) {
-                this.showNotification('Please choose an image file first', 'warning');
+            if (this.qrImageFile) {
+                this.handleQRImageUpload(this.qrImageFile);
                 return;
             }
-            this.handleQRImageUpload(this.qrImageFile);
+
+            const input = document.getElementById('qrImageInput');
+            if (!input) {
+                this.showNotification('Image upload input not found', 'error');
+                return;
+            }
+
+            const handleOnce = (e) => {
+                input.removeEventListener('change', handleOnce);
+                const file = e.target.files && e.target.files[0];
+                if (file) {
+                    this.qrImageFile = file;
+                    this.handleQRImageUpload(file);
+                } else {
+                    this.showNotification('No image selected', 'warning');
+                }
+            };
+
+            input.addEventListener('change', handleOnce);
+            input.click();
         });
 
         document.getElementById('startScanBtn')?.addEventListener('click', () => {
