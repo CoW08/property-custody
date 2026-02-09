@@ -14,8 +14,15 @@ class SimpleChart {
             ...options
         };
 
+        this.segments = [];
+        this.tooltipEl = null;
+        this.centerX = 0;
+        this.centerY = 0;
+        this.radius = 0;
+
         this.setupCanvas();
         this.draw();
+        this.setupInteractions();
     }
 
     setupCanvas() {
@@ -53,6 +60,19 @@ class SimpleChart {
             default:
                 this.drawBarChart();
         }
+    }
+
+    setupInteractions() {
+        if (!this.canvas) return;
+        if (this.options.type !== 'pie') return;
+
+        this.canvas.addEventListener('mousemove', event => {
+            this.handleMouseMove(event);
+        });
+
+        this.canvas.addEventListener('mouseleave', () => {
+            this.hideTooltip();
+        });
     }
 
     drawBarChart() {
@@ -108,6 +128,10 @@ class SimpleChart {
         const centerY = this.height / 2;
         const radius = Math.max(20, Math.min(this.width, this.height) / 2 - this.options.padding - 40);
 
+        this.centerX = centerX;
+        this.centerY = centerY;
+        this.radius = radius;
+
         // Ensure we have a valid radius
         if (radius <= 0) {
             console.warn('Canvas too small for pie chart');
@@ -121,6 +145,8 @@ class SimpleChart {
         const total = this.data.reduce((sum, item) => sum + item.value, 0);
         let currentAngle = -Math.PI / 2; // Start from top
 
+        this.segments = [];
+
         this.data.forEach((item, index) => {
             const sliceAngle = (item.value / total) * 2 * Math.PI;
 
@@ -129,8 +155,17 @@ class SimpleChart {
             this.ctx.moveTo(centerX, centerY);
             this.ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
             this.ctx.closePath();
-            this.ctx.fillStyle = this.options.colors[index % this.options.colors.length];
+            const color = this.options.colors[index % this.options.colors.length];
+            this.ctx.fillStyle = color;
             this.ctx.fill();
+
+            this.segments.push({
+                startAngle: currentAngle,
+                endAngle: currentAngle + sliceAngle,
+                label: item.label,
+                value: item.value,
+                color
+            });
 
             // Draw label if space allows
             if (sliceAngle > 0.2 && this.options.showLabels) {
@@ -150,6 +185,67 @@ class SimpleChart {
         // Draw legend for mobile
         if (this.width < 640) {
             this.drawLegend();
+        }
+    }
+
+    handleMouseMove(event) {
+        if (!this.segments || this.segments.length === 0) return;
+        if (!this.canvas) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        const dx = x - this.centerX;
+        const dy = y - this.centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > this.radius || distance < 0) {
+            this.hideTooltip();
+            return;
+        }
+
+        let angle = Math.atan2(dy, dx);
+        if (angle < -Math.PI / 2) {
+            angle += 2 * Math.PI;
+        }
+
+        const segment = this.segments.find(seg => angle >= seg.startAngle && angle <= seg.endAngle);
+
+        if (!segment) {
+            this.hideTooltip();
+            return;
+        }
+
+        this.showTooltip(event.clientX, event.clientY, `${segment.label}: ${segment.value}`);
+    }
+
+    showTooltip(clientX, clientY, text) {
+        if (!this.tooltipEl) {
+            const el = document.createElement('div');
+            el.style.position = 'fixed';
+            el.style.zIndex = '9999';
+            el.style.backgroundColor = '#111827';
+            el.style.color = '#F9FAFB';
+            el.style.padding = '6px 10px';
+            el.style.borderRadius = '6px';
+            el.style.fontSize = '12px';
+            el.style.boxShadow = '0 4px 10px rgba(0,0,0,0.25)';
+            el.style.pointerEvents = 'none';
+            el.style.transform = 'translate(8px, 8px)';
+            document.body.appendChild(el);
+            this.tooltipEl = el;
+        }
+
+        this.tooltipEl.textContent = text;
+        this.tooltipEl.style.left = clientX + 'px';
+        this.tooltipEl.style.top = clientY + 'px';
+        this.tooltipEl.style.display = 'block';
+    }
+
+    hideTooltip() {
+        if (this.tooltipEl) {
+            this.tooltipEl.style.display = 'none';
         }
     }
 

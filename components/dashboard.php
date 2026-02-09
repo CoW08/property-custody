@@ -24,8 +24,9 @@
         </div>
     </div>
 
-    <!-- Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Stats & Status Overview -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
         <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20">
             <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-slate-50 to-white"></div>
             <div class="relative flex items-start justify-between gap-4">
@@ -89,6 +90,24 @@
                 <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500 text-white shadow-lg shadow-rose-500/30">
                     <i class="fas fa-times-circle text-lg"></i>
                 </span>
+            </div>
+        </div>
+        </div>
+
+        <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+            <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-slate-50 to-white"></div>
+            <div class="relative flex flex-col h-full">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-600">Item Status Mix</p>
+                        <p class="mt-1 text-xs text-slate-500">Available, assigned, maintenance, damaged/lost, disposed</p>
+                    </div>
+                </div>
+                <div class="flex-1 flex items-center">
+                    <div class="w-full h-52">
+                        <canvas id="assetStatusChart"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

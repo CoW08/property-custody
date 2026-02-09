@@ -278,6 +278,7 @@ ob_start();
     })(window.currentUser);
 </script>
 <script src="js/api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" data-chartjs></script>
 <script src="js/dashboard.js"></script>
 
 <script>

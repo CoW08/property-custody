@@ -33,12 +33,12 @@ ob_start();
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6 lg:mb-8">
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">
-                        <?php echo $isCustodian ? 'Custodian Assignment & Transfer' : 'Request Asset Assignment'; ?>
+                        <?php echo $isCustodian ? 'Custodian Assignment & Transfer' : 'Request Item Assignment'; ?>
                     </h1>
                     <p class="mt-2 text-sm text-gray-500 max-w-2xl">
                         <?php echo $isCustodian
-                            ? 'Coordinate custodians, review asset requests, and keep your assignments up to date with quick actions and clear insights.'
-                            : 'Submit requests, track their status, and stay in the loop as assets are approved or returned by the custodian team.'; ?>
+                            ? 'Coordinate custodians, review item requests, and keep your assignments up to date with quick actions and clear insights.'
+                            : 'Submit requests, track their status, and stay in the loop as items are approved or returned by the custodian team.'; ?>
                     </p>
                 </div>
                 <div class="flex items-center gap-3 sm:gap-4">
@@ -75,7 +75,7 @@ ob_start();
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Active Assignments</p>
                             <p id="activeCount" class="mt-2 text-3xl font-bold text-slate-900">0</p>
-                            <p class="text-xs text-slate-500">Currently issued assets</p>
+                            <p class="text-xs text-slate-500">Currently issued items</p>
                         </div>
                         <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
                             <i class="fas fa-check-circle text-lg"></i>
@@ -90,7 +90,7 @@ ob_start();
                 <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Assignment Requests</h3>
-                        <p class="text-sm text-gray-500">Review new asset requests and take action in a single click.</p>
+                        <p class="text-sm text-gray-500">Review new item requests and take action in a single click.</p>
                     </div>
                     <div id="bulkActions" class="hidden items-center gap-2">
                         <span id="selectedCount" class="text-sm text-gray-600"></span>
@@ -131,7 +131,7 @@ ob_start();
                     <table class="min-w-full divide-y divide-gray-200 table-striped text-sm">
                         <thead class="bg-gray-50 text-xs">
                             <tr>
-                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Item</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Request Date</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -358,13 +358,13 @@ ob_start();
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Request Asset Assignment</h3>
+                <h3 class="text-lg font-semibold text-gray-900">Request Item Assignment</h3>
             </div>
             <form id="requestForm" class="p-6 space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Asset</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Item</label>
                     <select id="requestAssetId" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                        <option value="">Choose an asset...</option>
+                        <option value="">Choose an item...</option>
                     </select>
                 </div>
                 <div>
@@ -373,7 +373,7 @@ ob_start();
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Justification</label>
-                    <textarea id="requestJustification" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="Explain why you need this asset"></textarea>
+                    <textarea id="requestJustification" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="Explain why you need this item"></textarea>
                 </div>
                 <div class="flex gap-3 pt-4">
                     <button type="button" onclick="closeRequestModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">

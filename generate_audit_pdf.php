@@ -36,8 +36,12 @@ try {
         die('Audit not found');
     }
 
-    // Fetch audit items/findings (if you have an audit_items table)
-    $query_items = "SELECT * FROM audit_items WHERE audit_id = :audit_id ORDER BY created_at";
+    // Fetch audit findings linked to this audit
+    $query_items = "SELECT af.*, a.asset_code, a.name AS asset_name, a.location AS asset_location
+                    FROM audit_findings af
+                    LEFT JOIN assets a ON af.asset_id = a.id
+                    WHERE af.audit_id = :audit_id
+                    ORDER BY af.created_at";
     $stmt_items = $db->prepare($query_items);
     $stmt_items->bindParam(':audit_id', $audit_id);
     $stmt_items->execute();

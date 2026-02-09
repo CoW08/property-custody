@@ -804,8 +804,8 @@ function applyPurchaseOrderReceipt(PDO $pdo, int $purchaseOrderId, string $poNum
                         VALUES (:item_code, :name, :description, :category, :unit, :current_stock, :minimum_stock, :unit_cost, :total_value, :location, :status)";
     $insertSupplyStmt = $pdo->prepare($insertSupplySql);
 
-    $transactionSql = "INSERT INTO supply_transactions (supply_id, transaction_type, quantity, reference_number, transaction_date, requested_by, approved_by, purpose, notes)
-                       VALUES (:supply_id, 'in', :quantity, :reference_number, :transaction_date, :requested_by, :approved_by, :purpose, :notes)";
+    $transactionSql = "INSERT INTO supply_transactions (supply_id, transaction_type, quantity, unit_cost, total_cost, reference_number, notes, created_by)
+                       VALUES (:supply_id, 'in', :quantity, :unit_cost, :total_cost, :reference_number, :notes, :created_by)";
     $transactionStmt = $pdo->prepare($transactionSql);
 
     foreach ($items as $index => $item) {
@@ -855,12 +855,11 @@ function applyPurchaseOrderReceipt(PDO $pdo, int $purchaseOrderId, string $poNum
         $transactionStmt->execute([
             ':supply_id' => $supplyId,
             ':quantity' => $quantity,
+            ':unit_cost' => $unitCost > 0 ? $unitCost : ($existing ? (float)$existing['unit_cost'] : 0),
+            ':total_cost' => ($unitCost > 0 ? $unitCost : ($existing ? (float)$existing['unit_cost'] : 0)) * $quantity,
             ':reference_number' => $poNumber,
-            ':transaction_date' => date('Y-m-d'),
-            ':requested_by' => $userId,
-            ':approved_by' => $userId,
-            ':purpose' => 'Purchase order received',
-            ':notes' => 'Received via PO ' . $poNumber
+            ':notes' => 'Received via PO ' . $poNumber,
+            ':created_by' => $userId
         ]);
     }
 }

@@ -285,19 +285,18 @@ function createIssuance($db, $input = null) {
     try {
         ensurePropertyIssuanceColumns($db);
 
-        // Check if asset exists and is available
         $assetQuery = "SELECT id, status FROM assets WHERE id = ?";
         $assetStmt = $db->prepare($assetQuery);
         $assetStmt->execute([$data->asset_id]);
 
-        if($assetStmt->rowCount() == 0) {
+        if ($assetStmt->rowCount() == 0) {
             http_response_code(400);
             echo json_encode(array("message" => "Asset not found"));
             return;
         }
 
         $asset = $assetStmt->fetch(PDO::FETCH_ASSOC);
-        if($asset['status'] !== 'available') {
+        if ($asset['status'] !== 'available') {
             http_response_code(400);
             echo json_encode(array("message" => "Asset is not available for issuance"));
             return;
@@ -326,13 +325,22 @@ function createIssuance($db, $input = null) {
 
         $db->beginTransaction();
 
-        // Create issuance record
-        $insertQuery = "INSERT INTO property_issuances
-                       (asset_id, employee_id, recipient_name, department, issue_date, expected_return_date, purpose, status, issued_by, created_at, requester_name, requester_department, request_submitted_at, request_item_details, approval_status, approval_by, approval_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, 'issued', ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?)";
+        $schemaStmt = $db->query("SHOW COLUMNS FROM property_issuances");
+        $schemaColumns = $schemaStmt->fetchAll(PDO::FETCH_COLUMN, 0);
 
-        $insertStmt = $db->prepare($insertQuery);
-        $insertStmt->execute([
+        $columns = array(
+            'asset_id',
+            'employee_id',
+            'recipient_name',
+            'department',
+            'issue_date',
+            'expected_return_date',
+            'purpose',
+            'status',
+            'issued_by'
+        );
+
+        $values = array(
             $data->asset_id,
             $data->employee_id,
             $data->recipient_name,
@@ -340,19 +348,59 @@ function createIssuance($db, $input = null) {
             $data->issue_date ?? date('Y-m-d'),
             $data->expected_return_date ?? null,
             $data->purpose ?? null,
-            $_SESSION['user_id'] ?? 1,
-            $requesterName,
-            $requesterDepartment,
-            $requestSubmittedAt,
-            $requestItemDetails,
-            $approvalStatus,
-            $approvalBy,
-            $approvalAt
-        ]);
+            'issued',
+            $_SESSION['user_id'] ?? 1
+        );
+
+        if (in_array('created_at', $schemaColumns, true) === false) {
+            $columns[] = 'created_at';
+            $values[] = date('Y-m-d H:i:s');
+        }
+
+        if (in_array('requester_name', $schemaColumns, true)) {
+            $columns[] = 'requester_name';
+            $values[] = $requesterName;
+        }
+
+        if (in_array('requester_department', $schemaColumns, true)) {
+            $columns[] = 'requester_department';
+            $values[] = $requesterDepartment;
+        }
+
+        if (in_array('request_submitted_at', $schemaColumns, true)) {
+            $columns[] = 'request_submitted_at';
+            $values[] = $requestSubmittedAt;
+        }
+
+        if (in_array('request_item_details', $schemaColumns, true)) {
+            $columns[] = 'request_item_details';
+            $values[] = $requestItemDetails;
+        }
+
+        if (in_array('approval_status', $schemaColumns, true)) {
+            $columns[] = 'approval_status';
+            $values[] = $approvalStatus;
+        }
+
+        if (in_array('approval_by', $schemaColumns, true)) {
+            $columns[] = 'approval_by';
+            $values[] = $approvalBy;
+        }
+
+        if (in_array('approval_at', $schemaColumns, true)) {
+            $columns[] = 'approval_at';
+            $values[] = $approvalAt;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+        $columnList = implode(', ', $columns);
+
+        $insertQuery = "INSERT INTO property_issuances ($columnList) VALUES ($placeholders)";
+        $insertStmt = $db->prepare($insertQuery);
+        $insertStmt->execute($values);
 
         $issuance_id = $db->lastInsertId();
 
-        // Update asset status to assigned
         $updateAssetQuery = "UPDATE assets SET status = 'assigned', assigned_to = NULL WHERE id = ?";
         $updateAssetStmt = $db->prepare($updateAssetQuery);
         $updateAssetStmt->execute([$data->asset_id]);
@@ -364,7 +412,6 @@ function createIssuance($db, $input = null) {
             logIssuanceActivity($db, $approvalBy ?? ($_SESSION['user_id'] ?? 1), $action, $issuance_id);
         }
 
-        // Generate PDF URL
         $pdf_url = 'generate_issuance_pdf.php?issuance_id=' . $issuance_id;
 
         http_response_code(201);
@@ -377,7 +424,9 @@ function createIssuance($db, $input = null) {
         ));
 
     } catch (Exception $e) {
-        $db->rollBack();
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         http_response_code(500);
         echo json_encode(array("message" => "Failed to create issuance", "error" => $e->getMessage()));
     }

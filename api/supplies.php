@@ -116,11 +116,10 @@ function getSupply($db, $id) {
 }
 
 function getTransactions($db) {
-    $query = "SELECT st.*, s.name as supply_name, u1.full_name as requested_by_name, u2.full_name as approved_by_name
+    $query = "SELECT st.*, s.name as supply_name, u.full_name as created_by_name
               FROM supply_transactions st
               JOIN supplies s ON st.supply_id = s.id
-              LEFT JOIN users u1 ON st.requested_by = u1.id
-              LEFT JOIN users u2 ON st.approved_by = u2.id
+              LEFT JOIN users u ON st.created_by = u.id
               ORDER BY st.created_at DESC
               LIMIT 50";
     $stmt = $db->prepare($query);
@@ -193,20 +192,22 @@ function createTransaction($db) {
         $db->beginTransaction();
 
         try {
-            // Insert transaction
-            $query = "INSERT INTO supply_transactions (supply_id, transaction_type, quantity, reference_number, transaction_date, requested_by, approved_by, purpose, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $unitCost = isset($data->unit_cost) ? (float)$data->unit_cost : null;
+            $quantity = (int)$data->quantity;
+            $totalCost = $unitCost !== null ? $unitCost * $quantity : null;
+
+            $query = "INSERT INTO supply_transactions (supply_id, transaction_type, quantity, unit_cost, total_cost, reference_number, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $db->prepare($query);
             $stmt->execute([
                 $data->supply_id,
                 $data->transaction_type,
-                $data->quantity,
+                $quantity,
+                $unitCost,
+                $totalCost,
                 $data->reference_number ?? null,
-                $data->transaction_date ?? date('Y-m-d'),
-                $_SESSION['user_id'],
-                $data->approved_by ?? $_SESSION['user_id'],
-                $data->purpose ?? null,
-                $data->notes ?? null
+                $data->notes ?? null,
+                $_SESSION['user_id']
             ]);
 
             $transaction_id = $db->lastInsertId();

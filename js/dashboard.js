@@ -5,7 +5,8 @@ class Dashboard {
             // Load all dashboard data in parallel
             const loaders = [
                 this.loadStats(),
-                this.loadRecentActivities()
+                this.loadRecentActivities(),
+                this.loadNotifications()
             ];
 
 
@@ -136,9 +137,97 @@ class Dashboard {
                 damagedEl.textContent = stats.damagedItems || 0;
             }
 
+            Dashboard.renderStatusChart(stats.statusBreakdown || {});
+
         } catch (error) {
             console.error('Error loading stats:', error);
         }
+    }
+
+    static renderStatusChart(breakdown) {
+        const canvas = document.getElementById('assetStatusChart');
+        if (!canvas || typeof Chart === 'undefined') {
+            return;
+        }
+
+        const data = {
+            available: Number(breakdown.available || 0),
+            assigned: Number(breakdown.assigned || 0),
+            maintenance: Number(breakdown.maintenance || 0),
+            damaged_lost: Number(breakdown.damaged_lost || 0),
+            disposed: Number(breakdown.disposed || 0)
+        };
+
+        const labels = [
+            'Available',
+            'Assigned',
+            'Under Maintenance',
+            'Damaged / Lost',
+            'Disposed'
+        ];
+
+        const values = [
+            data.available,
+            data.assigned,
+            data.maintenance,
+            data.damaged_lost,
+            data.disposed
+        ];
+
+        const total = values.reduce((sum, v) => sum + v, 0);
+        if (total === 0) {
+            if (canvas.__chart) {
+                canvas.__chart.destroy();
+                canvas.__chart = null;
+            }
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+        }
+
+        const existing = canvas.__chart;
+        if (existing) {
+            existing.data.labels = labels;
+            existing.data.datasets[0].data = values;
+            existing.update();
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: [
+                        '#22c55e',
+                        '#3b82f6',
+                        '#f97316',
+                        '#ef4444',
+                        '#6b7280'
+                    ],
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            usePointStyle: true
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+
+        canvas.__chart = chart;
     }
 
     static async loadRecentActivities() {

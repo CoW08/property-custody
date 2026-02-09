@@ -248,7 +248,7 @@ class App {
             <div class="p-8">
                 <h1 class="text-3xl font-bold text-gray-800 mb-4">Custodian Assignment & Transfer</h1>
                 <div class="bg-white rounded-lg shadow p-6">
-                    <p class="text-gray-600">This module is under development. It will handle custodian assignments and transfers.</p>
+                    <p class="text-gray-600">This module is under development. It will handle custodian assignments and transfers of items.</p>
                 </div>
             </div>
         `;

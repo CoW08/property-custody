@@ -308,12 +308,23 @@ class ReportsManager {
                         </div>
                     ` : ''}
                     <div class="space-y-3 max-h-40 overflow-y-auto">
-                        ${data.by_category ? data.by_category.map(item => `
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                <span class="font-medium text-gray-700">${item.category || 'Uncategorized'}</span>
-                                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">${item.count}</span>
-                            </div>
-                        `).join('') : '<p class="text-gray-500">No category data available</p>'}
+                        ${data.by_category ? data.by_category.map((item, index) => {
+                            const palette = [
+                                'bg-blue-100 text-blue-800',
+                                'bg-green-100 text-green-800',
+                                'bg-amber-100 text-amber-800',
+                                'bg-red-100 text-red-800',
+                                'bg-purple-100 text-purple-800',
+                                'bg-cyan-100 text-cyan-800'
+                            ];
+                            const colorClass = palette[index % palette.length];
+                            return `
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <span class="font-medium text-gray-700">${item.category || 'Uncategorized'}</span>
+                                    <span class="${colorClass} px-3 py-1 rounded-full text-sm font-medium">${item.count}</span>
+                                </div>
+                            `;
+                        }).join('') : '<p class="text-gray-500">No category data available</p>'}
                     </div>
                 </div>
 

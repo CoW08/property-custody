@@ -381,7 +381,7 @@ ob_start();
             </section>
 
             <!-- Summary Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mt-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 lg:gap-6 mt-6">
                 <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/20">
                     <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-white to-slate-50"></div>
                     <div class="relative flex items-start justify-between gap-4">
@@ -424,12 +424,26 @@ ob_start();
                     </div>
                 </div>
 
+                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/20">
+                    <div class="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-white to-slate-50"></div>
+                    <div class="relative flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Over Stocks</p>
+                            <p id="overstockItems" class="mt-2 text-3xl font-bold text-slate-900">0</p>
+                            <p class="mt-1 text-xs text-slate-500">Above optimal stock levels</p>
+                        </div>
+                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
+                            <i class="fas fa-arrow-up text-lg"></i>
+                        </span>
+                    </div>
+                </div>
+
                 <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-500/20">
                     <div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-white to-slate-50"></div>
                     <div class="relative flex items-start justify-between gap-4">
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Inventory Value</p>
-                            <p id="expiringSoonItems" class="mt-2 text-3xl font-bold text-slate-900">₱0.00</p>
+                            <p id="inventoryValue" class="mt-2 text-3xl font-bold text-slate-900">₱0.00</p>
                             <p class="mt-1 text-xs text-slate-500">Current stock valuation</p>
                         </div>
                         <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500 text-white shadow-lg shadow-purple-500/30">
@@ -566,7 +580,13 @@ ob_start();
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
                         <input type="number" id="transactionUnitCost" name="unit_cost" step="0.01" min="0" onchange="calculateTransactionCost()" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </button>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Total Cost</label>
+                        <input type="number" id="transactionTotalCost" name="total_cost" step="0.01" min="0" readonly class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end">
                     <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition duration-200">
                         <i class="fas fa-check-circle"></i><span>Process Transaction</span>
                     </button>
@@ -1375,6 +1395,12 @@ function updateSummaryCards() {
     const total = dataset.length;
     const lowStock = dataset.filter(s => (parseInt(s.current_stock) || 0) <= (parseInt(s.minimum_stock) || 0) && (parseInt(s.current_stock) || 0) > 0).length;
     const outOfStock = dataset.filter(s => (parseInt(s.current_stock) || 0) === 0).length;
+    const overstock = dataset.filter(s => {
+        const current = parseInt(s.current_stock) || 0;
+        const minimum = parseInt(s.minimum_stock) || 0;
+        if (minimum <= 0) return false;
+        return current > minimum * 2;
+    }).length;
     const totalValue = dataset.reduce((sum, s) => {
         const current = parseInt(s.current_stock) || 0;
         const unitCost = s.unit_cost !== null && s.unit_cost !== undefined ? parseFloat(s.unit_cost) : 0;
@@ -1384,7 +1410,8 @@ function updateSummaryCards() {
     document.getElementById('totalItems').textContent = total;
     document.getElementById('lowStockItems').textContent = lowStock;
     document.getElementById('outOfStockItems').textContent = outOfStock;
-    document.getElementById('expiringSoonItems').textContent = '₱' + totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    document.getElementById('overstockItems').textContent = overstock;
+    document.getElementById('inventoryValue').textContent = '₱' + totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 });
 }
 
 // Populate supply select for transactions

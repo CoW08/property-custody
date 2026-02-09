@@ -88,7 +88,14 @@ function getStats($db) {
                 'maintenanceItems' => 0,
                 'maintenanceDueToday' => 0,
                 'maintenanceOverdue' => 0,
-                'damagedItems' => 0
+                'damagedItems' => 0,
+                'statusBreakdown' => array(
+                    'available' => 0,
+                    'assigned' => 0,
+                    'maintenance' => 0,
+                    'damaged_lost' => 0,
+                    'disposed' => 0
+                )
             );
             http_response_code(200);
             echo json_encode($stats);
@@ -101,7 +108,14 @@ function getStats($db) {
             'maintenanceItems' => 0,
             'maintenanceDueToday' => 0,
             'maintenanceOverdue' => 0,
-            'damagedItems' => 0
+            'damagedItems' => 0,
+            'statusBreakdown' => array(
+                'available' => 0,
+                'assigned' => 0,
+                'maintenance' => 0,
+                'damaged_lost' => 0,
+                'disposed' => 0
+            )
         );
 
         // Total assets
@@ -129,6 +143,26 @@ function getStats($db) {
         $stmt = $db->prepare($query);
         $stmt->execute();
         $stats['damagedItems'] = (int)($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+
+        // Status breakdown for chart
+        $statusQuery = "SELECT 
+                            SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) AS available,
+                            SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) AS assigned,
+                            SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance,
+                            SUM(CASE WHEN status IN ('damaged', 'lost') OR condition_status = 'damaged' THEN 1 ELSE 0 END) AS damaged_lost,
+                            SUM(CASE WHEN status = 'disposed' THEN 1 ELSE 0 END) AS disposed
+                        FROM assets";
+        $statusStmt = $db->prepare($statusQuery);
+        $statusStmt->execute();
+        $statusRow = $statusStmt->fetch(PDO::FETCH_ASSOC) ?: array();
+
+        $stats['statusBreakdown'] = array(
+            'available' => (int)($statusRow['available'] ?? 0),
+            'assigned' => (int)($statusRow['assigned'] ?? 0),
+            'maintenance' => (int)($statusRow['maintenance'] ?? 0),
+            'damaged_lost' => (int)($statusRow['damaged_lost'] ?? 0),
+            'disposed' => (int)($statusRow['disposed'] ?? 0)
+        );
 
         http_response_code(200);
         echo json_encode($stats);
