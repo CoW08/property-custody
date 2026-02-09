@@ -158,6 +158,13 @@ class PropertyAuditManager {
             });
         }
 
+        const findItemBtn = document.getElementById('findItemBtn');
+        if (findItemBtn) {
+            findItemBtn.addEventListener('click', () => {
+                this.processAssetCode();
+            });
+        }
+
         // Audit scope checkboxes
         document.querySelectorAll('input[name="audit_scope"]').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
@@ -810,7 +817,7 @@ class PropertyAuditManager {
         const assetCode = document.getElementById('manualAssetCode').value.trim();
 
         if (!assetCode) {
-            this.showNotification('Please enter an asset code', 'warning');
+            this.showNotification('Please enter an item code first', 'warning');
             return;
         }
 

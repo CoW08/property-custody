@@ -329,7 +329,7 @@ ob_start();
                     <h4 class="text-md font-medium text-gray-700 mb-3">Or enter item code manually:</h4>
                     <div class="flex gap-2">
                         <input type="text" id="manualAssetCode" placeholder="Enter item code" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button onclick="propertyAuditManager.processAssetCode()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                        <button id="findItemBtn" type="button" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
                             <i class="fas fa-search mr-2"></i>Find Item
                         </button>
                     </div>
@@ -513,7 +513,9 @@ function showCreateAuditForm() {
     requestAnimationFrame(() => {
         auditFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => {
-            auditFirstInput?.focus();
+            if (auditFirstInput) {
+                auditFirstInput.focus();
+            }
             auditFormSection.classList.add('ring-2', 'ring-blue-500');
             setTimeout(() => auditFormSection.classList.remove('ring-2', 'ring-blue-500'), 1200);
         }, 350);
