@@ -512,6 +512,7 @@ class PropertyAuditManager {
             const startBtn = document.getElementById('startScanBtn');
             const stopBtn = document.getElementById('stopScanBtn');
             const overlay = document.getElementById('scannerOverlay');
+            const canvas = document.getElementById('qrCanvas');
 
             // Check for camera support
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -532,6 +533,14 @@ class PropertyAuditManager {
             stopBtn.classList.remove('hidden');
             overlay.classList.remove('hidden');
 
+            if (canvas) {
+                canvas.classList.remove('hidden');
+            }
+
+            if (!window.jsQR) {
+                this.showNotification('QR library not loaded. Please check your internet or refresh the page.', 'error');
+            }
+
             this.scanningActive = true;
             this.scanForQRCode(video);
 
@@ -547,6 +556,7 @@ class PropertyAuditManager {
         const startBtn = document.getElementById('startScanBtn');
         const stopBtn = document.getElementById('stopScanBtn');
         const overlay = document.getElementById('scannerOverlay');
+        const canvas = document.getElementById('qrCanvas');
 
         if (video.srcObject) {
             const tracks = video.srcObject.getTracks();
@@ -558,6 +568,10 @@ class PropertyAuditManager {
         startBtn.classList.remove('hidden');
         stopBtn.classList.add('hidden');
         overlay.classList.add('hidden');
+
+        if (canvas) {
+            canvas.classList.add('hidden');
+        }
 
         this.scanningActive = false;
     }
