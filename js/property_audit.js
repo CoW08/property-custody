@@ -922,7 +922,7 @@ class PropertyAuditManager {
                 },
                 body: JSON.stringify({
                     audit_id: foundData.audit_id,
-                    finding_type: 'location_verification',
+                    finding_type: 'data_error',
                     description: `Asset ${foundData.asset_code} found in ${foundData.current_location}. Condition: ${foundData.condition}. Notes: ${foundData.notes}`,
                     severity: 'low',
                     corrective_action: 'Asset verified and location updated',
