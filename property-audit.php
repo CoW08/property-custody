@@ -304,9 +304,19 @@ ob_start();
                 <!-- File Upload Section -->
                 <div class="border-t pt-4">
                     <h4 class="text-md font-medium text-gray-700 mb-3">Or upload QR image:</h4>
-                    <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                        <input type="file" id="qrImageInput" accept="image/*" class="w-full sm:w-auto text-sm text-gray-700">
-                        <p class="text-xs text-gray-500">Upload a photo or screenshot of the QR code</p>
+                    <div class="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                            <label for="qrImageInput" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                <i class="fas fa-upload mr-2"></i>
+                                <span>Choose Image</span>
+                            </label>
+                            <span id="qrImageFileName" class="text-sm text-gray-600 truncate max-w-xs">No file selected</span>
+                            <button id="scanImageBtn" type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                                <i class="fas fa-search mr-2"></i>Scan Image
+                            </button>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-500">Upload a clear photo or screenshot of the QR code (PNG, JPG).</p>
+                        <input type="file" id="qrImageInput" accept="image/*" class="hidden">
                     </div>
                 </div>
 

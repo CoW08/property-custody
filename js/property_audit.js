@@ -5,6 +5,7 @@ class PropertyAuditManager {
         this.activeAudits = [];
         this.qrScanner = null;
         this.scanningActive = false;
+        this.qrImageFile = null;
         this.init();
     }
 
@@ -48,9 +49,26 @@ class PropertyAuditManager {
         // QR Scanner events
         document.getElementById('qrImageInput')?.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
+            const fileNameEl = document.getElementById('qrImageFileName');
             if (file) {
-                this.handleQRImageUpload(file);
+                this.qrImageFile = file;
+                if (fileNameEl) {
+                    fileNameEl.textContent = file.name;
+                }
+            } else {
+                this.qrImageFile = null;
+                if (fileNameEl) {
+                    fileNameEl.textContent = 'No file selected';
+                }
             }
+        });
+
+        document.getElementById('scanImageBtn')?.addEventListener('click', () => {
+            if (!this.qrImageFile) {
+                this.showNotification('Please choose an image file first', 'warning');
+                return;
+            }
+            this.handleQRImageUpload(this.qrImageFile);
         });
 
         document.getElementById('startScanBtn')?.addEventListener('click', () => {
@@ -683,6 +701,11 @@ class PropertyAuditManager {
         const input = document.getElementById('qrImageInput');
         if (input) {
             input.value = '';
+        }
+        this.qrImageFile = null;
+        const fileNameEl = document.getElementById('qrImageFileName');
+        if (fileNameEl) {
+            fileNameEl.textContent = 'No file selected';
         }
     }
 
