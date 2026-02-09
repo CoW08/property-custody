@@ -96,6 +96,10 @@ async function viewSupplyDetails(supplyId) {
             stockStatus = 'LOW STOCK';
             stockType = 'warning';
         }
+
+        const storageLocation = supply.location || supply.storage_location || 'Not set';
+        const supplier = supply.supplier_name || supply.supplier || 'Not set';
+        const expiryLabel = supply.expiry_date ? formatDate(supply.expiry_date) : 'Not set';
         
         const content = `
             ${createDetailSection('Basic Information', [
@@ -109,18 +113,18 @@ async function viewSupplyDetails(supplyId) {
                 { label: 'Current Stock', value: supply.current_stock || '0' },
                 { label: 'Minimum Stock', value: supply.minimum_stock || '0' },
                 { label: 'Stock Status', value: createStatusBadge(stockStatus, stockType) },
-                { label: 'Storage Location', value: supply.storage_location || 'N/A' }
+                { label: 'Storage Location', value: storageLocation }
             ])}
             
             ${createDetailSection('Financial & Supplier', [
                 { label: 'Unit Cost', value: supply.unit_cost ? '₱ ' + parseFloat(supply.unit_cost).toLocaleString() : 'N/A' },
                 { label: 'Total Value', value: supply.unit_cost ? '₱ ' + (parseFloat(supply.unit_cost) * supply.current_stock).toLocaleString() : 'N/A' },
-                { label: 'Supplier', value: supply.supplier || 'N/A' }
+                { label: 'Supplier', value: supplier }
             ])}
             
             ${createDetailSection('Additional Information', [
                 { label: 'Description', value: supply.description || 'No description' },
-                { label: 'Expiry Date', value: supply.expiry_date ? formatDate(supply.expiry_date) : 'N/A' }
+                { label: 'Expiry Date', value: expiryLabel }
             ])}
         `;
         

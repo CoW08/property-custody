@@ -233,7 +233,10 @@ function createTransaction($db) {
         } catch(Exception $e) {
             $db->rollback();
             http_response_code(500);
-            echo json_encode(array("message" => "Failed to create transaction"));
+            echo json_encode(array(
+                "message" => "Failed to create transaction",
+                "error" => $e->getMessage()
+            ));
         }
     } else {
         http_response_code(400);

@@ -1592,6 +1592,29 @@ async function handleTransactionSubmit(event) {
     const formData = new FormData(event.target);
     const data = Object.fromEntries(formData.entries());
 
+    if (!data.supply_id) {
+        showNotification('Please select a live inventory item for this transaction.', 'error');
+        return;
+    }
+
+    if (!data.transaction_type) {
+        showNotification('Please select a transaction type (Stock In, Out, or Adjustment).', 'error');
+        return;
+    }
+
+    const quantity = parseFloat(data.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+        showNotification('Please enter a quantity greater than zero.', 'error');
+        return;
+    }
+
+    const unitCost = data.unit_cost !== '' ? parseFloat(data.unit_cost) : null;
+    const totalCost = data.total_cost !== '' ? parseFloat(data.total_cost) : null;
+
+    data.quantity = quantity;
+    data.unit_cost = unitCost;
+    data.total_cost = totalCost;
+
     try {
         await API.createTransaction(data);
         showNotification('Transaction processed successfully', 'success');
@@ -1599,7 +1622,8 @@ async function handleTransactionSubmit(event) {
         loadSupplies();
     } catch (error) {
         console.error('Error processing transaction:', error);
-        showNotification('Error processing transaction', 'error');
+        const message = error && error.message ? error.message : 'Error processing transaction';
+        showNotification(message, 'error');
     }
 }
 
