@@ -1,4 +1,5 @@
 <?php
+ini_set("display_errors", 0); ini_set("log_errors", 1);
 require_once '../config/cors.php';
 require_once '../config/database.php';
 
@@ -18,6 +19,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $database = new Database();
 $db = $database->getConnection();
+
+// Ensure vendors table exists
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS vendors (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        contact_person VARCHAR(255) NULL,
+        email VARCHAR(255) NULL,
+        phone VARCHAR(50) NULL,
+        address TEXT NULL,
+        status VARCHAR(20) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+} catch (Throwable $e) {
+    error_log("[VENDORS] Table creation error: " . $e->getMessage());
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 

@@ -240,12 +240,14 @@ ob_start();
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Request Date *</label>
                         <input type="date" id="requestDate" name="request_date" required
+                               min="<?php echo date('Y-m-d'); ?>"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Required Date</label>
                         <input type="date" id="requiredDate" name="required_date"
+                               min="<?php echo date('Y-m-d'); ?>"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
 
@@ -374,8 +376,8 @@ ob_start();
     </div>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/procurement.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/procurement.js?v=<?php echo time(); ?>"></script>
 
 <?php
 $content = ob_get_clean();

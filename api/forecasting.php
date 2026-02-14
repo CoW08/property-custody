@@ -1,6 +1,18 @@
 <?php
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
+
+// Global error handler - converts PHP errors/exceptions to JSON responses
+set_exception_handler(function($e) {
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+    }
+    error_log("[FORECASTING] Uncaught exception: " . $e->getMessage());
+    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -29,6 +41,16 @@ try {
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? 'overview';
+
+if ($method === 'POST') {
+    if ($action === 'seed_history') {
+        sendJson(seedHistoricalTransactions($db));
+    } else {
+        http_response_code(400);
+        echo json_encode(['message' => 'Invalid POST action']);
+    }
+    exit();
+}
 
 if ($method !== 'GET') {
     http_response_code(405);
@@ -219,7 +241,7 @@ function getReorderRecommendations(PDO $db)
             $stockCoverage = $avg > 0 ? round($item['current_stock'] / $avg, 1) : null;
         }
 
-        $priority = classifyPriority($reorderQty, $runoutDays, $stockCoverage, $item['current_stock'], $item['forecast_30_day']);
+        $priority = classifyPriority($reorderQty, $runoutDays, $stockCoverage, $item['current_stock'], $item['forecast_30_day'], $item['minimum_stock']);
 
         return [
             'supply_id' => $item['supply_id'],
@@ -243,24 +265,43 @@ function getReorderRecommendations(PDO $db)
     return $recommendations;
 }
 
-function classifyPriority($reorderQty, $runoutDays, $stockCoverage, $currentStock, $forecast30)
+function classifyPriority($reorderQty, $runoutDays, $stockCoverage, $currentStock, $forecast30, $minimumStock = 0)
 {
+    // Out of stock is always critical
     if ($currentStock <= 0) {
         return 'critical';
     }
 
-    if ($forecast30 > 0 && $currentStock >= ($forecast30 * 1.8)) {
+    // Below minimum stock is never overstock - check this FIRST
+    if ($minimumStock > 0 && $currentStock <= $minimumStock) {
+        if ($currentStock <= ceil($minimumStock * 0.25)) {
+            return 'critical';
+        }
+        if ($currentStock <= ceil($minimumStock * 0.5)) {
+            return 'high';
+        }
+        return 'medium';
+    }
+
+    // Overstock: only if well above BOTH forecast AND minimum stock
+    if ($forecast30 > 0 && $currentStock >= ($forecast30 * 3) && ($minimumStock <= 0 || $currentStock >= ($minimumStock * 3))) {
         return 'overstock';
     }
 
+    // No reorder needed and above minimum = low priority
     if ($reorderQty <= 0) {
         return 'low';
     }
 
+    // No consumption data - use minimum stock to judge
     if ($runoutDays === null) {
+        if ($minimumStock > 0 && $currentStock <= $minimumStock) {
+            return 'high';
+        }
         return 'medium';
     }
 
+    // Running out soon
     if ($runoutDays <= 7) {
         return 'critical';
     }
@@ -497,4 +538,129 @@ function getFallbackUsageDataset()
     ];
 
     return $cache;
+}
+
+/**
+ * Seed historical transactions for supplies that have no transaction history.
+ * This enables the AI forecasting engine to calculate average_daily_usage and projected_runout_days.
+ * Generates realistic "out" transactions spread over the past 90 days based on current stock levels.
+ */
+function seedHistoricalTransactions(PDO $db)
+{
+    // Ensure supply_transactions table exists
+    $db->exec("CREATE TABLE IF NOT EXISTS supply_transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        supply_id INT NOT NULL,
+        transaction_type VARCHAR(20) NOT NULL,
+        quantity INT NOT NULL,
+        unit_cost DECIMAL(12,2) NULL,
+        total_cost DECIMAL(12,2) NULL,
+        reference_number VARCHAR(100) NULL,
+        notes TEXT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_supply (supply_id),
+        INDEX idx_type (transaction_type)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Fix AUTO_INCREMENT if missing
+    try {
+        $colCheck = $db->query("SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS 
+                                WHERE TABLE_SCHEMA = DATABASE() 
+                                AND TABLE_NAME = 'supply_transactions' 
+                                AND COLUMN_NAME = 'id'")->fetch(PDO::FETCH_ASSOC);
+        if ($colCheck && stripos($colCheck['EXTRA'], 'auto_increment') === false) {
+            try { $db->exec("ALTER TABLE supply_transactions ADD PRIMARY KEY (id)"); } catch (Throwable $e) {}
+            $db->exec("ALTER TABLE supply_transactions MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT");
+        }
+    } catch (Throwable $e) {}
+
+    // Get all active supplies
+    $supplies = $db->query("SELECT id, item_code, name, current_stock, minimum_stock, unit_cost 
+                            FROM supplies WHERE status = 'active'")->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($supplies)) {
+        return ['success' => false, 'message' => 'No active supplies found. Add items to Live Inventory first.'];
+    }
+
+    // Check which supplies already have transactions
+    $existingTxn = [];
+    try {
+        $stmt = $db->query("SELECT DISTINCT supply_id FROM supply_transactions");
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $existingTxn[(int)$row['supply_id']] = true;
+        }
+    } catch (Throwable $e) {}
+
+    $seeded = 0;
+    $skipped = 0;
+    $totalTxns = 0;
+
+    $insertSql = "INSERT INTO supply_transactions (supply_id, transaction_type, quantity, unit_cost, total_cost, reference_number, notes, created_by, created_at) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $insertStmt = $db->prepare($insertSql);
+
+    // Also prepare an initial stock-in transaction
+    foreach ($supplies as $supply) {
+        $supplyId = (int)$supply['id'];
+
+        if (isset($existingTxn[$supplyId])) {
+            $skipped++;
+            continue;
+        }
+
+        $currentStock = max(1, (int)$supply['current_stock']);
+        $minStock = max(1, (int)$supply['minimum_stock']);
+        $unitCost = (float)($supply['unit_cost'] ?? 0);
+
+        // Calculate a realistic daily usage rate: aim for stock to run out in 30-60 days
+        $targetRunoutDays = rand(25, 55);
+        $dailyUsage = max(1, (int)round($currentStock / $targetRunoutDays));
+
+        // Generate an initial "stock in" transaction 90 days ago (represents when stock was received)
+        $initialStock = $currentStock + ($dailyUsage * 90);
+        $startDate = date('Y-m-d H:i:s', strtotime('-90 days'));
+        $insertStmt->execute([
+            $supplyId, 'in', $initialStock, $unitCost, $initialStock * $unitCost,
+            'HIST-SEED-IN-' . $supply['item_code'], 'Historical seed: initial stock receipt',
+            $_SESSION['user_id'] ?? null, $startDate
+        ]);
+        $totalTxns++;
+
+        // Generate "out" transactions spread over the past 90 days
+        $totalConsumed = $initialStock - $currentStock;
+        $daysToSpread = 90;
+        $consumed = 0;
+
+        for ($day = $daysToSpread; $day > 0 && $consumed < $totalConsumed; $day--) {
+            // Vary daily usage: 50%-150% of average, with some zero days
+            if (rand(1, 100) <= 15) continue; // 15% chance of no activity
+            
+            $variation = rand(50, 150) / 100;
+            $qty = max(1, (int)round($dailyUsage * $variation));
+            if ($consumed + $qty > $totalConsumed) {
+                $qty = $totalConsumed - $consumed;
+            }
+            if ($qty <= 0) continue;
+
+            $txnDate = date('Y-m-d H:i:s', strtotime("-{$day} days") + rand(28800, 64800)); // 8am-6pm
+            $insertStmt->execute([
+                $supplyId, 'out', $qty, $unitCost, $qty * $unitCost,
+                'HIST-SEED-OUT-' . $supply['item_code'], 'Historical seed: simulated consumption',
+                $_SESSION['user_id'] ?? null, $txnDate
+            ]);
+            $consumed += $qty;
+            $totalTxns++;
+        }
+
+        $seeded++;
+    }
+
+    return [
+        'success' => true,
+        'message' => "Seeded $seeded item(s) with $totalTxns transaction(s). Skipped $skipped item(s) that already had history.",
+        'seeded' => $seeded,
+        'skipped' => $skipped,
+        'total_transactions' => $totalTxns
+    ];
 }

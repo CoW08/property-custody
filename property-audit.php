@@ -485,8 +485,8 @@ ob_start();
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="js/api.js"></script>
-<script src="js/property_audit.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/property_audit.js?v=<?php echo time(); ?>"></script>
 <script>
 // Create Audit toggle logic (compatible JavaScript)
 var auditFormSection = document.getElementById('createAuditSection');

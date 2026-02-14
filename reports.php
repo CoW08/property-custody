@@ -111,10 +111,10 @@ ob_start();
     </div>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/date_filter.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/reports.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/date_filter.js?v=<?php echo time(); ?>"></script>
+<script src="js/charts.js?v=<?php echo time(); ?>"></script>
+<script src="js/reports.js?v=<?php echo time(); ?>"></script>
 
 <style>
     /* Custom responsive styles */

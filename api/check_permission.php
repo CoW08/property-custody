@@ -1,4 +1,5 @@
 <?php
+ini_set("display_errors", 0); ini_set("log_errors", 1);
 /**
  * API Permission Checker
  * Include this file in API endpoints to check permissions

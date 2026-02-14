@@ -4,6 +4,13 @@ ini_set('display_errors', 0);
 error_reporting(E_ALL);
 ini_set('log_errors', 1);
 
+set_exception_handler(function($e) {
+    if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+    error_log("[ASSET_TAGS] Uncaught: " . $e->getMessage());
+    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
+
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 

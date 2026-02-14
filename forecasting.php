@@ -93,6 +93,10 @@ ob_start();
                     </p>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="forecastSeedBtn" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:bg-emerald-700 transition" title="Generate simulated transaction history from live inventory to enable AI predictions">
+                        <i class="fas fa-database"></i>
+                        Seed History
+                    </button>
                     <button id="forecastRefreshBtn" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-white font-semibold shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition">
                         <i class="fas fa-rotate"></i>
                         Refresh Forecasts
@@ -159,8 +163,8 @@ ob_start();
     </main>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/forecasting.js?v=2026020709"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/forecasting.js?v=<?php echo time(); ?>"></script>
 <?php
 $content = ob_get_clean();
 include 'layouts/layout.php';

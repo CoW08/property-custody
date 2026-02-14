@@ -1,7 +1,8 @@
 <?php
-// Enable error display for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+// Log errors to file, not to browser
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 require_once 'includes/auth_check.php';
@@ -16,13 +17,26 @@ ob_start();
 
 <?php include 'components/login.php'; ?>
 
-<script src="js/api.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     const otpForm = document.getElementById('otpForm');
     const otpStep = document.getElementById('otpStep');
     const credentialsStep = document.getElementById('credentialsStep');
+
+    // Password visibility toggle
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('password');
+    const eyeIcon = document.getElementById('eyeIcon');
+    if (togglePassword && passwordInput && eyeIcon) {
+        togglePassword.addEventListener('click', function() {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+            eyeIcon.classList.toggle('fa-eye', !isPassword);
+            eyeIcon.classList.toggle('fa-eye-slash', isPassword);
+        });
+    }
     const authMessageContainer = document.getElementById('authMessageContainer');
     const otpEmailHint = document.getElementById('otpEmailHint');
     const resendOtpBtn = document.getElementById('resendOtpBtn');

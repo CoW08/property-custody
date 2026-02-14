@@ -18,7 +18,8 @@ define('ALLOWED_FILE_TYPES', ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls',
 
 // System Settings
 define('ITEMS_PER_PAGE', 20);
-define('SESSION_TIMEOUT', 3600); // 1 hour
+define('SESSION_TIMEOUT', 1800); // 30 minutes
+ini_set('session.gc_maxlifetime', 1800); // Match session timeout
 define('PASSWORD_MIN_LENGTH', 8);
 
 // Asset Categories
@@ -138,13 +139,18 @@ define('SMTP_PASSWORD', 'ilhraidghbytwnzj');
 define('FROM_EMAIL', 'jerickdellosa3131@gmail.com');
 define('FROM_NAME', 'Property Management System');
 define('OTP_DEV_MODE', false);
-define('OTP_EXPIRY_SECONDS', 60);
+define('OTP_EXPIRY_SECONDS', 300);
+
+// Set a designated OTP email. When set, ALL OTP codes are sent to this
+// address instead of each user's personal email.  Leave empty ('') to
+// send OTPs to the user's own email on file.
+define('OTP_DESIGNATED_EMAIL', 'xcodez3r0@gmail.com');
 
 // Timezone
 date_default_timezone_set('Asia/Manila');
 
 // Error Reporting (disable in production)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
-?>

@@ -317,6 +317,98 @@
         echo '<script src="js/auth.js"></script>';
     }
     ?>
+    <?php if (isset($_SESSION['user_id'])): ?>
+    <!-- Session Activity Tracker -->
+    <script>
+    (function() {
+        let lastPing = 0;
+        const PING_INTERVAL = 120000; // Ping server every 2 minutes of activity (was 60s — too aggressive)
+        const SESSION_WARN = 25 * 60 * 1000; // Warn at 25 minutes
+        let sessionTimer = null;
+        let lastActivity = Date.now();
+        let isExpired = false; // Prevent multiple redirects
+
+        function resetSessionTimer() {
+            lastActivity = Date.now();
+            if (sessionTimer) clearTimeout(sessionTimer);
+            sessionTimer = setTimeout(function() {
+                if (isExpired) return;
+                if (confirm('Your session is about to expire due to inactivity. Click OK to stay logged in.')) {
+                    pingServer(true); // force ping
+                } else {
+                    handleExpired();
+                }
+            }, SESSION_WARN);
+        }
+
+        function handleExpired() {
+            if (isExpired) return; // Only redirect once
+            isExpired = true;
+            window.location.href = 'login.php?session=expired';
+        }
+
+        function pingServer(force) {
+            if (isExpired) return;
+            var now = Date.now();
+            if (!force && (now - lastPing < PING_INTERVAL)) return;
+            lastPing = now;
+            fetch('api/session_keepalive.php', { method: 'POST', credentials: 'same-origin' })
+                .then(function(r) {
+                    if (r.status === 401) {
+                        handleExpired();
+                        return;
+                    }
+                    // Check if we were redirected to login page (session expired mid-flight)
+                    if (r.redirected && r.url && r.url.indexOf('login') !== -1) {
+                        handleExpired();
+                        return;
+                    }
+                    // Verify we got valid JSON back (not an HTML login page)
+                    return r.text().then(function(txt) {
+                        try {
+                            var data = JSON.parse(txt);
+                            if (data.session_expired) {
+                                handleExpired();
+                            }
+                        } catch(e) {
+                            // Got HTML back (probably redirected to login) — session is dead
+                            handleExpired();
+                        }
+                    });
+                })
+                .catch(function() {
+                    // Network error — don't redirect, just skip
+                });
+            resetSessionTimer();
+        }
+
+        // Throttled activity listener — only track meaningful events
+        var activityThrottle = 0;
+        function onActivity() {
+            var now = Date.now();
+            if (now - activityThrottle < 5000) return; // Max once per 5 seconds
+            activityThrottle = now;
+            pingServer(false);
+        }
+
+        ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(function(evt) {
+            document.addEventListener(evt, onActivity, { passive: true });
+        });
+
+        // mousemove is very noisy — use a much longer throttle
+        var moveThrottle = 0;
+        document.addEventListener('mousemove', function() {
+            var now = Date.now();
+            if (now - moveThrottle < 30000) return; // Max once per 30 seconds for mousemove
+            moveThrottle = now;
+            onActivity();
+        }, { passive: true });
+
+        resetSessionTimer();
+    })();
+    </script>
+    <?php endif; ?>
+
     <?php if (isset($additionalScripts)) echo $additionalScripts; ?>
 </body>
 </html>

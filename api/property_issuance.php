@@ -1,7 +1,15 @@
 <?php
 // Enable detailed error reporting
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
+
+set_exception_handler(function($e) {
+    if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+    error_log("[PROPERTY_ISSUANCE] Uncaught: " . $e->getMessage());
+    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
 ini_set('log_errors', 1);
 
 // Set content type early

@@ -6,7 +6,11 @@ class Dashboard {
             const loaders = [
                 this.loadStats(),
                 this.loadRecentActivities(),
-                this.loadNotifications()
+                this.loadNotifications(),
+                this.loadSupplyStockChart(),
+                this.loadSupplyCategoryChart(),
+                this.loadAssetCategoryChart(),
+                this.loadMonthlyTransactionsChart()
             ];
 
 
@@ -437,6 +441,137 @@ class Dashboard {
         } else {
             return 'Just now';
         }
+    }
+
+    // ── Additional Dashboard Charts ──
+
+    static async loadSupplyStockChart() {
+        try {
+            const response = await API.request('dashboard.php?action=supply_stock_chart');
+            const canvas = document.getElementById('supplyStockChart');
+            if (!canvas || typeof Chart === 'undefined' || !response.items || !response.items.length) return;
+
+            if (canvas.__chart) { canvas.__chart.destroy(); }
+
+            const labels = response.items.map(i => i.name.length > 18 ? i.name.slice(0,18)+'…' : i.name);
+            const stock = response.items.map(i => Number(i.current_stock));
+            const minStock = response.items.map(i => Number(i.minimum_stock));
+
+            canvas.__chart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Current Stock', data: stock, backgroundColor: '#3b82f6', borderRadius: 4 },
+                        { label: 'Min Required', data: minStock, backgroundColor: '#f59e0b', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } } },
+                    scales: { x: { ticks: { maxRotation: 45 } }, y: { beginAtZero: true } }
+                }
+            });
+        } catch (e) { console.warn('Supply stock chart:', e); }
+    }
+
+    static async loadSupplyCategoryChart() {
+        try {
+            const response = await API.request('dashboard.php?action=supply_category_chart');
+            const canvas = document.getElementById('supplyCategoryChart');
+            if (!canvas || typeof Chart === 'undefined' || !response.categories || !response.categories.length) return;
+
+            if (canvas.__chart) { canvas.__chart.destroy(); }
+
+            const labels = response.categories.map(c => c.category);
+            const values = response.categories.map(c => Number(c.count));
+            const colors = ['#3b82f6','#22c55e','#f97316','#ef4444','#8b5cf6','#06b6d4','#f43f5e','#84cc16','#eab308','#6366f1'];
+
+            canvas.__chart = new Chart(canvas.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels,
+                    datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 1, borderColor: '#fff' }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, usePointStyle: true } } }
+                }
+            });
+        } catch (e) { console.warn('Supply category chart:', e); }
+    }
+
+    static async loadAssetCategoryChart() {
+        try {
+            const response = await API.request('dashboard.php?action=asset_category_chart');
+            const canvas = document.getElementById('assetCategoryChart');
+            if (!canvas || typeof Chart === 'undefined' || !response.categories || !response.categories.length) return;
+
+            if (canvas.__chart) { canvas.__chart.destroy(); }
+
+            const labels = response.categories.map(c => c.category);
+            const data = response.categories.map(c => parseInt(c.count));
+            const colors = [
+                '#6366F1', '#F59E0B', '#10B981', '#EF4444', '#3B82F6',
+                '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4',
+                '#84CC16', '#D946EF'
+            ];
+
+            canvas.__chart = new Chart(canvas.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 1,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { boxWidth: 12, usePointStyle: true }
+                        }
+                    }
+                }
+            });
+        } catch (e) { console.warn('Asset category chart:', e); }
+    }
+
+    static async loadMonthlyTransactionsChart() {
+        try {
+            const response = await API.request('dashboard.php?action=monthly_transactions_chart');
+            const canvas = document.getElementById('monthlyTransactionsChart');
+            if (!canvas || typeof Chart === 'undefined' || !response.months) return;
+
+            if (canvas.__chart) { canvas.__chart.destroy(); }
+
+            const months = Object.keys(response.months).sort();
+            if (!months.length) return;
+            const stockIn = months.map(m => response.months[m].in || 0);
+            const stockOut = months.map(m => response.months[m].out || 0);
+            const labels = months.map(m => { const d = new Date(m + '-01'); return d.toLocaleString('default', { month: 'short', year: '2-digit' }); });
+
+            canvas.__chart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Stock In', data: stockIn, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.3 },
+                        { label: 'Stock Out', data: stockOut, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        } catch (e) { console.warn('Monthly transactions chart:', e); }
     }
 
     static get refreshButton() {

@@ -40,6 +40,60 @@ ob_start();
                 </div>
             </div>
 
+            <!-- Summary Stats Cards (moved to top per requirement) -->
+            <div id="summaryCardsTop" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 lg:gap-6 mb-6">
+                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/20">
+                    <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-white to-slate-50"></div>
+                    <div class="relative flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">Total Items</p>
+                            <p id="topTotalItems" class="mt-2 text-2xl font-bold text-slate-900">0</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow"><i class="fas fa-boxes"></i></span>
+                    </div>
+                </div>
+                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/20">
+                    <div class="absolute inset-0 bg-gradient-to-br from-amber-400/10 via-white to-slate-50"></div>
+                    <div class="relative flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-amber-600">Low Stock Risks</p>
+                            <p id="topLowStockItems" class="mt-2 text-2xl font-bold text-slate-900">0</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white shadow"><i class="fas fa-exclamation-triangle"></i></span>
+                    </div>
+                </div>
+                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-rose-500/20">
+                    <div class="absolute inset-0 bg-gradient-to-br from-rose-400/10 via-white to-slate-50"></div>
+                    <div class="relative flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-rose-600">Out of Stock</p>
+                            <p id="topOutOfStock" class="mt-2 text-2xl font-bold text-slate-900">0</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500 text-white shadow"><i class="fas fa-times-circle"></i></span>
+                    </div>
+                </div>
+                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/20">
+                    <div class="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-white to-slate-50"></div>
+                    <div class="relative flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Overstock</p>
+                            <p id="topOverstock" class="mt-2 text-2xl font-bold text-slate-900">0</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white shadow"><i class="fas fa-arrow-up"></i></span>
+                    </div>
+                </div>
+                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-500/20">
+                    <div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-white to-slate-50"></div>
+                    <div class="relative flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Inventory Value</p>
+                            <p id="topInventoryValue" class="mt-2 text-2xl font-bold text-slate-900">₱0</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500 text-white shadow"><i class="fas fa-peso-sign"></i></span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Filters and Search -->
             <div class="bg-white border border-gray-200 rounded-xl shadow p-4 sm:p-6 mb-6">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -598,8 +652,8 @@ ob_start();
 
 <?php include 'components/detail_modal.php'; ?>
 
-<script src="js/api.js"></script>
-<script src="js/detail_handlers.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/detail_handlers.js?v=<?php echo time(); ?>"></script>
 <script>
 const STORAGE_LOCATIONS = [
     'Clinic Storage',
@@ -1416,6 +1470,18 @@ function updateSummaryCards() {
     document.getElementById('outOfStockItems').textContent = outOfStock;
     document.getElementById('overstockItems').textContent = overstock;
     document.getElementById('inventoryValue').textContent = '₱' + totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+
+    // Update top summary cards
+    const topTotal = document.getElementById('topTotalItems');
+    const topLow = document.getElementById('topLowStockItems');
+    const topOut = document.getElementById('topOutOfStock');
+    const topOver = document.getElementById('topOverstock');
+    const topValue = document.getElementById('topInventoryValue');
+    if (topTotal) topTotal.textContent = total;
+    if (topLow) topLow.textContent = lowStock;
+    if (topOut) topOut.textContent = outOfStock;
+    if (topOver) topOver.textContent = overstock;
+    if (topValue) topValue.textContent = '₱' + totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 });
 }
 
 // Populate supply select for transactions

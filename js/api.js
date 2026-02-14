@@ -16,11 +16,23 @@ class API {
             const response = await fetch(url, config);
             console.log('API Response status:', response.status);
             
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                console.error('JSON parse failed for', url, '- status:', response.status);
+                throw new Error('Server returned invalid response (status ' + response.status + ')');
+            }
             console.log('API Response data:', data);
 
+            // Handle session expiry
+            if (data.session_expired || response.status === 401) {
+                window.location.href = 'login.php?session=expired';
+                throw new Error('Session expired');
+            }
+
             if (!response.ok) {
-                throw new Error(data.message || 'API request failed');
+                throw new Error(data.message || data.error || 'API request failed (status ' + response.status + ')');
             }
 
             return data;
@@ -298,10 +310,22 @@ async function apiCall(url, method = 'GET', data = null) {
 
     try {
         const response = await fetch(url, config);
-        const result = await response.json();
+        let result;
+        try {
+            result = await response.json();
+        } catch (parseError) {
+            console.error('JSON parse failed for', url, '- status:', response.status);
+            throw new Error('Server returned invalid response (status ' + response.status + ')');
+        }
+
+        // Handle session expiry
+        if (result.session_expired || response.status === 401) {
+            window.location.href = 'login.php?session=expired';
+            throw new Error('Session expired');
+        }
 
         if (!response.ok) {
-            throw new Error(result.error || result.message || 'Request failed');
+            throw new Error(result.error || result.message || 'Request failed (status ' + response.status + ')');
         }
 
         return result;

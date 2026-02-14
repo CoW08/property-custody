@@ -1,7 +1,15 @@
 <?php
 header('Content-Type: application/json');
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+
+set_exception_handler(function($e) {
+    if (!headers_sent()) { header("Content-Type: application/json"); http_response_code(500); }
+    error_log("[API] Uncaught: " . $e->getMessage());
+    echo json_encode(["message" => "Server error: " . $e->getMessage(), "error" => $e->getMessage()]);
+    exit;
+});
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 require_once '../config/config.php';
 

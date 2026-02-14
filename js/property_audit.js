@@ -863,7 +863,7 @@ class PropertyAuditManager {
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-500">Current Location</label>
-                    <p>${asset.current_location || 'N/A'}</p>
+                    <p>${asset.location || asset.current_location || 'N/A'}</p>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-500">Status</label>

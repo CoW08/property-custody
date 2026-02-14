@@ -225,6 +225,43 @@ ob_start();
         </div>
     </div>
 
+    <!-- Password Change Modal -->
+    <div id="passwordChangeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" data-password-close></div>
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden" tabindex="-1">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Update Password</h2>
+                    <p class="text-xs text-gray-500">Change your account password.</p>
+                </div>
+                <button type="button" class="text-gray-400 hover:text-gray-600 transition" data-password-close>
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="passwordChangeForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                    <input type="password" name="current_password" required class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" placeholder="Enter current password">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                    <input type="password" name="new_password" required minlength="8" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" placeholder="Minimum 8 characters">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                    <input type="password" name="confirm_password" required minlength="8" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" placeholder="Re-enter new password">
+                </div>
+                <div id="passwordChangeMessage" class="hidden text-sm rounded-lg p-3"></div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition" data-password-close>Cancel</button>
+                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-key"></i> Update Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="notificationsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" data-notifications-close></div>
         <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden" tabindex="-1">
@@ -277,9 +314,27 @@ ob_start();
         }
     })(window.currentUser);
 </script>
-<script src="js/api.js"></script>
+<script>
+// Debug: intercept ALL dashboard API calls to log responses
+(function() {
+    const origFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+        const resp = await origFetch.apply(this, args);
+        if (url.includes('dashboard.php')) {
+            const clone = resp.clone();
+            try {
+                const body = await clone.text();
+                console.log('[DASHBOARD DEBUG]', url, 'Status:', resp.status, 'Body:', body.substring(0, 500));
+            } catch(e) {}
+        }
+        return resp;
+    };
+})();
+</script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js" data-chartjs></script>
-<script src="js/dashboard.js"></script>
+<script src="js/dashboard.js?v=<?php echo time(); ?>"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -547,6 +602,70 @@ document.addEventListener('DOMContentLoaded', function() {
                 } finally {
                     Dashboard.toggleButtonLoading(submitButton, false);
                     setFormDisabled(false);
+                }
+            });
+        }
+    }
+
+    // Password Change Modal
+    const passwordModal = document.getElementById('passwordChangeModal');
+    if (passwordModal) {
+        const openPasswordBtns = document.querySelectorAll('[data-open-password-form]');
+        const closePasswordBtns = passwordModal.querySelectorAll('[data-password-close]');
+        const passwordForm = passwordModal.querySelector('#passwordChangeForm');
+        const passwordMsg = passwordModal.querySelector('#passwordChangeMessage');
+
+        const openPasswordModal = () => {
+            passwordModal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            if (passwordForm) passwordForm.reset();
+            if (passwordMsg) { passwordMsg.classList.add('hidden'); passwordMsg.textContent = ''; }
+        };
+        const closePasswordModal = () => {
+            passwordModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        };
+
+        openPasswordBtns.forEach(btn => btn.addEventListener('click', openPasswordModal));
+        closePasswordBtns.forEach(btn => btn.addEventListener('click', closePasswordModal));
+
+        if (passwordForm) {
+            passwordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fd = new FormData(passwordForm);
+                const current = fd.get('current_password');
+                const newPw = fd.get('new_password');
+                const confirm = fd.get('confirm_password');
+
+                if (newPw !== confirm) {
+                    passwordMsg.textContent = 'New password and confirmation do not match.';
+                    passwordMsg.className = 'text-sm rounded-lg p-3 bg-red-50 text-red-700';
+                    passwordMsg.classList.remove('hidden');
+                    return;
+                }
+
+                try {
+                    const resp = await fetch('api/users.php?action=change_password', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ current_password: current, new_password: newPw, confirm_password: confirm })
+                    });
+                    const data = await resp.json();
+                    if (resp.ok && (data.success || data.message)) {
+                        passwordMsg.textContent = data.message || 'Password updated successfully!';
+                        passwordMsg.className = 'text-sm rounded-lg p-3 bg-green-50 text-green-700';
+                        passwordMsg.classList.remove('hidden');
+                        passwordForm.reset();
+                        setTimeout(closePasswordModal, 1500);
+                    } else {
+                        passwordMsg.textContent = data.message || data.error || 'Failed to update password.';
+                        passwordMsg.className = 'text-sm rounded-lg p-3 bg-red-50 text-red-700';
+                        passwordMsg.classList.remove('hidden');
+                    }
+                } catch (err) {
+                    passwordMsg.textContent = 'Network error. Please try again.';
+                    passwordMsg.className = 'text-sm rounded-lg p-3 bg-red-50 text-red-700';
+                    passwordMsg.classList.remove('hidden');
                 }
             });
         }

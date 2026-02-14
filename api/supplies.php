@@ -1,9 +1,42 @@
 <?php
-require_once '../config/cors.php';
-require_once '../config/database.php';
-require_once '../includes/archive_helpers.php';
+ini_set("display_errors", 0);
+ini_set("display_startup_errors", 0);
+ini_set("log_errors", 1);
+error_reporting(E_ALL);
 
-session_start();
+ob_start();
+
+set_exception_handler(function($e) {
+    ob_end_clean();
+    if (!headers_sent()) { header("Content-Type: application/json"); http_response_code(500); }
+    error_log("[SUPPLIES] Uncaught: " . $e->getMessage());
+    echo json_encode(["message" => "Server error: " . $e->getMessage()]);
+    exit;
+});
+
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("[SUPPLIES] PHP error ($severity): $message in $file:$line");
+    return true;
+});
+
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ob_end_clean();
+        if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+        echo json_encode(['message' => 'Fatal server error']);
+    }
+});
+
+require_once __DIR__ . '/../config/cors.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/archive_helpers.php';
+
+ob_end_clean();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if(!isset($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(array("message" => "Unauthorized"));
@@ -32,6 +65,23 @@ $database = new Database();
 $db = $database->getConnection();
 
 ensureArchiveInfrastructure($db, 'supplies');
+
+// Fix: ensure id columns have AUTO_INCREMENT (existing tables from SQL dump may lack it)
+try {
+    foreach (['supplies', 'supply_transactions'] as $tbl) {
+        $colCheck = $db->query("SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS 
+                                WHERE TABLE_SCHEMA = DATABASE() 
+                                AND TABLE_NAME = '$tbl' 
+                                AND COLUMN_NAME = 'id'")->fetch(PDO::FETCH_ASSOC);
+        if ($colCheck && stripos($colCheck['EXTRA'], 'auto_increment') === false) {
+            try { $db->exec("ALTER TABLE $tbl ADD PRIMARY KEY (id)"); } catch (Throwable $e) {}
+            $db->exec("ALTER TABLE $tbl MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT");
+            error_log("[SUPPLIES] Fixed $tbl.id AUTO_INCREMENT");
+        }
+    }
+} catch (Throwable $e) {
+    error_log("[SUPPLIES] ALTER id fix: " . $e->getMessage());
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -138,6 +188,25 @@ function createSupply($db) {
     $data = json_decode(file_get_contents("php://input"));
 
     if(!empty($data->item_code) && !empty($data->name)) {
+        // Check for duplicate item_code
+        $checkCode = $db->prepare("SELECT id FROM supplies WHERE item_code = ? AND archived_at IS NULL");
+        $checkCode->execute([$data->item_code]);
+        if ($checkCode->rowCount() > 0) {
+            http_response_code(409);
+            echo json_encode(array("message" => "An item with this item code already exists. Please use a unique item code."));
+            return;
+        }
+
+        // Check for duplicate name (warn if same name exists with different code)
+        $checkName = $db->prepare("SELECT id, item_code FROM supplies WHERE LOWER(name) = LOWER(?) AND archived_at IS NULL");
+        $checkName->execute([$data->name]);
+        if ($checkName->rowCount() > 0) {
+            $existing = $checkName->fetch(PDO::FETCH_ASSOC);
+            http_response_code(409);
+            echo json_encode(array("message" => "An item with the name '{$data->name}' already exists (Code: {$existing['item_code']}). Use a different name or edit the existing item."));
+            return;
+        }
+
         $currentStock = isset($data->current_stock) ? (int)$data->current_stock : 0;
         $unitCost = isset($data->unit_cost) ? (float)$data->unit_cost : null;
         $totalValue = isset($data->total_value)
@@ -189,11 +258,44 @@ function createTransaction($db) {
     $data = json_decode(file_get_contents("php://input"));
 
     if(!empty($data->supply_id) && !empty($data->transaction_type) && isset($data->quantity)) {
+        // Ensure supply_transactions table exists
+        $db->exec("CREATE TABLE IF NOT EXISTS supply_transactions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            supply_id INT NOT NULL,
+            transaction_type VARCHAR(20) NOT NULL,
+            quantity INT NOT NULL,
+            unit_cost DECIMAL(12,2) NULL,
+            total_cost DECIMAL(12,2) NULL,
+            reference_number VARCHAR(100) NULL,
+            notes TEXT NULL,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_supply (supply_id),
+            INDEX idx_type (transaction_type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
         $db->beginTransaction();
 
         try {
-            $unitCost = isset($data->unit_cost) ? (float)$data->unit_cost : null;
             $quantity = (int)$data->quantity;
+            if ($quantity <= 0) {
+                throw new Exception('Quantity must be greater than zero');
+            }
+
+            // For stock out, verify sufficient stock
+            if ($data->transaction_type === 'out') {
+                $checkStock = $db->prepare("SELECT current_stock FROM supplies WHERE id = ? AND archived_at IS NULL");
+                $checkStock->execute([$data->supply_id]);
+                $supply = $checkStock->fetch(PDO::FETCH_ASSOC);
+                if (!$supply) {
+                    throw new Exception('Supply item not found');
+                }
+                if ((int)$supply['current_stock'] < $quantity) {
+                    throw new Exception('Insufficient stock. Current: ' . $supply['current_stock'] . ', Requested: ' . $quantity);
+                }
+            }
+
+            $unitCost = isset($data->unit_cost) ? (float)$data->unit_cost : null;
             $totalCost = $unitCost !== null ? $unitCost * $quantity : null;
 
             $query = "INSERT INTO supply_transactions (supply_id, transaction_type, quantity, unit_cost, total_cost, reference_number, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -214,17 +316,19 @@ function createTransaction($db) {
 
             // Update supply stock
             if($data->transaction_type === 'in') {
-                $query = "UPDATE supplies SET current_stock = current_stock + ? WHERE id = ?";
+                $query = "UPDATE supplies SET current_stock = current_stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
             } else {
-                $query = "UPDATE supplies SET current_stock = current_stock - ? WHERE id = ?";
+                $query = "UPDATE supplies SET current_stock = GREATEST(0, current_stock - ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?";
             }
 
             $stmt = $db->prepare($query);
-            $stmt->execute([$data->quantity, $data->supply_id]);
+            $stmt->execute([$quantity, $data->supply_id]);
+
+            // Also update total_value
+            $db->prepare("UPDATE supplies SET total_value = current_stock * COALESCE(unit_cost, 0) WHERE id = ?")->execute([$data->supply_id]);
 
             $db->commit();
 
-            // Log the activity
             logActivity($db, $_SESSION['user_id'], 'create', 'supply_transactions', $transaction_id);
 
             http_response_code(201);
@@ -232,9 +336,9 @@ function createTransaction($db) {
 
         } catch(Exception $e) {
             $db->rollback();
-            http_response_code(500);
+            http_response_code(400);
             echo json_encode(array(
-                "message" => "Failed to create transaction",
+                "message" => $e->getMessage(),
                 "error" => $e->getMessage()
             ));
         }

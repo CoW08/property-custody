@@ -112,14 +112,60 @@
         </div>
     </div>
 
-    <!-- Recent Activity -->
-    <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-700">Recent Activities</h3>
-            <span class="text-xs text-gray-500">Last 20</span>
+    <!-- Recent Activity & Additional Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-700">Recent Activities</h3>
+                <span class="text-xs text-gray-500">Last 10</span>
+            </div>
+            <div id="recentActivities" class="space-y-4 text-sm text-gray-700 max-h-80 overflow-y-auto">
+                <!-- Activities will be loaded here -->
+            </div>
         </div>
-        <div id="recentActivities" class="space-y-4 text-sm text-gray-700">
-            <!-- Activities will be loaded here -->
+
+        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-700">Supply Stock Levels</h3>
+                <span class="text-xs text-gray-500">Top items by stock</span>
+            </div>
+            <div class="h-64">
+                <canvas id="supplyStockChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-700">Supply Categories</h3>
+                <span class="text-xs text-gray-500">Distribution</span>
+            </div>
+            <div class="h-64">
+                <canvas id="supplyCategoryChart"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-700">Asset Categories</h3>
+                <span class="text-xs text-gray-500">Items per category</span>
+            </div>
+            <div class="h-64">
+                <canvas id="assetCategoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-700">Monthly Transactions</h3>
+                <span class="text-xs text-gray-500">Stock In vs Stock Out</span>
+            </div>
+            <div class="h-64">
+                <canvas id="monthlyTransactionsChart"></canvas>
+            </div>
         </div>
     </div>
 </div>

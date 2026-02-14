@@ -305,9 +305,27 @@ ob_start();
 
 <?php include 'components/detail_modal.php'; ?>
 
-<script src="js/api.js"></script>
-<script src="js/detail_handlers.js"></script>
-<script src="js/maintenance.js"></script>
+<script>
+// Debug: intercept fetch for maintenance API to log actual server responses
+(function() {
+    const origFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+        const resp = await origFetch.apply(this, args);
+        if (url.includes('maintenance.php')) {
+            const clone = resp.clone();
+            try {
+                const body = await clone.text();
+                console.log('[MAINTENANCE DEBUG] URL:', url, 'Status:', resp.status, 'Body:', body.substring(0, 500));
+            } catch(e) {}
+        }
+        return resp;
+    };
+})();
+</script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/detail_handlers.js?v=<?php echo time(); ?>"></script>
+<script src="js/maintenance.js?v=<?php echo time(); ?>"></script>
 
 <?php
 $content = ob_get_clean();

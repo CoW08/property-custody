@@ -19,8 +19,26 @@ ob_start();
     </main>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/waste_management.js"></script>
+<script>
+// Inline patch: intercept fetch errors for waste_management API to show real server response
+(function() {
+    const origFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+        const resp = await origFetch.apply(this, args);
+        if (url.includes('waste_management') && !resp.ok) {
+            const clone = resp.clone();
+            try {
+                const body = await clone.text();
+                console.error('[WASTE_MGMT DEBUG] Status:', resp.status, 'Body:', body.substring(0, 500));
+            } catch(e) {}
+        }
+        return resp;
+    };
+})();
+</script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/waste_management.js?v=<?php echo time(); ?>"></script>
 
 <?php
 $content = ob_get_clean();

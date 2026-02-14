@@ -279,18 +279,19 @@ class DamagedItemsManager {
         try {
             const response = await fetch(`api/damaged_items.php?action=list&page=${this.currentPage}&limit=${this.itemsPerPage}`);
 
+            const result = await response.json().catch(() => null);
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const msg = (result && result.message) ? result.message : `HTTP error! status: ${response.status}`;
+                throw new Error(msg);
             }
 
-            const result = await response.json();
-
-            if (result.success) {
+            if (result && result.success) {
                 this.renderDamagedItemsTable(result.data);
                 this.renderPagination(result.pagination);
             } else {
                 console.error('API Error:', result);
-                this.showNotification('Failed to load damaged items: ' + (result.message || 'Unknown error'), 'error');
+                this.showNotification('Failed to load damaged items: ' + ((result && result.message) || 'Unknown error'), 'error');
             }
         } catch (error) {
             console.error('Error loading damaged items:', error);
@@ -381,20 +382,20 @@ class DamagedItemsManager {
         try {
             const response = await fetch('api/damaged_items.php?action=stats');
 
+            const result = await response.json().catch(() => null);
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const msg = (result && result.message) ? result.message : `HTTP error! status: ${response.status}`;
+                throw new Error(msg);
             }
 
-            const result = await response.json();
-
-            if (result.success) {
+            if (result && result.success) {
                 this.updateStatsDisplay(result.data);
             } else {
                 console.error('Failed to load stats:', result);
             }
         } catch (error) {
-            console.error('Error loading damaged items:', error);
-            this.showNotification('Error loading damaged items: ' + error.message, 'error');
+            console.error('Error loading stats:', error);
         }
     }
 

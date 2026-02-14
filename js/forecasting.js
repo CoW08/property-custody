@@ -60,6 +60,31 @@ class ForecastingPage {
             });
         }
 
+        const seedBtn = document.getElementById('forecastSeedBtn');
+        if (seedBtn) {
+            seedBtn.addEventListener('click', async () => {
+                if (!confirm('This will generate simulated historical transactions for all live inventory items that don\'t have transaction history yet. This enables AI predictions for runout days.\n\nContinue?')) return;
+                seedBtn.disabled = true;
+                seedBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Seeding...';
+                try {
+                    const resp = await fetch('api/forecasting.php?action=seed_history', { method: 'POST' });
+                    const data = await resp.json();
+                    if (data.success) {
+                        alert(`✅ ${data.message}`);
+                        await this.handleManualRefresh();
+                    } else {
+                        alert('❌ ' + (data.message || 'Failed to seed history'));
+                    }
+                } catch (err) {
+                    console.error('Seed error:', err);
+                    alert('Error seeding history: ' + err.message);
+                } finally {
+                    seedBtn.disabled = false;
+                    seedBtn.innerHTML = '<i class="fas fa-database"></i> Seed History';
+                }
+            });
+        }
+
         if (this.exportButton) {
             this.exportButton.addEventListener('click', async () => {
                 await this.handleExport();

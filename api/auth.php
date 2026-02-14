@@ -1,4 +1,5 @@
 <?php
+ini_set("display_errors", 0); ini_set("log_errors", 1);
 require_once '../config/cors.php';
 require_once '../config/database.php';
 require_once '../config/config.php';
@@ -183,6 +184,7 @@ function login($db) {
             return;
         }
 
+        // Always require a valid email on the user's account
         if((!defined('OTP_DEV_MODE') || !OTP_DEV_MODE) && (empty($row['email']) || !filter_var($row['email'], FILTER_VALIDATE_EMAIL))) {
             http_response_code(400);
             echo json_encode(array("message" => "Two-factor authentication requires a valid email address on file. Please contact an administrator."));
@@ -197,7 +199,12 @@ function login($db) {
             return;
         }
 
-        $emailSent = sendOtpEmail($row['email'], $row['full_name'] ?: $row['username'], $otpData['code']);
+        // Send OTP to the user's own email address
+        $emailSent = sendOtpEmail(
+            $row['email'],
+            $row['full_name'] ?: $row['username'],
+            $otpData['code']
+        );
 
         if(!$emailSent && (!defined('OTP_DEV_MODE') || !OTP_DEV_MODE)) {
             removeOtpByToken($db, $otpData['token']);
@@ -206,6 +213,8 @@ function login($db) {
             return;
         }
 
+        $hintEmail = $row['email'];
+
         $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         http_response_code(200);
         echo json_encode(array(
@@ -213,7 +222,7 @@ function login($db) {
                 max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : ''),
             "status" => "otp_required",
             "otp_token" => $otpData['token'],
-            "email_hint" => maskEmail($row['email']),
+            "email_hint" => maskEmail($hintEmail),
             "otp_dev_code" => (defined('OTP_DEV_MODE') && OTP_DEV_MODE) ? $otpData['code'] : null
         ));
 
@@ -372,7 +381,11 @@ function resendOtp($db) {
             return;
         }
 
-        $emailSent = sendOtpEmail($record['email'], $record['full_name'] ?: $record['username'], $otpData['code']);
+        $emailSent = sendOtpEmail(
+            $record['email'],
+            $record['full_name'] ?: $record['username'],
+            $otpData['code']
+        );
 
         if(!$emailSent && (!defined('OTP_DEV_MODE') || !OTP_DEV_MODE)) {
             removeOtpByToken($db, $otpData['token']);

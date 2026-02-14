@@ -1,4 +1,5 @@
 <?php
+ini_set("display_errors", 0); ini_set("log_errors", 1);
 // Start session for user authentication
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -213,6 +214,19 @@ function createProcurementRequest($pdo) {
                 echo json_encode(['error' => "Missing required field: $field"]);
                 return;
             }
+        }
+
+        // Validate dates are not in the past
+        $today = date('Y-m-d');
+        if (!empty($input['request_date']) && $input['request_date'] < $today) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Request date cannot be in the past']);
+            return;
+        }
+        if (!empty($input['required_date']) && $input['required_date'] < $today) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Required date cannot be in the past']);
+            return;
         }
 
         $pdo->beginTransaction();

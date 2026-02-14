@@ -1,8 +1,36 @@
 <?php
 // Enable error display for debugging
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
 ini_set('log_errors', 1);
+error_reporting(E_ALL);
+
+// Start output buffering to catch ANY stray output
+ob_start();
+
+set_exception_handler(function($e) {
+    ob_end_clean();
+    if (!headers_sent()) { header("Content-Type: application/json"); http_response_code(500); }
+    error_log("[ASSETS] Uncaught: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    echo json_encode(["message" => "Server error: " . $e->getMessage(), "error" => $e->getMessage()]);
+    exit;
+});
+
+// Suppress PHP notices/warnings from outputting (log them instead)
+set_error_handler(function ($severity, $message, $file, $line) {
+    error_log("[ASSETS] PHP error ($severity): $message in $file:$line");
+    return true; // suppress
+});
+
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ob_end_clean();
+        if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+        error_log("[ASSETS] Fatal: " . $error['message'] . " in " . $error['file'] . ":" . $error['line']);
+        echo json_encode(["message" => "Fatal server error", "error" => $error['message']]);
+    }
+});
 
 // Add debug logging
 function debug_log($message, $data = null) {
@@ -140,8 +168,7 @@ function bulkModifyTags($db, $input, $mode = 'add') {
     }
 }
 
-require_once __DIR__ . '/../config/cors.php';
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/archive_helpers.php';
 
 // Start session only if not already started
@@ -149,29 +176,50 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Temporarily disabled for testing
-// if(!isset($_SESSION['user_id'])) {
-//     http_response_code(401);
-//     echo json_encode(array("message" => "Unauthorized"));
-//     exit();
-// }
+// Set headers inline
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    ob_end_clean();
+    http_response_code(200);
+    exit;
+}
 
 try {
-    $database = new Database();
-    $db = $database->getConnection();
-    if (!$db) {
-        throw new Exception("Database connection failed");
-    }
-} catch (Exception $e) {
+    $db = new PDO(
+        'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME,
+        DB_USER,
+        DB_PASS,
+        [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
+        ]
+    );
+} catch (PDOException $e) {
+    ob_end_clean();
     http_response_code(500);
-    echo json_encode(array("message" => "Database connection error", "error" => $e->getMessage()));
-    exit();
+    error_log("[ASSETS] DB connection failed: " . $e->getMessage());
+    echo json_encode(["message" => "Database connection failed", "error" => $e->getMessage()]);
+    exit;
 }
 
 $input_data = file_get_contents("php://input");
-ensureArchiveInfrastructure($db, 'assets');
 
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Only ensure archive infrastructure on write operations
+if ($method !== 'GET') {
+    ensureArchiveInfrastructure($db, 'assets');
+}
+
+// Flush any stray output before our JSON
+ob_end_clean();
+
 debug_log("API Request", ["method" => $method, "get" => $_GET, "input" => $input_data]);
 
 switch($method) {
@@ -245,23 +293,10 @@ function getAssets($db) {
             $params[] = $searchTerm;
         }
 
-        // Add category filter
-        if(isset($_GET['category']) && !empty($_GET['category'])) {
-            $whereClause .= " AND (ac.name = ? OR a.category = ?)";
-            $params[] = $_GET['category'];
-            $params[] = $_GET['category'];
-        }
-
         // Add status filter
         if(isset($_GET['status']) && !empty($_GET['status'])) {
             $whereClause .= " AND a.status = ?";
             $params[] = $_GET['status'];
-        }
-
-        // Add tag filter
-        if(isset($_GET['tag']) && !empty($_GET['tag'])) {
-            $whereClause .= " AND a.id IN (SELECT asset_id FROM asset_tag_relationships WHERE tag_id = ?)";
-            $params[] = $_GET['tag'];
         }
 
         // Check if assets table exists
@@ -272,35 +307,74 @@ function getAssets($db) {
             return;
         }
 
+        // Check which optional tables exist
+        $hasCategoriesTable = $db->query("SHOW TABLES LIKE 'asset_categories'")->rowCount() > 0;
+        $hasTagsTable = $db->query("SHOW TABLES LIKE 'asset_tags'")->rowCount() > 0;
+        $hasTagRelTable = $db->query("SHOW TABLES LIKE 'asset_tag_relationships'")->rowCount() > 0;
+        $hasTagSupport = $hasTagsTable && $hasTagRelTable;
+
+        // Check if archived_at column exists
+        $hasArchivedAt = false;
+        try {
+            $colCheck = $db->query("SHOW COLUMNS FROM assets LIKE 'archived_at'");
+            $hasArchivedAt = $colCheck->rowCount() > 0;
+        } catch (Throwable $e) {}
+
+        // Adjust WHERE clause if archived_at doesn't exist
+        if (!$hasArchivedAt) {
+            $whereClause = str_replace(" WHERE a.archived_at IS NULL", " WHERE 1=1", $whereClause);
+        }
+
+        // Add category filter
+        if(isset($_GET['category']) && !empty($_GET['category'])) {
+            if ($hasCategoriesTable) {
+                $whereClause .= " AND (ac.name = ? OR a.category = ?)";
+                $params[] = $_GET['category'];
+                $params[] = $_GET['category'];
+            } else {
+                $whereClause .= " AND a.category = ?";
+                $params[] = $_GET['category'];
+            }
+        }
+
+        // Add tag filter
+        if(isset($_GET['tag']) && !empty($_GET['tag']) && $hasTagSupport) {
+            $whereClause .= " AND a.id IN (SELECT asset_id FROM asset_tag_relationships WHERE tag_id = ?)";
+            $params[] = $_GET['tag'];
+        }
+
         // Get pagination parameters
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $limit = isset($_GET['limit']) ? max(1, min(100, intval($_GET['limit']))) : 10;
         $offset = ($page - 1) * $limit;
 
-        // First get the total count
-        $countQuery = "SELECT COUNT(DISTINCT a.id) as total
-                       FROM assets a
-                       LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
-                       LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id
-                       LEFT JOIN asset_tags at ON atr.tag_id = at.id" . $whereClause;
+        // Build JOINs based on available tables
+        $joins = "";
+        $categorySelect = "COALESCE(NULLIF(a.category, ''), 'Uncategorized') as category_name";
+        $tagSelect = "NULL as tags";
+        $groupBy = "";
 
+        if ($hasCategoriesTable) {
+            $joins .= " LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)";
+            $categorySelect = "COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name";
+        }
+
+        if ($hasTagSupport) {
+            $joins .= " LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id";
+            $joins .= " LEFT JOIN asset_tags at2 ON atr.tag_id = at2.id";
+            $tagSelect = "GROUP_CONCAT(DISTINCT CASE WHEN at2.id IS NULL THEN NULL ELSE CONCAT(at2.id, ':', at2.name, ':', COALESCE(at2.color, '#3B82F6')) END SEPARATOR '|') as tags";
+            $groupBy = " GROUP BY a.id";
+        }
+
+        // Count query
+        $countQuery = "SELECT COUNT(DISTINCT a.id) as total FROM assets a{$joins}{$whereClause}";
         $countStmt = $db->prepare($countQuery);
         $countStmt->execute($params);
         $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-        // Then get the paginated results
-        $query = "SELECT a.*,
-                  COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name,
-                  GROUP_CONCAT(DISTINCT CASE
-                      WHEN at.id IS NULL THEN NULL
-                      ELSE CONCAT(at.id, ':', at.name, ':', COALESCE(at.color, '#3B82F6'))
-                  END SEPARATOR '|') as tags
-                  FROM assets a
-                  LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
-                  LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id
-                  LEFT JOIN asset_tags at ON atr.tag_id = at.id" .
-                  $whereClause . "
-                  GROUP BY a.id
+        // Main query
+        $query = "SELECT a.*, {$categorySelect}, {$tagSelect}
+                  FROM assets a{$joins}{$whereClause}{$groupBy}
                   ORDER BY a.created_at DESC
                   LIMIT " . intval($limit) . " OFFSET " . intval($offset);
 
@@ -350,26 +424,54 @@ function getAssets($db) {
             )
         ));
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(array("message" => "Error fetching assets", "error" => $e->getMessage()));
+        error_log("[ASSETS] getAssets error: " . $e->getMessage());
+        // Return 200 with empty data so the page loads gracefully
+        http_response_code(200);
+        echo json_encode(array(
+            'assets' => [],
+            'pagination' => array(
+                'current_page' => 1,
+                'total_pages' => 0,
+                'total_items' => 0,
+                'per_page' => 10,
+                'has_next' => false,
+                'has_previous' => false
+            ),
+            'warning' => 'Error fetching assets: ' . $e->getMessage()
+        ));
     }
 }
 
 function getAsset($db, $id) {
-    $query = "SELECT a.*, COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name,
-              GROUP_CONCAT(DISTINCT CASE
-                  WHEN at.id IS NULL THEN NULL
-                  ELSE CONCAT(at.id, ':', at.name, ':', COALESCE(at.color, '#3B82F6'))
-              END SEPARATOR '|') as tags
-              FROM assets a
-              LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
-              LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id
-              LEFT JOIN asset_tags at ON atr.tag_id = at.id
-              WHERE a.id = ?
-              GROUP BY a.id";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(1, $id);
-    $stmt->execute();
+    try {
+        $hasCategoriesTable = $db->query("SHOW TABLES LIKE 'asset_categories'")->rowCount() > 0;
+        $hasTagsTable = $db->query("SHOW TABLES LIKE 'asset_tags'")->rowCount() > 0;
+        $hasTagRelTable = $db->query("SHOW TABLES LIKE 'asset_tag_relationships'")->rowCount() > 0;
+        $hasTagSupport = $hasTagsTable && $hasTagRelTable;
+
+        $joins = "";
+        $categorySelect = "COALESCE(NULLIF(a.category, ''), 'Uncategorized') as category_name";
+        $tagSelect = "NULL as tags";
+        $groupBy = "";
+
+        if ($hasCategoriesTable) {
+            $joins .= " LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)";
+            $categorySelect = "COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category_name";
+        }
+
+        if ($hasTagSupport) {
+            $joins .= " LEFT JOIN asset_tag_relationships atr ON a.id = atr.asset_id";
+            $joins .= " LEFT JOIN asset_tags at2 ON atr.tag_id = at2.id";
+            $tagSelect = "GROUP_CONCAT(DISTINCT CASE WHEN at2.id IS NULL THEN NULL ELSE CONCAT(at2.id, ':', at2.name, ':', COALESCE(at2.color, '#3B82F6')) END SEPARATOR '|') as tags";
+            $groupBy = " GROUP BY a.id";
+        }
+
+        $query = "SELECT a.*, {$categorySelect}, {$tagSelect}
+                  FROM assets a{$joins}
+                  WHERE a.id = ?{$groupBy}";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(1, $id);
+        $stmt->execute();
 
     if($stmt->rowCount() > 0) {
         $asset = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -398,6 +500,10 @@ function getAsset($db, $id) {
         http_response_code(404);
         echo json_encode(array("message" => "Asset not found"));
     }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(array("message" => "Error fetching asset", "error" => $e->getMessage()));
+    }
 }
 
 // Generate unique asset code
@@ -406,13 +512,16 @@ function generateAssetCode($db, $category = null) {
     
     // Add category prefix if provided
     if ($category) {
-        $categoryStmt = $db->prepare("SELECT name FROM asset_categories WHERE id = ? OR name = ? LIMIT 1");
-        $categoryStmt->execute([$category, $category]);
-        if ($categoryStmt->rowCount() > 0) {
-            $categoryName = $categoryStmt->fetch(PDO::FETCH_ASSOC)['name'];
-            // Get first 3 letters of category
-            $prefix = strtoupper(substr(preg_replace('/[^A-Z]/', '', $categoryName), 0, 3));
-            if (strlen($prefix) < 2) $prefix = 'AST';
+        try {
+            $categoryStmt = $db->prepare("SELECT name FROM asset_categories WHERE id = ? OR name = ? LIMIT 1");
+            $categoryStmt->execute([$category, $category]);
+            if ($categoryStmt->rowCount() > 0) {
+                $categoryName = $categoryStmt->fetch(PDO::FETCH_ASSOC)['name'];
+                $prefix = strtoupper(substr(preg_replace('/[^A-Z]/', '', $categoryName), 0, 3));
+                if (strlen($prefix) < 2) $prefix = 'AST';
+            }
+        } catch (Throwable $e) {
+            // asset_categories table may not exist
         }
     }
     
@@ -899,9 +1008,14 @@ function exportAssetsToExcel($db) {
         }
 
         if(isset($_GET['category']) && !empty($_GET['category'])) {
-            $whereClause .= ($whereClause ? " AND " : " WHERE ") . "(ac.name = ? OR a.category = ?)";
-            $params[] = $_GET['category'];
-            $params[] = $_GET['category'];
+            if ($hasCategoriesTable) {
+                $whereClause .= ($whereClause ? " AND " : " WHERE ") . "(ac.name = ? OR a.category = ?)";
+                $params[] = $_GET['category'];
+                $params[] = $_GET['category'];
+            } else {
+                $whereClause .= ($whereClause ? " AND " : " WHERE ") . "a.category = ?";
+                $params[] = $_GET['category'];
+            }
         }
 
         if(isset($_GET['status']) && !empty($_GET['status'])) {
@@ -909,11 +1023,20 @@ function exportAssetsToExcel($db) {
             $params[] = $_GET['status'];
         }
 
+        $hasCategoriesTable = $db->query("SHOW TABLES LIKE 'asset_categories'")->rowCount() > 0;
+
+        $catJoin = "";
+        $catSelect = "COALESCE(NULLIF(a.category, ''), 'Uncategorized') as category";
+        if ($hasCategoriesTable) {
+            $catJoin = "LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)";
+            $catSelect = "COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category";
+        }
+
         // Get all assets
         $query = "SELECT 
                     a.asset_code,
                     a.name,
-                    COALESCE(ac.name, NULLIF(a.category, ''), 'Uncategorized') as category,
+                    {$catSelect},
                     a.description,
                     a.status,
                     a.condition_status,
@@ -926,7 +1049,7 @@ function exportAssetsToExcel($db) {
                     a.qr_code,
                     a.created_at
                   FROM assets a
-                  LEFT JOIN asset_categories ac ON (a.category = ac.id OR a.category = ac.name)
+                  {$catJoin}
                   LEFT JOIN users u ON a.assigned_to = u.id" .
                   $whereClause . "
                   ORDER BY a.created_at DESC";

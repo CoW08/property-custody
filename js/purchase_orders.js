@@ -91,6 +91,11 @@ function bindPurchaseOrderEvents() {
         });
     }
 
+    const exportBtn = document.getElementById('exportPurchaseOrders');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportPurchaseOrdersCSV);
+    }
+
     if (createBtn) {
         createBtn.addEventListener('click', openPurchaseOrderModal);
     }
@@ -741,7 +746,17 @@ async function submitPurchaseOrderForm(event) {
 async function viewPurchaseOrder(id) {
     try {
         const response = await fetch(`api/purchase_orders.php?action=details&id=${id}`);
-        const data = await response.json();
+        
+        let data;
+        const rawText = await response.clone().text();
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseErr) {
+            console.error('[PO VIEW] JSON parse failed. Status:', response.status, 'Body:', rawText.substring(0, 500));
+            showNotification('Server returned invalid response.', 'error');
+            return;
+        }
+
         if (!data.success) {
             throw new Error(data.error || 'Failed to load purchase order details');
         }
@@ -757,7 +772,18 @@ async function viewPurchaseOrder(id) {
 async function editPurchaseOrder(id) {
     try {
         const response = await fetch(`api/purchase_orders.php?action=details&id=${id}`);
-        const data = await response.json();
+        
+        // Try to parse JSON, handle corrupt responses
+        let data;
+        const rawText = await response.clone().text();
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseErr) {
+            console.error('[PO EDIT] JSON parse failed. Status:', response.status, 'Body:', rawText.substring(0, 500));
+            showNotification('Server returned invalid response. Check console for details.', 'error');
+            return;
+        }
+
         if (!data.success) {
             throw new Error(data.error || 'Failed to load purchase order details');
         }
@@ -767,7 +793,7 @@ async function editPurchaseOrder(id) {
         openEditPurchaseOrderModal();
     } catch (error) {
         console.error('Failed to load purchase order for edit:', error);
-        showNotification('Failed to load purchase order for editing.', 'error');
+        showNotification('Failed to load purchase order for editing: ' + (error.message || ''), 'error');
     }
 }
 
@@ -953,15 +979,15 @@ function populateEditPurchaseOrderForm(po) {
 
     if (idField) idField.value = po.id;
     if (vendorName) vendorName.value = po.vendor_name || '';
-    if (orderDate) orderDate.value = po.order_date ? po.order_date.substring(0, 10) : '';
-    if (expectedDate) expectedDate.value = po.expected_delivery_date ? po.expected_delivery_date.substring(0, 10) : '';
+    if (orderDate) orderDate.value = po.order_date ? String(po.order_date).substring(0, 10) : '';
+    if (expectedDate) expectedDate.value = po.expected_delivery_date ? String(po.expected_delivery_date).substring(0, 10) : '';
     if (paymentMethod) paymentMethod.value = po.payment_terms || '';
     if (shippingMethod) shippingMethod.value = po.shipping_method || '';
     if (status) status.value = po.status || 'pending';
     if (notes) notes.value = po.notes || '';
-    if (shipping) shipping.value = po.shipping_cost || 0;
-    if (subtotal) subtotal.value = (po.subtotal || 0).toFixed(2);
-    if (total) total.value = (po.total_amount || 0).toFixed(2);
+    if (shipping) shipping.value = parseFloat(po.shipping_cost || 0).toFixed(2);
+    if (subtotal) subtotal.value = parseFloat(po.subtotal || 0).toFixed(2);
+    if (total) total.value = parseFloat(po.total_amount || 0).toFixed(2);
 
     if (shippingMethod && shipping) {
         applyShippingCostFromMethod(shippingMethod, shipping, recalculateEditPurchaseOrderTotals);
@@ -972,10 +998,10 @@ function populateEditPurchaseOrderForm(po) {
         request_item_id: item.request_item_id,
         item_name: item.item_name,
         description: item.description || '',
-        quantity: item.quantity || 1,
+        quantity: parseInt(item.quantity) || 1,
         unit: item.unit || 'piece',
-        unit_cost: item.unit_cost || 0,
-        total_cost: item.total_cost || ((item.quantity || 1) * (item.unit_cost || 0)),
+        unit_cost: parseFloat(item.unit_cost) || 0,
+        total_cost: parseFloat(item.total_cost) || (parseInt(item.quantity || 1) * parseFloat(item.unit_cost || 0)),
         expected_delivery_date: item.expected_delivery_date || null,
         status: item.status || 'pending',
         notes: item.notes || ''
@@ -1132,5 +1158,113 @@ async function submitEditPurchaseOrderForm(event) {
     } catch (error) {
         console.error('Failed to update purchase order:', error);
         showNotification(error.message || 'Failed to update purchase order', 'error');
+    }
+}
+
+async function exportPurchaseOrdersCSV() {
+    try {
+        showNotification('Preparing export...', 'info');
+
+        // Fetch all purchase orders (high limit to get everything)
+        const params = new URLSearchParams({
+            action: 'list',
+            page: 1,
+            limit: 10000
+        });
+
+        // Apply current filters to export
+        Object.entries(purchaseOrdersState.filters).forEach(([key, value]) => {
+            if (value) params.append(key, value);
+        });
+
+        const response = await fetch(`api/purchase_orders.php?${params}`);
+        const result = await response.json();
+
+        if (!result.success || !result.data || result.data.length === 0) {
+            showNotification('No purchase orders to export', 'warning');
+            return;
+        }
+
+        const orders = result.data;
+
+        // CSV headers
+        const headers = [
+            'PO Number',
+            'Request Code',
+            'Department',
+            'Vendor Name',
+            'Vendor Email',
+            'Vendor Phone',
+            'Vendor Address',
+            'Order Date',
+            'Expected Delivery',
+            'Payment Terms',
+            'Shipping Method',
+            'Subtotal',
+            'Shipping Cost',
+            'Total Amount',
+            'Status',
+            'Created By',
+            'Approved By',
+            'Notes',
+            'Created At'
+        ];
+
+        // CSV rows
+        const rows = orders.map(po => [
+            po.po_number || '',
+            po.request_code || '',
+            po.department || '',
+            po.vendor_name || '',
+            po.vendor_email || '',
+            po.vendor_phone || '',
+            (po.vendor_address || '').replace(/[\r\n]+/g, ' '),
+            po.order_date || '',
+            po.expected_delivery_date || '',
+            po.payment_terms || '',
+            po.shipping_method || '',
+            parseFloat(po.subtotal || 0).toFixed(2),
+            parseFloat(po.shipping_cost || 0).toFixed(2),
+            parseFloat(po.total_amount || 0).toFixed(2),
+            po.status || '',
+            po.created_by_name || '',
+            po.approved_by_name || '',
+            (po.notes || '').replace(/[\r\n]+/g, ' '),
+            po.created_at || ''
+        ]);
+
+        // Build CSV string
+        const escapeCSV = (val) => {
+            const str = String(val);
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        };
+
+        let csv = headers.map(escapeCSV).join(',') + '\n';
+        rows.forEach(row => {
+            csv += row.map(escapeCSV).join(',') + '\n';
+        });
+
+        // Trigger download
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `purchase_orders_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        // Delay cleanup so the browser has time to start the download
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 1000);
+
+        showNotification(`Exported ${orders.length} purchase order(s)`, 'success');
+    } catch (error) {
+        console.error('Export failed:', error);
+        showNotification('Failed to export purchase orders: ' + (error.message || ''), 'error');
     }
 }

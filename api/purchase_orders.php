@@ -1,4 +1,34 @@
 <?php
+ini_set("display_errors", 0);
+ini_set("display_startup_errors", 0);
+ini_set("log_errors", 1);
+error_reporting(E_ALL);
+
+ob_start();
+
+set_exception_handler(function($e) {
+    ob_end_clean();
+    if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+    error_log("[PURCHASE_ORDERS] Uncaught: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
+
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("[PURCHASE_ORDERS] PHP error ($severity): $message in $file:$line");
+    return true;
+});
+
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ob_end_clean();
+        if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+        error_log("[PURCHASE_ORDERS] Fatal: " . $error['message']);
+        echo json_encode(['success' => false, 'error' => 'Fatal server error', 'message' => $error['message']]);
+    }
+});
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -37,17 +67,21 @@ function getPurchaseOrderStats(PDO $pdo): void
     }
 }
 
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/auth_check.php';
+
+// Flush any stray output from includes/function definitions
+ob_end_clean();
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Cache-Control: no-cache, no-store, must-revalidate');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
-
-require_once '../config/config.php';
-require_once '../includes/auth_check.php';
 
 try {
     $pdo = new PDO(
@@ -56,9 +90,88 @@ try {
         DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
+
+    // Ensure purchase_orders table exists
+    $pdo->exec("CREATE TABLE IF NOT EXISTS purchase_orders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        po_number VARCHAR(50) NOT NULL,
+        request_id INT NULL,
+        vendor_name VARCHAR(255) NOT NULL,
+        vendor_contact_name VARCHAR(255) NULL,
+        vendor_email VARCHAR(255) NULL,
+        vendor_phone VARCHAR(50) NULL,
+        vendor_address TEXT NULL,
+        order_date DATE NULL,
+        expected_delivery_date DATE NULL,
+        payment_terms VARCHAR(100) NULL,
+        shipping_method VARCHAR(100) NULL,
+        subtotal DECIMAL(12,2) DEFAULT 0,
+        tax_amount DECIMAL(12,2) DEFAULT 0,
+        shipping_cost DECIMAL(12,2) DEFAULT 0,
+        total_amount DECIMAL(12,2) DEFAULT 0,
+        status VARCHAR(30) DEFAULT 'pending',
+        notes TEXT NULL,
+        created_by INT NULL,
+        approved_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_po_number (po_number),
+        INDEX idx_request (request_id),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    // Fix: ensure id columns have AUTO_INCREMENT (critical for existing tables)
+    // This handles tables that were created without AUTO_INCREMENT
+    try {
+        // Check if purchase_orders.id already has auto_increment
+        $colCheck = $pdo->query("SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS 
+                                 WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
+                                 AND TABLE_NAME = 'purchase_orders' 
+                                 AND COLUMN_NAME = 'id'")->fetch(PDO::FETCH_ASSOC);
+        if ($colCheck && stripos($colCheck['EXTRA'], 'auto_increment') === false) {
+            error_log("[PURCHASE_ORDERS] Fixing purchase_orders.id - missing AUTO_INCREMENT");
+            // First ensure it's a primary key, then add auto_increment
+            try { $pdo->exec("ALTER TABLE purchase_orders ADD PRIMARY KEY (id)"); } catch (Throwable $e) {}
+            $pdo->exec("ALTER TABLE purchase_orders MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT");
+            error_log("[PURCHASE_ORDERS] Fixed purchase_orders.id AUTO_INCREMENT");
+        }
+    } catch (Throwable $e) {
+        error_log("[PURCHASE_ORDERS] ALTER purchase_orders.id failed: " . $e->getMessage());
+    }
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS purchase_order_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        purchase_order_id INT NOT NULL,
+        request_item_id INT NULL,
+        item_name VARCHAR(255) NOT NULL,
+        description TEXT NULL,
+        quantity INT DEFAULT 1,
+        unit VARCHAR(50) NULL,
+        unit_cost DECIMAL(12,2) DEFAULT 0,
+        total_cost DECIMAL(12,2) DEFAULT 0,
+        expected_delivery_date DATE NULL,
+        status VARCHAR(30) DEFAULT 'pending',
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_po (purchase_order_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    try {
+        $colCheck2 = $pdo->query("SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS 
+                                  WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
+                                  AND TABLE_NAME = 'purchase_order_items' 
+                                  AND COLUMN_NAME = 'id'")->fetch(PDO::FETCH_ASSOC);
+        if ($colCheck2 && stripos($colCheck2['EXTRA'], 'auto_increment') === false) {
+            try { $pdo->exec("ALTER TABLE purchase_order_items ADD PRIMARY KEY (id)"); } catch (Throwable $e) {}
+            $pdo->exec("ALTER TABLE purchase_order_items MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT");
+        }
+    } catch (Throwable $e) {
+        error_log("[PURCHASE_ORDERS] ALTER purchase_order_items.id failed: " . $e->getMessage());
+    }
+
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'error' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
 }
 
@@ -447,36 +560,73 @@ function getPurchaseOrderDetails(PDO $pdo): void
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         if ($id <= 0) {
             http_response_code(400);
-            echo json_encode(['error' => 'Missing purchase order ID']);
+            echo json_encode(['success' => false, 'error' => 'Missing purchase order ID']);
             return;
         }
 
-        $sql = "SELECT po.*, pr.request_code, pr.department, pr.request_date,
-                       creator.full_name AS created_by_name,
-                       approver.full_name AS approved_by_name
-                FROM purchase_orders po
-                LEFT JOIN procurement_requests pr ON po.request_id = pr.id
-                LEFT JOIN users creator ON po.created_by = creator.id
-                LEFT JOIN users approver ON po.approved_by = approver.id
-                WHERE po.id = :id";
+        // Check if procurement_requests table exists for the JOIN
+        $hasProcRequests = false;
+        try {
+            $pdo->query("SELECT 1 FROM procurement_requests LIMIT 0");
+            $hasProcRequests = true;
+        } catch (Throwable $e) {}
+
+        if ($hasProcRequests) {
+            $sql = "SELECT po.*, pr.request_code, pr.department, pr.request_date,
+                           creator.full_name AS created_by_name,
+                           approver.full_name AS approved_by_name
+                    FROM purchase_orders po
+                    LEFT JOIN procurement_requests pr ON po.request_id = pr.id
+                    LEFT JOIN users creator ON po.created_by = creator.id
+                    LEFT JOIN users approver ON po.approved_by = approver.id
+                    WHERE po.id = :id";
+        } else {
+            $sql = "SELECT po.*,
+                           creator.full_name AS created_by_name,
+                           approver.full_name AS approved_by_name
+                    FROM purchase_orders po
+                    LEFT JOIN users creator ON po.created_by = creator.id
+                    LEFT JOIN users approver ON po.approved_by = approver.id
+                    WHERE po.id = :id";
+        }
+
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':id' => $id]);
         $po = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$po) {
             http_response_code(404);
-            echo json_encode(['error' => 'Purchase order not found']);
+            echo json_encode(['success' => false, 'error' => 'Purchase order not found']);
             return;
         }
 
-        $itemsSql = "SELECT poi.*, pri.item_name AS request_item_name
-                     FROM purchase_order_items poi
-                     LEFT JOIN procurement_request_items pri ON poi.request_item_id = pri.id
-                     WHERE poi.purchase_order_id = :purchase_order_id
-                     ORDER BY poi.id";
-        $itemsStmt = $pdo->prepare($itemsSql);
-        $itemsStmt->execute([':purchase_order_id' => $id]);
-        $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+        // Check if purchase_order_items table exists
+        $items = [];
+        try {
+            $hasProcItems = false;
+            try {
+                $pdo->query("SELECT 1 FROM procurement_request_items LIMIT 0");
+                $hasProcItems = true;
+            } catch (Throwable $e) {}
+
+            if ($hasProcItems) {
+                $itemsSql = "SELECT poi.*, pri.item_name AS request_item_name
+                             FROM purchase_order_items poi
+                             LEFT JOIN procurement_request_items pri ON poi.request_item_id = pri.id
+                             WHERE poi.purchase_order_id = :purchase_order_id
+                             ORDER BY poi.id";
+            } else {
+                $itemsSql = "SELECT poi.*
+                             FROM purchase_order_items poi
+                             WHERE poi.purchase_order_id = :purchase_order_id
+                             ORDER BY poi.id";
+            }
+            $itemsStmt = $pdo->prepare($itemsSql);
+            $itemsStmt->execute([':purchase_order_id' => $id]);
+            $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            error_log("[PURCHASE_ORDERS] Items query failed: " . $e->getMessage());
+        }
 
         $po['items'] = $items;
 
@@ -485,8 +635,9 @@ function getPurchaseOrderDetails(PDO $pdo): void
             'data' => $po
         ]);
     } catch (Exception $e) {
+        error_log("[PURCHASE_ORDERS] getPurchaseOrderDetails error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to fetch purchase order details: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'error' => 'Failed to fetch purchase order details: ' . $e->getMessage()]);
     }
 }
 
@@ -496,7 +647,7 @@ function updatePurchaseOrder(PDO $pdo): void
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input || !isset($input['id'])) {
             http_response_code(400);
-            echo json_encode(['error' => 'Invalid input or missing ID']);
+            echo json_encode(['success' => false, 'error' => 'Invalid input or missing ID']);
             return;
         }
 
@@ -504,7 +655,7 @@ function updatePurchaseOrder(PDO $pdo): void
         $po = fetchPurchaseOrder($pdo, $id);
         if (!$po) {
             http_response_code(404);
-            echo json_encode(['error' => 'Purchase order not found']);
+            echo json_encode(['success' => false, 'error' => 'Purchase order not found']);
             return;
         }
 
@@ -634,10 +785,20 @@ function updatePurchaseOrder(PDO $pdo): void
 
         $newStatus = $input['status'] ?? $po['status'];
         if ($po['status'] !== 'received' && $newStatus === 'received') {
-            applyPurchaseOrderReceipt($pdo, $id, $po['po_number'], (int)$po['request_id'], $_SESSION['user_id'] ?? null);
-            $requestStatusSql = "UPDATE procurement_requests SET status = 'received' WHERE id = :id";
-            $requestStatusStmt = $pdo->prepare($requestStatusSql);
-            $requestStatusStmt->execute([':id' => $po['request_id']]);
+            try {
+                applyPurchaseOrderReceipt($pdo, $id, $po['po_number'], (int)($po['request_id'] ?? 0), $_SESSION['user_id'] ?? null);
+            } catch (Throwable $e) {
+                error_log("[PURCHASE_ORDERS] applyPurchaseOrderReceipt failed: " . $e->getMessage());
+            }
+            try {
+                if (!empty($po['request_id'])) {
+                    $requestStatusSql = "UPDATE procurement_requests SET status = 'received' WHERE id = :id";
+                    $requestStatusStmt = $pdo->prepare($requestStatusSql);
+                    $requestStatusStmt->execute([':id' => $po['request_id']]);
+                }
+            } catch (Throwable $e) {
+                error_log("[PURCHASE_ORDERS] Update procurement_request status failed: " . $e->getMessage());
+            }
         }
 
         $pdo->commit();
@@ -650,8 +811,9 @@ function updatePurchaseOrder(PDO $pdo): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
+        error_log("[PURCHASE_ORDERS] updatePurchaseOrder error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to update purchase order: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'error' => 'Failed to update purchase order: ' . $e->getMessage()]);
     }
 }
 
@@ -668,7 +830,7 @@ function deletePurchaseOrder(PDO $pdo): void
         $po = fetchPurchaseOrder($pdo, $id);
         if (!$po) {
             http_response_code(404);
-            echo json_encode(['error' => 'Purchase order not found']);
+            echo json_encode(['success' => false, 'error' => 'Purchase order not found']);
             return;
         }
 

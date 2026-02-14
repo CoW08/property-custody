@@ -1,7 +1,15 @@
 <?php
 // Enable error reporting for debugging
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
+
+set_exception_handler(function($e) {
+    if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+    error_log("[ASSET_CATEGORIES] Uncaught: " . $e->getMessage());
+    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
 
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';

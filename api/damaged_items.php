@@ -1,7 +1,41 @@
 <?php
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
+
+ob_start();
+
+set_exception_handler(function($e) {
+    ob_end_clean();
+    if (!headers_sent()) { header("Content-Type: application/json"); http_response_code(500); }
+    error_log("[DAMAGED_ITEMS] Uncaught: " . $e->getMessage());
+    echo json_encode(["success" => false, "message" => "Server error: " . $e->getMessage()]);
+    exit;
+});
+
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("[DAMAGED_ITEMS] PHP error ($severity): $message in $file:$line");
+    return true;
+});
+
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ob_end_clean();
+        if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+        echo json_encode(['success' => false, 'message' => 'Fatal server error']);
+    }
+});
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/auth_check.php';
+
+ob_end_clean();
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -17,13 +51,52 @@ function debug_log($message, $data = null) {
     error_log("[DAMAGED_ITEMS] " . $message . ($data ? " | Data: " . json_encode($data) : ""));
 }
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/auth_check.php';
-
 requireAuth();
 
 $database = new Database();
 $db = $database->getConnection();
+
+// Ensure damaged_items table exists
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS damaged_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        asset_id INT NOT NULL,
+        asset_code VARCHAR(50) NOT NULL,
+        damage_type ENUM('physical','electrical','software','wear','accident','vandalism','other') NOT NULL,
+        severity_level ENUM('minor','moderate','major','total') NOT NULL,
+        damage_date DATE NOT NULL,
+        reported_by VARCHAR(100) NOT NULL,
+        current_location VARCHAR(200) DEFAULT NULL,
+        estimated_repair_cost DECIMAL(12,2) DEFAULT NULL,
+        damage_description TEXT DEFAULT NULL,
+        damage_photos TEXT DEFAULT NULL,
+        status ENUM('reported','under_repair','repaired','write_off') DEFAULT 'reported',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_asset_id (asset_id),
+        INDEX idx_asset_code (asset_code),
+        INDEX idx_status (status),
+        INDEX idx_damage_date (damage_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+} catch (Exception $e) {
+    // Table might already exist with slightly different definition, that's OK
+    error_log("[DAMAGED_ITEMS] Table check: " . $e->getMessage());
+}
+
+// Fix: ensure id has AUTO_INCREMENT (existing table may lack it)
+try {
+    $colCheck = $db->query("SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS 
+                            WHERE TABLE_SCHEMA = DATABASE() 
+                            AND TABLE_NAME = 'damaged_items' 
+                            AND COLUMN_NAME = 'id'")->fetch(PDO::FETCH_ASSOC);
+    if ($colCheck && stripos($colCheck['EXTRA'], 'auto_increment') === false) {
+        try { $db->exec("ALTER TABLE damaged_items ADD PRIMARY KEY (id)"); } catch (Throwable $e) {}
+        $db->exec("ALTER TABLE damaged_items MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT");
+        error_log("[DAMAGED_ITEMS] Fixed id AUTO_INCREMENT");
+    }
+} catch (Throwable $e) {
+    error_log("[DAMAGED_ITEMS] ALTER id: " . $e->getMessage());
+}
 
 $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -301,11 +374,19 @@ try {
             break;
 
         default:
-            throw new Exception("Invalid action");
+            throw new Exception("Invalid action: '" . htmlspecialchars($action) . "'. Valid actions: list, create, update, details, stats, search_asset");
     }
 
+} catch (PDOException $e) {
+    error_log("[DAMAGED_ITEMS] Database error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database error: ' . $e->getMessage()
+    ]);
 } catch (Exception $e) {
-    http_response_code(400);
+    $code = $e->getCode();
+    http_response_code(($code >= 400 && $code < 600) ? $code : 400);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()

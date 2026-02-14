@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -19,6 +23,100 @@ if (!isset($_SESSION['user_id'])) {
 
 $database = new Database();
 $db = $database->getConnection();
+
+// Ensure required tables exist
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS custodians (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        employee_id VARCHAR(50) NOT NULL,
+        department VARCHAR(100) NULL,
+        position VARCHAR(100) NULL,
+        contact_number VARCHAR(50) NULL,
+        office_location VARCHAR(200) NULL,
+        status VARCHAR(20) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_user_id (user_id),
+        INDEX idx_employee_id (employee_id),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS property_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        asset_id INT NOT NULL,
+        custodian_id INT NOT NULL,
+        assigned_by INT NULL,
+        assignment_date DATE NOT NULL,
+        expected_return_date DATE NULL,
+        actual_return_date DATE NULL,
+        assignment_purpose TEXT NULL,
+        conditions TEXT NULL,
+        notes TEXT NULL,
+        status VARCHAR(30) DEFAULT 'active',
+        approved_by INT NULL,
+        approved_signature TEXT NULL,
+        approved_at DATETIME NULL,
+        issued_by INT NULL,
+        issued_at DATETIME NULL,
+        current_custodian_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_asset (asset_id),
+        INDEX idx_custodian (custodian_id),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS assignment_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        requester_id INT NOT NULL,
+        asset_id INT NOT NULL,
+        purpose TEXT NULL,
+        justification TEXT NULL,
+        status VARCHAR(30) DEFAULT 'pending',
+        reviewed_by INT NULL,
+        reviewed_at DATETIME NULL,
+        rejection_reason TEXT NULL,
+        approver_signature TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_requester (requester_id),
+        INDEX idx_asset (asset_id),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS assignment_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        assignment_id INT NOT NULL,
+        asset_id INT NOT NULL,
+        event_type VARCHAR(50) NOT NULL,
+        actor_id INT NULL,
+        details TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_assignment (assignment_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS custodian_transfers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        assignment_id INT NOT NULL,
+        from_custodian_id INT NULL,
+        to_custodian_id INT NULL,
+        status VARCHAR(30) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_assignment (assignment_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS assignment_maintenance_links (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        assignment_id INT NOT NULL,
+        maintenance_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_assignment (assignment_id),
+        INDEX idx_maintenance (maintenance_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+} catch (Throwable $e) {
+    error_log("[CUSTODIAN_ASSIGNMENTS] Table creation error: " . $e->getMessage());
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
@@ -108,17 +206,22 @@ try {
 }
 
 function getCustodians($db) {
-    $query = "SELECT c.*, u.full_name, u.email, u.department as user_department
-              FROM custodians c
-              LEFT JOIN users u ON c.user_id = u.id
-              WHERE c.status = 'active'
-              ORDER BY c.employee_id";
+    try {
+        $query = "SELECT c.*, u.full_name, u.email, u.department as user_department
+                  FROM custodians c
+                  LEFT JOIN users u ON c.user_id = u.id
+                  WHERE c.status = 'active'
+                  ORDER BY c.employee_id";
 
-    $stmt = $db->prepare($query);
-    $stmt->execute();
+        $stmt = $db->prepare($query);
+        $stmt->execute();
 
-    $custodians = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode(['data' => $custodians]);
+        $custodians = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['data' => $custodians]);
+    } catch (Throwable $e) {
+        error_log("[CUSTODIAN_ASSIGNMENTS] getCustodians error: " . $e->getMessage());
+        echo json_encode(['data' => []]);
+    }
 }
 
 function getAvailableAssets($db) {
@@ -135,29 +238,34 @@ function getAvailableAssets($db) {
 }
 
 function getAssignments($db) {
-    $query = "SELECT pa.*,
-                     c.employee_id, c.department as custodian_department, c.position,
-                     u.full_name as custodian_name, u.email as custodian_email,
-                     a.asset_code, a.name as asset_name, a.description as asset_description,
-                     a.category as asset_category,
-                     assigned_user.full_name as assigned_by_name,
-                     approved_user.full_name as approved_by_name,
-                     issued_user.full_name as issued_by_name
-              FROM property_assignments pa
-              JOIN custodians c ON pa.custodian_id = c.id
-              LEFT JOIN users u ON c.user_id = u.id
-              JOIN assets a ON pa.asset_id = a.id
-              LEFT JOIN users assigned_user ON pa.assigned_by = assigned_user.id
-              LEFT JOIN users approved_user ON pa.approved_by = approved_user.id
-              LEFT JOIN users issued_user ON pa.issued_by = issued_user.id
-              WHERE pa.status = 'active'
-              ORDER BY pa.assignment_date DESC";
+    try {
+        $query = "SELECT pa.*,
+                         c.employee_id, c.department as custodian_department, c.position,
+                         u.full_name as custodian_name, u.email as custodian_email,
+                         a.asset_code, a.name as asset_name, a.description as asset_description,
+                         a.category as asset_category,
+                         assigned_user.full_name as assigned_by_name,
+                         approved_user.full_name as approved_by_name,
+                         issued_user.full_name as issued_by_name
+                  FROM property_assignments pa
+                  JOIN custodians c ON pa.custodian_id = c.id
+                  LEFT JOIN users u ON c.user_id = u.id
+                  JOIN assets a ON pa.asset_id = a.id
+                  LEFT JOIN users assigned_user ON pa.assigned_by = assigned_user.id
+                  LEFT JOIN users approved_user ON pa.approved_by = approved_user.id
+                  LEFT JOIN users issued_user ON pa.issued_by = issued_user.id
+                  WHERE pa.status = 'active'
+                  ORDER BY pa.assignment_date DESC";
 
-    $stmt = $db->prepare($query);
-    $stmt->execute();
+        $stmt = $db->prepare($query);
+        $stmt->execute();
 
-    $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode(['data' => $assignments]);
+        $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['data' => $assignments]);
+    } catch (Throwable $e) {
+        error_log("[CUSTODIAN_ASSIGNMENTS] getAssignments error: " . $e->getMessage());
+        echo json_encode(['data' => []]);
+    }
 }
 
 function getAssignmentDetails($db, $id) {
@@ -490,28 +598,33 @@ function deleteAssignment($db, $id) {
 
 // Get assignment requests (for custodian approval)
 function getAssignmentRequests($db) {
-    $query = "SELECT ar.*, 
-                     u.full_name as requester_name, u.email as requester_email, u.department as requester_department,
-                     a.asset_code, a.name as asset_name, a.category,
-                     approver.full_name as reviewed_by_name,
-                     pa.id as assignment_id
-              FROM assignment_requests ar
-              JOIN users u ON ar.requester_id = u.id
-              JOIN assets a ON ar.asset_id = a.id
-              LEFT JOIN users approver ON ar.reviewed_by = approver.id
-              LEFT JOIN custodians c ON c.user_id = ar.requester_id
-              LEFT JOIN property_assignments pa ON pa.asset_id = ar.asset_id AND pa.custodian_id = c.id AND pa.status = 'active'
-              ORDER BY 
-                CASE ar.status 
-                    WHEN 'pending' THEN 1 
-                    WHEN 'approved' THEN 2 
-                    WHEN 'rejected' THEN 3 
-                END,
-                ar.created_at DESC";
-    
-    $stmt = $db->prepare($query);
-    $stmt->execute();
-    echo json_encode(['data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+    try {
+        $query = "SELECT ar.*, 
+                         u.full_name as requester_name, u.email as requester_email, u.department as requester_department,
+                         a.asset_code, a.name as asset_name, a.category,
+                         approver.full_name as reviewed_by_name,
+                         pa.id as assignment_id
+                  FROM assignment_requests ar
+                  JOIN users u ON ar.requester_id = u.id
+                  JOIN assets a ON ar.asset_id = a.id
+                  LEFT JOIN users approver ON ar.reviewed_by = approver.id
+                  LEFT JOIN custodians c ON c.user_id = ar.requester_id
+                  LEFT JOIN property_assignments pa ON pa.asset_id = ar.asset_id AND pa.custodian_id = c.id AND pa.status = 'active'
+                  ORDER BY 
+                    CASE ar.status 
+                        WHEN 'pending' THEN 1 
+                        WHEN 'approved' THEN 2 
+                        WHEN 'rejected' THEN 3 
+                    END,
+                    ar.created_at DESC";
+        
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        echo json_encode(['data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+    } catch (Throwable $e) {
+        error_log("[CUSTODIAN_ASSIGNMENTS] getAssignmentRequests error: " . $e->getMessage());
+        echo json_encode(['data' => []]);
+    }
 }
 
 // Get user's own requests
@@ -708,16 +821,21 @@ function rejectAssignmentRequest($db) {
 
 // Get statistics
 function getAssignmentStats($db) {
-    $stats = [];
-    $stmt = $db->prepare("SELECT COUNT(*) as count FROM assignment_requests WHERE status = 'pending'");
-    $stmt->execute();
-    $stats['pending_requests'] = $stmt->fetchColumn();
+    try {
+        $stats = [];
+        $stmt = $db->prepare("SELECT COUNT(*) as count FROM assignment_requests WHERE status = 'pending'");
+        $stmt->execute();
+        $stats['pending_requests'] = $stmt->fetchColumn();
 
-    $stmt = $db->prepare("SELECT COUNT(*) as count FROM property_assignments WHERE status = 'active'");
-    $stmt->execute();
-    $stats['active_assignments'] = $stmt->fetchColumn();
+        $stmt = $db->prepare("SELECT COUNT(*) as count FROM property_assignments WHERE status = 'active'");
+        $stmt->execute();
+        $stats['active_assignments'] = $stmt->fetchColumn();
 
-    echo json_encode(['data' => $stats]);
+        echo json_encode(['data' => $stats]);
+    } catch (Throwable $e) {
+        error_log("[CUSTODIAN_ASSIGNMENTS] getAssignmentStats error: " . $e->getMessage());
+        echo json_encode(['data' => ['pending_requests' => 0, 'active_assignments' => 0]]);
+    }
 }
 
 // Cleanup orphaned assignments (no matching request)

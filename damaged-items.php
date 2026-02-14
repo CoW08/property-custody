@@ -241,9 +241,9 @@ ob_start();
 
 <?php include 'components/detail_modal.php'; ?>
 
-<script src="js/api.js"></script>
-<script src="js/detail_handlers.js"></script>
-<script src="js/damaged_items.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/detail_handlers.js?v=<?php echo time(); ?>"></script>
+<script src="js/damaged_items.js?v=<?php echo time(); ?>"></script>
 
 <?php
 $content = ob_get_clean();

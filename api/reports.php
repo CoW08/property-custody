@@ -1,12 +1,34 @@
 <?php
 ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
+ini_set('log_errors', 1);
 
-require_once __DIR__ . '/../config/cors.php';
+ob_start();
+
+set_exception_handler(function($e) {
+    ob_end_clean();
+    if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+    error_log("[REPORTS] Uncaught: " . $e->getMessage());
+    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
+
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("[REPORTS] PHP error ($severity): $message in $file:$line");
+    return true;
+});
+
 require_once __DIR__ . '/../config/database.php';
 
-session_start();
+// Flush stray output from includes
+ob_end_clean();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if(!isset($_SESSION['user_id'])) {
+    header('Content-Type: application/json');
     http_response_code(401);
     echo json_encode(array("message" => "Unauthorized"));
     exit();
@@ -30,6 +52,18 @@ $method = $_SERVER['REQUEST_METHOD'];
 $dateFrom = isset($_GET['date_from']) ? $_GET['date_from'] : null;
 $dateTo = isset($_GET['date_to']) ? $_GET['date_to'] : null;
 $exportFormat = isset($_GET['export']) ? $_GET['export'] : null;
+
+// Only set JSON headers if not exporting (export sets its own headers)
+if (!$exportFormat) {
+    header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
 
 switch($method) {
     case 'GET':
@@ -164,10 +198,14 @@ function buildDateCondition($dateFrom, $dateTo, $dateColumn = 'created_at') {
 
 // Excel export function
 function exportToExcel($data, $filename, $dateFrom = null, $dateTo = null) {
+    // Clean any previous output before setting download headers
+    if (ob_get_level()) ob_end_clean();
+    
     // Set headers for Excel download
     header('Content-Type: application/vnd.ms-excel');
     header('Content-Disposition: attachment;filename="' . $filename . '_' . date('Y-m-d_His') . '.xls"');
     header('Cache-Control: max-age=0');
+    header('Pragma: public');
 
     // Start HTML output for Excel
     echo "<html xmlns:x=\"urn:schemas-microsoft-com:office:excel\">";
@@ -192,46 +230,67 @@ function exportToExcel($data, $filename, $dateFrom = null, $dateTo = null) {
     echo "<br>";
 
     // Convert data to table format
+    renderExcelSection($data);
+
+    echo "</body></html>";
+    exit;
+}
+
+function renderExcelSection($data, $depth = 0) {
     foreach ($data as $section => $sectionData) {
-        echo "<h3>" . ucwords(str_replace('_', ' ', $section)) . "</h3>";
-        
-        if (is_array($sectionData) && !empty($sectionData)) {
-            // Check if it's an associative array or indexed array
-            if (isset($sectionData[0]) && is_array($sectionData[0])) {
-                // It's a table with rows
-                echo "<table>";
-                echo "<thead><tr>";
-                foreach (array_keys($sectionData[0]) as $header) {
-                    echo "<th>" . htmlspecialchars(ucwords(str_replace('_', ' ', $header))) . "</th>";
+        if (!is_array($sectionData)) {
+            // Single key-value pair at top level
+            continue;
+        }
+
+        $heading = $depth === 0 ? 'h3' : 'h4';
+        echo "<$heading>" . htmlspecialchars(ucwords(str_replace('_', ' ', $section))) . "</$heading>";
+
+        // Check if this is an indexed array of rows
+        if (isset($sectionData[0]) && is_array($sectionData[0])) {
+            // Table with rows
+            echo "<table>";
+            echo "<thead><tr>";
+            foreach (array_keys($sectionData[0]) as $header) {
+                echo "<th>" . htmlspecialchars(ucwords(str_replace('_', ' ', $header))) . "</th>";
+            }
+            echo "</tr></thead>";
+            echo "<tbody>";
+            foreach ($sectionData as $row) {
+                echo "<tr>";
+                foreach ($row as $value) {
+                    $display = is_array($value) ? json_encode($value) : ($value ?? 'N/A');
+                    echo "<td>" . htmlspecialchars($display) . "</td>";
                 }
-                echo "</tr></thead>";
-                echo "<tbody>";
-                foreach ($sectionData as $row) {
-                    echo "<tr>";
-                    foreach ($row as $value) {
-                        echo "<td>" . htmlspecialchars($value ?? 'N/A') . "</td>";
-                    }
-                    echo "</tr>";
-                }
-                echo "</tbody></table><br>";
+                echo "</tr>";
+            }
+            echo "</tbody></table><br>";
+        } elseif (is_array($sectionData)) {
+            // Check if values contain nested arrays (e.g., timeline -> procurement/maintenance)
+            $hasNestedArrays = false;
+            foreach ($sectionData as $v) {
+                if (is_array($v)) { $hasNestedArrays = true; break; }
+            }
+
+            if ($hasNestedArrays) {
+                // Recursively render nested sections
+                renderExcelSection($sectionData, $depth + 1);
             } else {
-                // It's a single row of key-value pairs
+                // Simple key-value pairs
                 echo "<table>";
                 echo "<thead><tr><th>Metric</th><th>Value</th></tr></thead>";
                 echo "<tbody>";
                 foreach ($sectionData as $key => $value) {
+                    $display = is_array($value) ? json_encode($value) : ($value ?? 'N/A');
                     echo "<tr>";
                     echo "<td>" . htmlspecialchars(ucwords(str_replace('_', ' ', $key))) . "</td>";
-                    echo "<td>" . htmlspecialchars($value ?? 'N/A') . "</td>";
+                    echo "<td>" . htmlspecialchars($display) . "</td>";
                     echo "</tr>";
                 }
                 echo "</tbody></table><br>";
             }
         }
     }
-
-    echo "</body></html>";
-    exit();
 }
 
 function getAssetsReport($db, $dateFrom = null, $dateTo = null, $exportFormat = null) {
@@ -573,4 +632,3 @@ function getFinancialReport($db, $dateFrom = null, $dateTo = null, $exportFormat
         echo json_encode(array("message" => "Error generating financial report", "error" => $e->getMessage()));
     }
 }
-?>

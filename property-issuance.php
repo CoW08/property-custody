@@ -169,7 +169,7 @@ ob_start();
 <?php include 'components/detail_modal.php'; ?>
 
 <script src="js/api.js?v=<?php echo time(); ?>"></script>
-<script src="js/detail_handlers.js"></script>
+<script src="js/detail_handlers.js?v=<?php echo time(); ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Debug: Check if API class and methods are available

@@ -291,8 +291,8 @@ ob_start();
     </div>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/user_roles.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/user_roles.js?v=<?php echo time(); ?>"></script>
 
 <?php
 $content = ob_get_clean();

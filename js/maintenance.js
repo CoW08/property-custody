@@ -146,18 +146,37 @@ class MaintenanceManager {
     async loadTechnicians() {
         try {
             const response = await fetch(`${this.apiBase}?action=technicians`);
-            const data = await response.json();
+            if (!response.ok) {
+                console.error('Technicians API error, status:', response.status);
+                const text = await response.text();
+                console.error('Technicians API body:', text.substring(0, 500));
+                return;
+            }
+
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseErr) {
+                console.error('Technicians JSON parse failed');
+                return;
+            }
+
+            console.log('Technicians loaded:', data);
 
             const technicianSelect = document.getElementById('assigned_to');
+            if (!technicianSelect) return;
+
             technicianSelect.innerHTML = '<option value="">Select technician</option>';
 
             if (data.technicians && data.technicians.length > 0) {
                 data.technicians.forEach(technician => {
                     const option = document.createElement('option');
                     option.value = technician.id;
-                    option.textContent = `${technician.full_name} - ${technician.department}`;
+                    option.textContent = technician.full_name;
                     technicianSelect.appendChild(option);
                 });
+            } else {
+                console.warn('No maintenance-role users found in database');
             }
         } catch (error) {
             console.error('Error loading technicians:', error);
@@ -507,9 +526,21 @@ class MaintenanceManager {
         // Load technicians for edit form
         try {
             const response = await fetch(`${this.apiBase}?action=technicians`);
-            const data = await response.json();
+            if (!response.ok) {
+                console.error('Edit technicians API error:', response.status);
+                return;
+            }
+
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                console.error('Edit technicians JSON parse failed');
+                return;
+            }
 
             const technicianSelect = document.getElementById('edit-assigned-to');
+            if (!technicianSelect) return;
             const currentValue = technicianSelect.value;
 
             technicianSelect.innerHTML = '<option value="">Select technician</option>';
@@ -518,7 +549,7 @@ class MaintenanceManager {
                 data.technicians.forEach(technician => {
                     const option = document.createElement('option');
                     option.value = technician.id;
-                    option.textContent = `${technician.full_name} - ${technician.department}`;
+                    option.textContent = technician.full_name;
                     technicianSelect.appendChild(option);
                 });
             }

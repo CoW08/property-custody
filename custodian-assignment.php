@@ -351,8 +351,8 @@ ob_start();
     </div>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/assignment_requests.js"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script src="js/assignment_requests.js?v=<?php echo time(); ?>"></script>
 <!-- Request Assignment Modal (For Staff/Teachers) -->
 <div id="requestModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen p-4">

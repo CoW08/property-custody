@@ -167,18 +167,20 @@ ob_start();
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Name *</label>
-                        <input type="text" name="vendor_name" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <select name="vendor_name" id="vendorSelect" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Vendor</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Email</label>
-                        <input type="email" name="vendor_email"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="email" name="vendor_email" id="vendorEmail" readonly
+                               class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Phone</label>
-                        <input type="text" name="vendor_phone"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="text" name="vendor_phone" id="vendorPhone" readonly
+                               class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Order Date *</label>
@@ -194,9 +196,9 @@ ob_start();
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Address</label>
-                    <textarea name="vendor_address" rows="2"
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Enter vendor address details"></textarea>
+                    <textarea name="vendor_address" id="vendorAddress" rows="2" readonly
+                              class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600"
+                              placeholder="Auto-filled when vendor is selected"></textarea>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -413,8 +415,63 @@ ob_start();
     </div>
 </div>
 
-<script src="js/api.js"></script>
-<script src="js/purchase_orders.js?v=2026020711"></script>
+<script src="js/api.js?v=<?php echo time(); ?>"></script>
+<script>
+// Vendor auto-fill for Purchase Order form
+(function() {
+    let vendorCache = [];
+
+    async function loadVendorOptions() {
+        try {
+            const res = await fetch('api/vendors.php');
+            const data = await res.json();
+            vendorCache = data.data || [];
+            const select = document.getElementById('vendorSelect');
+            if (!select) return;
+            select.innerHTML = '<option value="">Select Vendor</option>';
+            vendorCache.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.name;
+                opt.textContent = v.name + (v.contact_person ? ` (${v.contact_person})` : '');
+                opt.dataset.email = v.email || '';
+                opt.dataset.phone = v.phone || '';
+                opt.dataset.address = v.address || '';
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.warn('Failed to load vendors:', e);
+        }
+    }
+
+    function handleVendorChange() {
+        const select = document.getElementById('vendorSelect');
+        const emailField = document.getElementById('vendorEmail');
+        const phoneField = document.getElementById('vendorPhone');
+        const addressField = document.getElementById('vendorAddress');
+        if (!select) return;
+
+        const selectedOpt = select.options[select.selectedIndex];
+        if (selectedOpt && selectedOpt.value) {
+            if (emailField) emailField.value = selectedOpt.dataset.email || '';
+            if (phoneField) phoneField.value = selectedOpt.dataset.phone || '';
+            if (addressField) addressField.value = selectedOpt.dataset.address || '';
+        } else {
+            if (emailField) emailField.value = '';
+            if (phoneField) phoneField.value = '';
+            if (addressField) addressField.value = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadVendorOptions();
+        const vendorSelect = document.getElementById('vendorSelect');
+        if (vendorSelect) {
+            vendorSelect.addEventListener('change', handleVendorChange);
+        }
+    });
+})();
+</script>
+<script src="js/purchase_orders.js?v=<?php echo time(); ?>"></script>
 
 <?php
 $content = ob_get_clean();

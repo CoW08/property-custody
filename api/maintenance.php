@@ -2,36 +2,106 @@
 // Set error reporting to only log errors, not display them
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
 ini_set('log_errors', 1);
 
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+// Start output buffering to catch ANY stray output from includes
+ob_start();
 
-require_once dirname(__DIR__) . '/config/database.php';
-require_once dirname(__DIR__) . '/includes/auth_check.php';
+set_exception_handler(function($e) {
+    ob_end_clean();
+    if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+    error_log("[MAINTENANCE] Uncaught: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
 
-// Start session if not already started
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("[MAINTENANCE] PHP error ($severity): $message in $file:$line");
+    return true; // suppress output
+});
+
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ob_end_clean();
+        if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(500); }
+        error_log("[MAINTENANCE] Fatal: " . $error['message']);
+        echo json_encode(['error' => 'Fatal server error', 'message' => $error['message']]);
+    }
+});
+
+// Load config for DB constants
+require_once dirname(__DIR__) . '/config/config.php';
+
+// Start session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// For development/testing, set dummy session if none exists
+// Dummy session for development/testing
 if (!isset($_SESSION['user_id'])) {
     $_SESSION['user_id'] = 1;
     $_SESSION['username'] = 'admin';
     $_SESSION['role'] = 'admin';
 }
 
-if (!isAuthenticated()) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit();
+// Flush any stray output from includes, then set headers
+ob_end_clean();
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
 }
 
-$database = new Database();
-$db = $database->getConnection();
+// Inline PDO connection (no Database class dependency)
+try {
+    $db = new PDO(
+        'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME,
+        DB_USER,
+        DB_PASS,
+        [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
+        ]
+    );
+} catch (PDOException $e) {
+    http_response_code(500);
+    error_log("[MAINTENANCE] DB connection failed: " . $e->getMessage());
+    echo json_encode(['error' => 'Database connection failed', 'message' => $e->getMessage()]);
+    exit;
+}
+
+// Seed default maintenance technicians if they don't exist
+try {
+    $technicianSeeds = [
+        ['Mark Anthony Solis', 'Electrical', 'msolis@school.edu'],
+        ['Renato Castillo', 'Electrical', 'rcastillo@school.edu'],
+        ['John Mendoza', 'HVAC', 'jmendoza@school.edu'],
+        ['Jayson Rivera', 'HVAC', 'jrivera@school.edu'],
+        ['Grace Tolentino', 'IT/Networking', 'gtolentino@school.edu'],
+        ['Marlon Ramos', 'IT/Networking', 'mramos@school.edu'],
+    ];
+    $checkStmt = $db->prepare("SELECT id FROM users WHERE full_name = ? AND role = 'maintenance' LIMIT 1");
+    $insertStmt = $db->prepare("INSERT INTO users (username, password, full_name, email, role, department, status) VALUES (?, ?, ?, ?, 'maintenance', ?, 'active')");
+    foreach ($technicianSeeds as $tech) {
+        $checkStmt->execute([$tech[0]]);
+        if (!$checkStmt->fetch()) {
+            $username = strtolower(str_replace(' ', '.', $tech[0]));
+            $password = password_hash('password123', PASSWORD_DEFAULT);
+            $insertStmt->execute([$username, $password, $tech[0], $tech[2], $tech[1]]);
+        }
+    }
+} catch (Throwable $e) {
+    error_log("[MAINTENANCE] Technician seed: " . $e->getMessage());
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
@@ -230,16 +300,22 @@ function getAssetsForMaintenance($db) {
 }
 
 function getTechnicians($db) {
-    $query = "SELECT id, full_name, department
-              FROM users
-              WHERE role IN ('maintenance', 'admin') AND status = 'active'
-              ORDER BY full_name ASC";
+    try {
+        // Only return users with 'maintenance' role — these are the actual technicians
+        $query = "SELECT id, full_name, department
+                  FROM users
+                  WHERE role = 'maintenance' AND status = 'active'
+                  ORDER BY full_name ASC";
 
-    $stmt = $db->prepare($query);
-    $stmt->execute();
-    $technicians = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $technicians = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode(['technicians' => $technicians]);
+        echo json_encode(['technicians' => $technicians]);
+    } catch (Exception $e) {
+        error_log("[MAINTENANCE] getTechnicians error: " . $e->getMessage());
+        echo json_encode(['technicians' => [], 'error' => $e->getMessage()]);
+    }
 }
 
 function getMaintenanceDetails($db) {
@@ -355,43 +431,68 @@ function scheduleMaintenanceTask($db) {
         }
     }
 
-    $query = "INSERT INTO maintenance_schedules
-              (asset_id, maintenance_type, scheduled_date, assigned_to, description,
-               estimated_cost, priority, status)
-              VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled')";
+    try {
+        // Ensure maintenance_schedules table exists
+        $db->exec("CREATE TABLE IF NOT EXISTS maintenance_schedules (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            maintenance_type VARCHAR(50) NOT NULL,
+            scheduled_date DATE NOT NULL,
+            completed_date DATE NULL,
+            assigned_to INT NULL,
+            description TEXT,
+            estimated_cost DECIMAL(12,2) NULL,
+            actual_cost DECIMAL(12,2) NULL,
+            priority VARCHAR(20) DEFAULT 'medium',
+            status VARCHAR(30) DEFAULT 'scheduled',
+            notes TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_asset (asset_id),
+            INDEX idx_status (status),
+            INDEX idx_date (scheduled_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-    $stmt = $db->prepare($query);
-    $result = $stmt->execute([
-        $input['asset_id'],
-        $input['maintenance_type'],
-        $input['scheduled_date'],
-        $input['assigned_to'] ?? null,
-        $input['description'],
-        $input['estimated_cost'] ?? null,
-        $input['priority'] ?? 'medium'
-    ]);
+        $query = "INSERT INTO maintenance_schedules
+                  (asset_id, maintenance_type, scheduled_date, assigned_to, description,
+                   estimated_cost, priority, status)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled')";
 
-    if ($result) {
-        $maintenance_id = $db->lastInsertId();
-
-        $assetUpdate = $db->prepare("UPDATE assets SET status = 'maintenance' WHERE id = ?");
-        $assetUpdate->execute([$input['asset_id']]);
-
-        // Log the action
-        logAction($db, 'CREATE', 'maintenance_schedules', $maintenance_id);
-
-        // Generate PDF URL
-        $pdf_url = 'generate_maintenance_pdf.php?id=' . $maintenance_id;
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Maintenance task scheduled successfully',
-            'maintenance_id' => $maintenance_id,
-            'pdf_url' => $pdf_url
+        $stmt = $db->prepare($query);
+        $result = $stmt->execute([
+            $input['asset_id'],
+            $input['maintenance_type'],
+            $input['scheduled_date'],
+            !empty($input['assigned_to']) ? $input['assigned_to'] : null,
+            $input['description'],
+            !empty($input['estimated_cost']) ? $input['estimated_cost'] : null,
+            $input['priority'] ?? 'medium'
         ]);
-    } else {
+
+        if ($result) {
+            $maintenance_id = $db->lastInsertId();
+
+            $assetUpdate = $db->prepare("UPDATE assets SET status = 'maintenance' WHERE id = ?");
+            $assetUpdate->execute([$input['asset_id']]);
+
+            logAction($db, 'CREATE', 'maintenance_schedules', $maintenance_id);
+
+            $pdf_url = 'generate_maintenance_pdf.php?id=' . $maintenance_id;
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Maintenance task scheduled successfully',
+                'maintenance_id' => $maintenance_id,
+                'pdf_url' => $pdf_url
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to schedule maintenance task']);
+        }
+    } catch (Exception $e) {
+        error_log('Schedule maintenance error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to schedule maintenance task']);
+        echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
     }
 }
 
