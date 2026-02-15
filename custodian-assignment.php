@@ -25,7 +25,7 @@ ob_start();
                     <i class="fas fa-bars text-xl"></i>
                 </button>
                 <h1 class="text-lg font-semibold text-gray-900">Custodian Assignment</h1>
-                <div></div> <!-- Spacer for centering -->
+                <div></div>
             </div>
         </div>
 
@@ -43,7 +43,7 @@ ob_start();
                 </div>
                 <div class="flex items-center gap-3 sm:gap-4">
                     <?php if ($isCustodian): ?>
-                        <button id="refreshBtn" type="button" class="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg shadow-sm transition duration-200" data-label="Refresh">
+                        <button onclick="loadRequests()" type="button" class="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg shadow-sm transition duration-200">
                             <i class="fas fa-rotate"></i><span>Refresh</span>
                         </button>
                     <?php else: ?>
@@ -73,9 +73,9 @@ ob_start();
                     <div class="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-white to-slate-50"></div>
                     <div class="relative flex items-start justify-between gap-4">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Active Assignments</p>
-                            <p id="activeCount" class="mt-2 text-3xl font-bold text-slate-900">0</p>
-                            <p class="text-xs text-slate-500">Currently issued items</p>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Approved Requests</p>
+                            <p id="approvedCount" class="mt-2 text-3xl font-bold text-slate-900">0</p>
+                            <p class="text-xs text-slate-500">Approved items</p>
                         </div>
                         <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
                             <i class="fas fa-check-circle text-lg"></i>
@@ -86,61 +86,61 @@ ob_start();
             <?php endif; ?>
 
             <?php if ($isCustodian): ?>
+            <!-- Custodian View - All Requests -->
             <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-6">
-                <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Assignment Requests</h3>
-                        <p class="text-sm text-gray-500">Review new item requests and take action in a single click.</p>
-                    </div>
-                    <div id="bulkActions" class="hidden items-center gap-2">
-                        <span id="selectedCount" class="text-sm text-gray-600"></span>
-                        <button onclick="bulkDelete()" class="inline-flex items-center gap-2 px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition duration-200">
-                            <i class="fas fa-trash"></i><span>Delete Selected</span>
-                        </button>
-                    </div>
+                <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Assignment Requests</h3>
+                    <p class="text-sm text-gray-500">Review new item requests and take action.</p>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 table-striped text-sm">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50 text-xs">
                             <tr>
-                                <th class="px-4 py-3 text-left">
-                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="rounded border-gray-300">
-                                </th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Requester</th>
-                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Department</th>
+                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Department</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Purpose</th>
-                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
+                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="requestsTableBody" class="bg-white divide-y divide-gray-200 text-sm">
-                            <tr><td colspan="8" class="px-4 sm:px-6 py-4 text-center text-gray-500">Loading...</td></tr>
+                        <tbody id="requestsTableBody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="7" class="px-4 sm:px-6 py-8 text-center text-gray-500">
+                                    <i class="fas fa-circle-notch fa-spin text-3xl mb-2"></i>
+                                    <br>Loading requests...
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
             <?php else: ?>
+            <!-- Staff View - My Requests -->
             <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-6">
                 <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-900">My Assignment Requests</h3>
-                    <p class="text-sm text-gray-500">Track progress and download approved assignment documents.</p>
+                    <p class="text-sm text-gray-500">Track progress of your requests.</p>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 table-striped text-sm">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50 text-xs">
                             <tr>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Item</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
-                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Request Date</th>
+                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Request Date</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Reviewed By</th>
                                 <th class="px-4 sm:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="myRequestsTableBody" class="bg-white divide-y divide-gray-200 text-sm">
-                            <tr><td colspan="6" class="px-4 sm:px-6 py-4 text-center text-gray-500">Loading...</td></tr>
+                        <tbody id="myRequestsTableBody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="5" class="px-4 sm:px-6 py-8 text-center text-gray-500">
+                                    <i class="fas fa-circle-notch fa-spin text-3xl mb-2"></i>
+                                    <br>Loading your requests...
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -150,210 +150,7 @@ ob_start();
     </main>
 </div>
 
-<!-- Assignment detail drawer -->
-<div id="assignmentDetailDrawer" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-gray-900/60" onclick="closeAssignmentDrawer()"></div>
-    <div class="absolute right-0 top-0 h-full w-full max-w-4xl bg-white shadow-2xl overflow-y-auto">
-        <div class="p-6 border-b border-gray-100 flex items-start justify-between gap-4 sticky top-0 bg-white">
-            <div>
-                <p class="text-xs uppercase tracking-wide text-blue-600 font-semibold">Assignment Detail</p>
-                <h2 id="drawerAssetTitle" class="text-2xl font-bold text-gray-900">Asset</h2>
-                <p id="drawerAssignmentMeta" class="text-sm text-gray-500">Loading details...</p>
-            </div>
-            <button class="text-gray-500 hover:text-gray-700" onclick="closeAssignmentDrawer()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <div class="p-6 space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="rounded-xl border border-gray-100 p-4 bg-gradient-to-br from-slate-50 to-white">
-                    <p class="text-xs font-semibold text-gray-500 uppercase">Custodian</p>
-                    <p id="drawerCustodian" class="mt-1 text-lg font-semibold text-gray-900">-</p>
-                    <p id="drawerCustodianMeta" class="text-sm text-gray-500">-</p>
-                </div>
-                <div class="rounded-xl border border-gray-100 p-4 bg-gradient-to-br from-slate-50 to-white">
-                    <p class="text-xs font-semibold text-gray-500 uppercase">Asset</p>
-                    <p id="drawerAssetCode" class="mt-1 text-lg font-semibold text-gray-900">-</p>
-                    <p id="drawerAssetMeta" class="text-sm text-gray-500">-</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div>
-                    <p class="text-xs uppercase text-gray-500">Status</p>
-                    <p id="drawerStatus" class="mt-1 font-semibold text-gray-900">-</p>
-                </div>
-                <div>
-                    <p class="text-xs uppercase text-gray-500">Assigned</p>
-                    <p id="drawerAssignedDate" class="mt-1 font-semibold text-gray-900">-</p>
-                </div>
-                <div>
-                    <p class="text-xs uppercase text-gray-500">Expected Return</p>
-                    <p id="drawerExpectedReturn" class="mt-1 font-semibold text-gray-900">-</p>
-                </div>
-                <div>
-                    <p class="text-xs uppercase text-gray-500">Maintenance</p>
-                    <p id="drawerMaintenanceStatus" class="mt-1 font-semibold text-gray-900">-</p>
-                </div>
-            </div>
-
-            <div class="rounded-2xl border border-gray-100 bg-slate-50/70 p-4">
-                <div class="flex flex-wrap items-center gap-3 mb-3">
-                    <button id="drawerIssueBtn" class="inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm" onclick="openIssueModal()">
-                        <i class="fas fa-pen"></i> Issue Asset
-                    </button>
-                    <button class="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm" onclick="openTransferModal()">
-                        <i class="fas fa-random"></i> Initiate Transfer
-                    </button>
-                    <button class="inline-flex items-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-sm" onclick="openMaintenanceModal()">
-                        <i class="fas fa-tools"></i> Link Maintenance
-                    </button>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p class="text-xs uppercase text-gray-500">Approved by</p>
-                        <p id="drawerApprovedMeta" class="mt-1 font-semibold text-gray-900">-</p>
-                        <p id="drawerApprovedAt" class="text-xs text-gray-500">-</p>
-                    </div>
-                    <div>
-                        <p class="text-xs uppercase text-gray-500">Issued by</p>
-                        <p id="drawerIssuedMeta" class="mt-1 font-semibold text-gray-900">Awaiting issuance</p>
-                        <p id="drawerIssuedAt" class="text-xs text-gray-500">-</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="rounded-2xl border border-gray-100 p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h4 class="font-semibold text-gray-900">Maintenance Links</h4>
-                        <span id="maintenanceCount" class="text-xs uppercase text-gray-400">0 linked</span>
-                    </div>
-                    <div id="maintenanceList" class="space-y-3 text-sm text-gray-700">
-                        <p class="text-gray-500">No maintenance schedules linked.</p>
-                    </div>
-                </div>
-                <div class="rounded-2xl border border-gray-100 p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h4 class="font-semibold text-gray-900">Transfers</h4>
-                        <span id="transferCount" class="text-xs uppercase text-gray-400">0 records</span>
-                    </div>
-                    <div id="transferList" class="space-y-3 text-sm text-gray-700">
-                        <p class="text-gray-500">No transfer records yet.</p>
-                    </div>
-                    <div id="transferActionsContainer" class="mt-4"></div>
-                </div>
-            </div>
-
-            <div class="rounded-2xl border border-gray-100 p-4">
-                <h4 class="font-semibold text-gray-900 mb-4">Accountability Timeline</h4>
-                <ol id="assignmentHistoryList" class="space-y-3 text-sm text-gray-700">
-                    <li class="text-gray-500">Loading timeline...</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Issue assignment modal -->
-<div id="issueModal" class="hidden fixed inset-0 z-50 bg-gray-900/60">
-    <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <div>
-                    <p class="text-xs uppercase text-gray-500">Issuance</p>
-                    <h3 class="text-lg font-semibold text-gray-900">Record Issuance</h3>
-                </div>
-                <button onclick="hideModal('issueModal')" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form id="issueAssignmentForm" class="p-6 space-y-4">
-                <input type="hidden" id="issueAssignmentId">
-                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2">
-                    <i class="fas fa-check-circle"></i><span>Mark as Issued</span>
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Transfer modal -->
-<div id="transferModal" class="hidden fixed inset-0 z-50 bg-gray-900/60">
-    <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <div>
-                    <p class="text-xs uppercase text-gray-500">Custody Transfer</p>
-                    <h3 class="text-lg font-semibold text-gray-900">Initiate Transfer</h3>
-                </div>
-                <button onclick="hideModal('transferModal')" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form id="transferForm" class="p-6 space-y-4">
-                <input type="hidden" id="transferAssignmentId">
-                <div>
-                    <label class="text-sm font-medium text-gray-700">New Custodian</label>
-                    <select id="transferCustodianSelect" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" required>
-                        <option value="">Select custodian...</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-700">Reason</label>
-                    <textarea id="transferReasonInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" rows="3" placeholder="Why is this transfer needed?" required></textarea>
-                </div>
-                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 py-2">
-                    <i class="fas fa-paper-plane"></i><span>Start Transfer</span>
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Maintenance modal -->
-<div id="maintenanceModal" class="hidden fixed inset-0 z-50 bg-gray-900/60">
-    <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <div>
-                    <p class="text-xs uppercase text-gray-500">Maintenance Link</p>
-                    <h3 class="text-lg font-semibold text-gray-900">Attach Schedule</h3>
-                </div>
-                <button onclick="hideModal('maintenanceModal')" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form id="maintenanceForm" class="p-6 space-y-4">
-                <input type="hidden" id="maintenanceAssignmentId">
-                <div>
-                    <label class="text-sm font-medium text-gray-700">Maintenance ID</label>
-                    <input type="number" id="maintenanceIdInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Schedule record ID" required>
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-700">Link Type</label>
-                    <select id="maintenanceLinkType" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="preventive">Preventive</option>
-                        <option value="corrective">Corrective</option>
-                        <option value="safety">Safety</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-700">Notes</label>
-                    <textarea id="maintenanceNotesInput" class="mt-1 w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500" rows="3"></textarea>
-                </div>
-                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg px-4 py-2">
-                    <i class="fas fa-link"></i><span>Link Maintenance</span>
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script src="js/api.js?v=<?php echo time(); ?>"></script>
-<script src="js/assignment_requests.js?v=<?php echo time(); ?>"></script>
-<!-- Request Assignment Modal (For Staff/Teachers) -->
+<!-- Request Modal (For Staff) -->
 <div id="requestModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -388,7 +185,7 @@ ob_start();
     </div>
 </div>
 
-<!-- Approve/Reject Modal (For Custodian) -->
+<!-- Review Modal (For Custodian) -->
 <div id="reviewModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -396,19 +193,19 @@ ob_start();
                 <h3 class="text-lg font-semibold text-gray-900" id="reviewModalTitle">Review Request</h3>
             </div>
             <div class="p-6">
-                <div id="reviewDetails" class="mb-4"></div>
+                <div id="reviewDetails" class="mb-4 p-4 bg-gray-50 rounded-lg"></div>
                 <div id="rejectReasonDiv" class="hidden mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
-                    <textarea id="rejectionReason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
+                    <textarea id="rejectionReason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="Please provide a reason for rejection"></textarea>
                 </div>
                 <div class="flex gap-3">
                     <button type="button" onclick="closeReviewModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
                         Cancel
                     </button>
-                    <button type="button" id="rejectBtn" onclick="rejectRequest()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                    <button type="button" onclick="showRejectReason()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
                         Reject
                     </button>
-                    <button type="button" id="approveBtn" onclick="approveRequest()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    <button type="button" onclick="approveRequest()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
                         Approve
                     </button>
                 </div>
@@ -418,38 +215,451 @@ ob_start();
 </div>
 
 <script>
-// API utility functions
-async function apiCall(url, method = 'GET', data = null) {
-    const config = {
-        method: method,
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    };
+// API Base URL
+const API_BASE_URL = 'https://dpts.qcprotektado.com/api/requesters.php';
+let currentRequestId = null;
 
-    if (data && (method === 'POST' || method === 'PUT')) {
-        config.body = JSON.stringify(data);
+// Load requests on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded, loading requests...');
+    loadRequests();
+    
+    // Set up form submission
+    const requestForm = document.getElementById('requestForm');
+    if (requestForm) {
+        requestForm.addEventListener('submit', submitRequest);
     }
+    
+    // Load available assets for request modal
+    loadAvailableAssets();
+});
 
+// Load requests from API
+async function loadRequests() {
+    const isCustodian = <?php echo json_encode($isCustodian); ?>;
+    console.log('Loading requests, isCustodian:', isCustodian);
+    
     try {
-        const response = await fetch(url, config);
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.error || result.message || 'Request failed');
+        let url = `${API_BASE_URL}?action=list`;
+        
+        if (!isCustodian) {
+            const userId = <?php echo json_encode($currentUser['id']); ?>;
+            url += `&requester_id=${userId}`;
         }
-
-        return result;
+        
+        console.log('Fetching from URL:', url);
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        console.log('API Response:', data);
+        
+        if (data.success) {
+            if (isCustodian) {
+                displayRequests(data.requests || []);
+                updateStats(data.statistics || { pending: 0, approved: 0 });
+            } else {
+                displayMyRequests(data.requests || []);
+            }
+        } else {
+            console.error('API Error:', data.message);
+            showAlert('Failed to load requests: ' + data.message, 'error');
+        }
     } catch (error) {
-        console.error('API Call Error:', error);
-        throw error;
+        console.error('Error loading requests:', error);
+        showAlert('Error loading requests. Please try again.', 'error');
     }
 }
 
+// Display requests for custodian view
+function displayRequests(requests) {
+    const tbody = document.getElementById('requestsTableBody');
+    
+    if (!requests || requests.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-4 sm:px-6 py-8 text-center text-gray-500">
+                    <i class="fas fa-inbox text-3xl mb-2 text-gray-400"></i>
+                    <br>No requests found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    requests.forEach(request => {
+        const requestDate = request.request_date ? new Date(request.request_date).toLocaleDateString() : 'N/A';
+        const statusClass = getStatusBadgeClass(request.request_status || 'pending');
+        
+        html += `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 sm:px-6 py-3">
+                    <div class="font-medium text-gray-900">${request.first_name || ''} ${request.last_name || ''}</div>
+                    <div class="text-xs text-gray-500">${request.email || ''}</div>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <span class="text-sm">${request.department || 'N/A'}</span>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <div class="font-medium text-gray-900">${request.item_requested || 'N/A'}</div>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <span class="text-sm text-gray-600">${request.request_purpose || 'N/A'}</span>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <span class="text-sm">${requestDate}</span>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
+                        ${request.request_status || 'pending'}
+                    </span>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <div class="flex items-center gap-2">
+                        ${request.request_status === 'pending' ? `
+                            <button onclick="openReviewModal(${request.id}, '${request.first_name || ''} ${request.last_name || ''}', '${request.item_requested || ''}')" 
+                                class="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50" title="Review">
+                                <i class="fas fa-check-circle"></i>
+                            </button>
+                        ` : ''}
+                        <button onclick="viewRequestDetails(${request.id})" 
+                            class="text-gray-600 hover:text-gray-800 p-1 rounded hover:bg-gray-50" title="View Details">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+// Display requests for staff view
+function displayMyRequests(requests) {
+    const tbody = document.getElementById('myRequestsTableBody');
+    
+    if (!requests || requests.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-4 sm:px-6 py-8 text-center text-gray-500">
+                    <i class="fas fa-inbox text-3xl mb-2 text-gray-400"></i>
+                    <br>You haven't made any requests yet
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    requests.forEach(request => {
+        const requestDate = request.request_date ? new Date(request.request_date).toLocaleDateString() : 'N/A';
+        const statusClass = getStatusBadgeClass(request.request_status || 'pending');
+        
+        html += `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 sm:px-6 py-3">
+                    <div class="font-medium text-gray-900">${request.item_requested || 'N/A'}</div>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <span class="text-sm text-gray-600">${request.request_purpose || 'N/A'}</span>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <span class="text-sm">${requestDate}</span>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
+                        ${request.request_status || 'pending'}
+                    </span>
+                </td>
+                <td class="px-4 sm:px-6 py-3">
+                    ${request.request_status === 'pending' ? `
+                        <button onclick="cancelRequest(${request.id})" class="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50" title="Cancel Request">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+// Get status badge class
+function getStatusBadgeClass(status) {
+    switch(status) {
+        case 'approved': return 'bg-green-100 text-green-800';
+        case 'rejected': return 'bg-red-100 text-red-800';
+        case 'fulfilled': return 'bg-blue-100 text-blue-800';
+        case 'pending': 
+        default: return 'bg-yellow-100 text-yellow-800';
+    }
+}
+
+// Update statistics
+function updateStats(stats) {
+    const pendingEl = document.getElementById('pendingCount');
+    const approvedEl = document.getElementById('approvedCount');
+    
+    if (pendingEl) pendingEl.textContent = stats.pending || 0;
+    if (approvedEl) approvedEl.textContent = stats.approved || 0;
+}
+
+// Open review modal
+function openReviewModal(requestId, requesterName, itemName) {
+    console.log('Opening review modal for request:', requestId);
+    currentRequestId = requestId;
+    
+    const reviewDetails = document.getElementById('reviewDetails');
+    reviewDetails.innerHTML = `
+        <p class="mb-2"><strong>Requester:</strong> ${requesterName}</p>
+        <p><strong>Item:</strong> ${itemName}</p>
+    `;
+    
+    document.getElementById('reviewModalTitle').textContent = 'Review Request';
+    document.getElementById('rejectReasonDiv').classList.add('hidden');
+    document.getElementById('reviewModal').classList.remove('hidden');
+}
+
+// Show reject reason field
+function showRejectReason() {
+    document.getElementById('rejectReasonDiv').classList.remove('hidden');
+    document.querySelector('#rejectReasonDiv + div button.bg-red-600').textContent = 'Confirm Reject';
+}
+
+// Approve request
+async function approveRequest() {
+    if (!currentRequestId) {
+        showAlert('No request selected', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'approve',
+                requester_id: currentRequestId,
+                approved_by: '<?php echo $currentUser['full_name']; ?>',
+                notes: 'Approved via custodian panel'
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Approve response:', data);
+        
+        if (data.success) {
+            showAlert('Request approved successfully!', 'success');
+            closeReviewModal();
+            loadRequests();
+        } else {
+            showAlert('Failed to approve request: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error approving request:', error);
+        showAlert('Error approving request. Please try again.', 'error');
+    }
+}
+
+// Reject request
+async function rejectRequest() {
+    if (!currentRequestId) {
+        showAlert('No request selected', 'error');
+        return;
+    }
+    
+    const reason = document.getElementById('rejectionReason').value;
+    if (!reason) {
+        showAlert('Please provide a rejection reason', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'reject',
+                requester_id: currentRequestId,
+                rejected_by: '<?php echo $currentUser['full_name']; ?>',
+                reason: reason
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Reject response:', data);
+        
+        if (data.success) {
+            showAlert('Request rejected successfully!', 'success');
+            closeReviewModal();
+            loadRequests();
+        } else {
+            showAlert('Failed to reject request: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error rejecting request:', error);
+        showAlert('Error rejecting request. Please try again.', 'error');
+    }
+}
+
+// Cancel request (for staff)
+async function cancelRequest(requestId) {
+    if (!confirm('Are you sure you want to cancel this request?')) return;
+    
+    try {
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'reject',
+                requester_id: requestId,
+                rejected_by: 'requester',
+                reason: 'Cancelled by requester'
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Cancel response:', data);
+        
+        if (data.success) {
+            showAlert('Request cancelled successfully!', 'success');
+            loadRequests();
+        } else {
+            showAlert('Failed to cancel request: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error cancelling request:', error);
+        showAlert('Error cancelling request. Please try again.', 'error');
+    }
+}
+
+// Submit new request (for staff)
+async function submitRequest(event) {
+    event.preventDefault();
+    
+    const assetSelect = document.getElementById('requestAssetId');
+    const assetId = assetSelect.value;
+    const purpose = document.getElementById('requestPurpose').value;
+    const justification = document.getElementById('requestJustification').value;
+    
+    if (!assetId) {
+        showAlert('Please select an item', 'warning');
+        return;
+    }
+    
+    // Get asset name from selected option
+    const assetName = assetSelect.options[assetSelect.selectedIndex]?.text || 'Unknown Item';
+    
+    try {
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'create',
+                requester_id: '<?php echo $currentUser['id']; ?>',
+                item_name: assetName,
+                purpose: purpose + (justification ? ' - ' + justification : ''),
+                source: 'web'
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Submit response:', data);
+        
+        if (data.success) {
+            showAlert('Request submitted successfully!', 'success');
+            closeRequestModal();
+            loadRequests();
+        } else {
+            showAlert('Failed to submit request: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error submitting request:', error);
+        showAlert('Error submitting request. Please try again.', 'error');
+    }
+}
+
+// View request details
+async function viewRequestDetails(requestId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}?action=status&requester_id=${requestId}`);
+        const data = await response.json();
+        
+        console.log('Request details:', data);
+        
+        if (data.success && data.data) {
+            const request = data.data;
+            const details = `
+Requester: ${request.first_name} ${request.last_name}
+Item: ${request.item_requested}
+Purpose: ${request.request_purpose}
+Status: ${request.request_status}
+Date: ${new Date(request.request_date).toLocaleString()}
+${request.approval_date ? 'Approved: ' + new Date(request.approval_date).toLocaleString() : ''}
+            `;
+            showAlert(details, 'info');
+        }
+    } catch (error) {
+        console.error('Error viewing request:', error);
+    }
+}
+
+// Load available assets for request modal
+async function loadAvailableAssets() {
+    try {
+        const response = await fetch('api/custodian_assignments.php?action=available_assets');
+        const data = await response.json();
+        console.log('Available assets:', data);
+        
+        const select = document.getElementById('requestAssetId');
+        select.innerHTML = '<option value="">Choose an item...</option>';
+        
+        if (data.data && data.data.length > 0) {
+            data.data.forEach(asset => {
+                const option = document.createElement('option');
+                option.value = asset.id;
+                option.textContent = `${asset.name} (${asset.asset_code})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading assets:', error);
+    }
+}
+
+// Modal functions
+function openRequestModal() {
+    loadAvailableAssets();
+    document.getElementById('requestModal').classList.remove('hidden');
+}
+
+function closeRequestModal() {
+    document.getElementById('requestModal').classList.add('hidden');
+    document.getElementById('requestForm').reset();
+}
+
+function closeReviewModal() {
+    document.getElementById('reviewModal').classList.add('hidden');
+    document.getElementById('rejectionReason').value = '';
+    document.getElementById('rejectReasonDiv').classList.add('hidden');
+    currentRequestId = null;
+}
+
+// Show alert function
 function showAlert(message, type = 'info') {
-    // Create notification element
     const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-lg shadow-lg z-50 ${
+    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-lg shadow-lg z-50 animate-fade-in ${
         type === 'success' ? 'bg-green-500 text-white' :
         type === 'error' ? 'bg-red-500 text-white' :
         type === 'warning' ? 'bg-yellow-500 text-white' :
@@ -460,367 +670,29 @@ function showAlert(message, type = 'info') {
     document.body.appendChild(notification);
 
     setTimeout(() => {
-        notification.remove();
+        notification.style.animation = 'fade-out 0.5s ease';
+        setTimeout(() => notification.remove(), 500);
     }, 5000);
 }
 
-// Custodian Assignment Management
-class CustodianAssignmentManager {
-    constructor() {
-        this.custodians = [];
-        this.assets = [];
-        this.assignments = [];
-        this.init();
+// Add animation styles
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-
-    init() {
-        this.loadCustodians();
-        this.loadAssets();
-        this.loadAssignments();
-        this.bindEvents();
-        this.setTodayDate();
+    @keyframes fade-out {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-20px); }
     }
-
-    setTodayDate() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('assignmentDate').value = today;
+    .animate-fade-in {
+        animation: fade-in 0.3s ease;
     }
-
-    bindEvents() {
-        // Form submission
-        document.getElementById('custodianAssignmentForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.createAssignment();
-        });
-
-        // New assignment buttons (desktop and mobile)
-        document.getElementById('newAssignmentBtn')?.addEventListener('click', () => {
-            this.showAssignmentForm();
-        });
-
-        document.getElementById('newAssignmentBtnMobile')?.addEventListener('click', () => {
-            this.showAssignmentForm();
-        });
-
-        // Close form button (mobile)
-        document.getElementById('closeFormBtn')?.addEventListener('click', () => {
-            this.hideAssignmentForm();
-        });
-
-        // New custodian modal
-        document.getElementById('createNewCustodianBtn').addEventListener('click', () => {
-            this.showCustodianModal();
-        });
-
-        document.getElementById('closeCustodianModal').addEventListener('click', () => {
-            this.hideCustodianModal();
-        });
-
-        document.getElementById('closeCustodianModalX')?.addEventListener('click', () => {
-            this.hideCustodianModal();
-        });
-
-        // New custodian form
-        document.getElementById('newCustodianForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.createCustodian();
-        });
-
-        // Refresh button
-        document.getElementById('refreshAssignmentsBtn').addEventListener('click', () => {
-            this.loadAssignments();
-        });
-
-        // Cancel button
-        document.getElementById('cancelAssignmentBtn').addEventListener('click', () => {
-            this.hideAssignmentForm();
-        });
-    }
-
-    async loadCustodians() {
-        try {
-            const response = await apiCall('api/custodian_assignments.php?action=custodians', 'GET');
-            this.custodians = response.data || [];
-            this.populateCustodianSelect();
-        } catch (error) {
-            console.error('Error loading custodians:', error);
-            showAlert('Error loading custodians', 'error');
-        }
-    }
-
-    async loadAssets() {
-        try {
-            const response = await apiCall('api/custodian_assignments.php?action=available_assets', 'GET');
-            this.assets = response.data || [];
-            this.populateAssetSelect();
-        } catch (error) {
-            console.error('Error loading assets:', error);
-            showAlert('Error loading assets', 'error');
-        }
-    }
-
-    async loadAssignments() {
-        try {
-            const response = await apiCall('api/custodian_assignments.php?action=assignments', 'GET');
-            this.assignments = response.data || [];
-            this.populateAssignmentsTable();
-        } catch (error) {
-            console.error('Error loading assignments:', error);
-            showAlert('Error loading assignments', 'error');
-        }
-    }
-
-    populateCustodianSelect() {
-        const select = document.getElementById('custodianSelect');
-        select.innerHTML = '<option value="">Select Custodian</option>';
-
-        this.custodians.forEach(custodian => {
-            const option = document.createElement('option');
-            option.value = custodian.id;
-            option.textContent = `${custodian.employee_id} - ${custodian.full_name || 'N/A'} (${custodian.department})`;
-            select.appendChild(option);
-        });
-    }
-
-    populateAssetSelect() {
-        const select = document.getElementById('assetSelect');
-        select.innerHTML = '<option value="">Select Asset</option>';
-
-        this.assets.forEach(asset => {
-            const option = document.createElement('option');
-            option.value = asset.id;
-            option.textContent = `${asset.asset_code} - ${asset.name} (${asset.category_name || 'No Category'})`;
-            select.appendChild(option);
-        });
-    }
-
-    populateAssignmentsTable() {
-        const tbody = document.getElementById('assignmentsTableBody');
-        const cardContainer = document.getElementById('assignmentsCardContainer');
-
-        if (this.assignments.length === 0) {
-            // Desktop view
-            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No assignments found</td></tr>';
-            // Mobile view
-            cardContainer.innerHTML = '<div class="p-4 text-center text-gray-500">No assignments found</div>';
-            return;
-        }
-
-        // Populate desktop table
-        tbody.innerHTML = this.assignments.map(assignment => `
-            <tr>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${assignment.custodian_name || 'N/A'}</div>
-                    <div class="text-sm text-gray-500">${assignment.employee_id}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${assignment.custodian_department}</td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${assignment.asset_name}</div>
-                    <div class="text-sm text-gray-500">${assignment.asset_code}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${new Date(assignment.assignment_date).toLocaleDateString()}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${assignment.expected_return_date ? new Date(assignment.expected_return_date).toLocaleDateString() : 'N/A'}</td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${this.getStatusColor(assignment.status)}">
-                        ${assignment.status}
-                    </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div class="flex space-x-2">
-                        <button onclick="custodianManager.viewAssignment(${assignment.id})" class="text-blue-600 hover:text-blue-900">View</button>
-                        <button onclick="custodianManager.returnAsset(${assignment.id})" class="text-green-600 hover:text-green-900">Return</button>
-                        <button onclick="custodianManager.deleteAssignment(${assignment.id})" class="text-red-600 hover:text-red-900">Delete</button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
-
-        // Populate mobile cards
-        cardContainer.innerHTML = this.assignments.map(assignment => `
-            <div class="border-b border-gray-200 p-4">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="flex-1">
-                        <h4 class="font-medium text-gray-900">${assignment.custodian_name || 'N/A'}</h4>
-                        <p class="text-sm text-gray-500">${assignment.employee_id} • ${assignment.custodian_department}</p>
-                    </div>
-                    <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white shadow-lg shadow-amber-500/30">
-                        <i class="fas fa-clock text-lg"></i>
-                    </span>
-                </div>
-                <div class="mb-3">
-                    <p class="font-medium text-gray-900">${assignment.asset_name}</p>
-                    <p class="text-sm text-gray-500">${assignment.asset_code}</p>
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-sm mb-3">
-                    <div>
-                        <span class="text-gray-500">Assigned:</span>
-                        <p class="font-medium">${new Date(assignment.assignment_date).toLocaleDateString()}</p>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Expected Return:</span>
-                        <p class="font-medium">${assignment.expected_return_date ? new Date(assignment.expected_return_date).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                </div>
-                <div class="flex space-x-2">
-                    <button onclick="custodianManager.viewAssignment(${assignment.id})" class="flex-1 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100">
-                        <i class="fas fa-eye mr-1"></i>View
-                    </button>
-                    <button onclick="custodianManager.returnAsset(${assignment.id})" class="flex-1 px-3 py-2 text-sm bg-green-50 text-green-600 rounded-md hover:bg-green-100">
-                        <i class="fas fa-undo mr-1"></i>Return
-                    </button>
-                    <button onclick="custodianManager.deleteAssignment(${assignment.id})" class="flex-1 px-3 py-2 text-sm bg-red-50 text-red-600 rounded-md hover:bg-red-100">
-                        <i class="fas fa-trash mr-1"></i>Delete
-                    </button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    getStatusColor(status) {
-        switch (status) {
-            case 'active': return 'bg-green-100 text-green-800';
-            case 'returned': return 'bg-gray-100 text-gray-800';
-            case 'transferred': return 'bg-yellow-100 text-yellow-800';
-            case 'lost': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    }
-
-    showAssignmentForm() {
-        document.getElementById('assignmentForm').classList.remove('hidden');
-        // On mobile, scroll to form
-        if (window.innerWidth < 1024) {
-            document.getElementById('assignmentForm').scrollIntoView({ behavior: 'smooth' });
-        }
-    }
-
-    hideAssignmentForm() {
-        document.getElementById('assignmentForm').classList.add('hidden');
-        this.resetForm();
-    }
-
-    showCustodianModal() {
-        document.getElementById('custodianModal').classList.remove('hidden');
-    }
-
-    hideCustodianModal() {
-        document.getElementById('custodianModal').classList.add('hidden');
-        document.getElementById('newCustodianForm').reset();
-    }
-
-    async createCustodian() {
-        const custodianData = {
-            employee_id: document.getElementById('newEmployeeId').value,
-            full_name: document.getElementById('newFullName').value,
-            email: document.getElementById('newEmail').value,
-            department: document.getElementById('newDepartment').value,
-            position: document.getElementById('newPosition').value
-        };
-
-        try {
-            const response = await apiCall('api/custodian_assignments.php?action=create_custodian', 'POST', custodianData);
-            showAlert('Custodian created successfully!', 'success');
-            this.hideCustodianModal();
-            this.loadCustodians();
-        } catch (error) {
-            console.error('Error creating custodian:', error);
-            showAlert('Error creating custodian: ' + error.message, 'error');
-        }
-    }
-
-    async createAssignment() {
-        const custodianId = document.getElementById('custodianSelect').value;
-        const assetId = document.getElementById('assetSelect').value;
-
-        if (!custodianId || !assetId) {
-            showAlert('Please select both custodian and asset', 'error');
-            return;
-        }
-
-        const assignmentData = {
-            custodian_id: custodianId,
-            asset_id: assetId,
-            assignment_date: document.getElementById('assignmentDate').value,
-            expected_return_date: document.getElementById('expectedReturnDate').value || null,
-            assignment_purpose: document.getElementById('assignmentPurpose').value,
-            notes: document.getElementById('assignmentNotes').value
-        };
-
-        try {
-            const response = await apiCall('api/custodian_assignments.php?action=create_assignment', 'POST', assignmentData);
-            showAlert('Assignment created successfully!', 'success');
-            this.hideAssignmentForm();
-            this.loadAssignments();
-            this.loadAssets(); // Refresh assets to update availability
-        } catch (error) {
-            console.error('Error creating assignment:', error);
-            showAlert('Error creating assignment: ' + error.message, 'error');
-        }
-    }
-
-    async returnAsset(assignmentId) {
-        if (!confirm('Mark this assignment as returned?')) return;
-
-        try {
-            const response = await apiCall(`api/custodian_assignments.php?action=update_assignment&id=${assignmentId}`, 'PUT', {
-                status: 'returned'
-            });
-            showAlert('Asset returned successfully!', 'success');
-            this.loadAssignments();
-            this.loadAssets();
-        } catch (error) {
-            console.error('Error returning asset:', error);
-            showAlert('Error returning asset: ' + error.message, 'error');
-        }
-    }
-
-    async deleteAssignment(assignmentId) {
-        if (!confirm('Are you sure you want to delete this assignment?')) return;
-
-        try {
-            const response = await apiCall(`api/custodian_assignments.php?action=delete_assignment&id=${assignmentId}`, 'DELETE');
-            showAlert('Assignment deleted successfully!', 'success');
-            this.loadAssignments();
-            this.loadAssets();
-        } catch (error) {
-            console.error('Error deleting assignment:', error);
-            showAlert('Error deleting assignment: ' + error.message, 'error');
-        }
-    }
-
-    async viewAssignment(assignmentId) {
-        try {
-            const response = await apiCall(`api/custodian_assignments.php?action=assignment_details&id=${assignmentId}`, 'GET');
-            const assignment = response.data;
-
-            alert(`Assignment Details:
-Custodian: ${assignment.custodian_name} (${assignment.employee_id})
-Asset: ${assignment.asset_name} (${assignment.asset_code})
-Assignment Date: ${new Date(assignment.assignment_date).toLocaleDateString()}
-Expected Return: ${assignment.expected_return_date ? new Date(assignment.expected_return_date).toLocaleDateString() : 'N/A'}
-Purpose: ${assignment.assignment_purpose || 'N/A'}
-Notes: ${assignment.notes || 'N/A'}
-Status: ${assignment.status}`);
-        } catch (error) {
-            console.error('Error viewing assignment:', error);
-            showAlert('Error loading assignment details', 'error');
-        }
-    }
-
-    resetForm() {
-        document.getElementById('custodianAssignmentForm').reset();
-        this.setTodayDate();
-    }
-}
-
-// Old assignment manager disabled - now using assignment_requests.js
-// let custodianManager;
-// document.addEventListener('DOMContentLoaded', function() {
-//     custodianManager = new CustodianAssignmentManager();
-// });
+`;
+document.head.appendChild(style);
 </script>
 
-<!-- Responsive CSS -->
 <style>
 /* Mobile menu styles */
 .sidebar-mobile {
@@ -865,7 +737,6 @@ Status: ${assignment.status}`);
         transform: translateX(0);
     }
 
-    /* Ensure main content doesn't overlap on mobile */
     main {
         margin-left: 0 !important;
     }
@@ -874,7 +745,7 @@ Status: ${assignment.status}`);
 /* Form enhancements for mobile */
 @media (max-width: 768px) {
     select, input, textarea {
-        font-size: 16px; /* Prevents zoom on iOS */
+        font-size: 16px;
     }
 
     .grid {
@@ -882,14 +753,19 @@ Status: ${assignment.status}`);
     }
 }
 
-/* Card hover effects */
-.assignment-card {
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+/* Table hover effects */
+tbody tr:hover {
+    background-color: #f9fafb;
 }
 
-.assignment-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+/* Status badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 </style>
 

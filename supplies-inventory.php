@@ -40,6 +40,7 @@ ob_start();
                 </div>
             </div>
 
+
             <!-- Summary Stats Cards (moved to top per requirement) -->
             <div id="summaryCardsTop" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 lg:gap-6 mb-6">
                 <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/20">
@@ -433,6 +434,40 @@ ob_start();
                     </div>
                 </div>
             </section>
+            
+            
+            <!-- Pending Requests Section - NEW ADDITION -->
+            <div id="pendingRequestsSection" class="bg-white border border-yellow-200 rounded-xl shadow-lg mb-6 overflow-hidden hidden">
+                <div class="bg-yellow-50 px-4 sm:px-6 py-4 border-b border-yellow-200 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                        <h2 class="text-lg font-semibold text-yellow-800">Pending Requests</h2>
+                        <span id="pendingRequestsCount" class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-yellow-800 bg-yellow-200 rounded-full">0</span>
+                    </div>
+                    <button onclick="refreshPendingRequests()" class="text-yellow-600 hover:text-yellow-800">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50 text-xs">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Requester</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Item Requested</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Purpose</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Date</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Source</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingRequestsBody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="6" class="px-4 py-4 text-center text-gray-500">Loading pending requests...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             <!-- Summary Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 lg:gap-6 mt-6">
@@ -672,6 +707,9 @@ let historicalSupplies = [];
 let filteredSupplies = [];
 let currentEditId = null;
 let currentView = 'historical';
+
+// NEW: Pending requests data
+let pendingRequests = [];
 
 const forecastIntegrationElements = {
     section: document.getElementById('forecastIntegrationSection'),
@@ -1317,6 +1355,84 @@ function setupViewToggle() {
     updateToggleState();
 }
 
+// NEW: Load pending requests from API
+async function loadPendingRequests() {
+    const section = document.getElementById('pendingRequestsSection');
+    const tbody = document.getElementById('pendingRequestsBody');
+    const countElement = document.getElementById('pendingRequestsCount');
+    
+    if (!section || !tbody) return;
+    
+    try {
+        // Fetch pending requests from the API
+        const response = await fetch('https://dpts.qcprotektado.com/api/requesters.php?action=list&status=pending');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.requests) && data.requests.length > 0) {
+            pendingRequests = data.requests;
+            
+            // Show the section
+            section.classList.remove('hidden');
+            
+            // Update count
+            countElement.textContent = pendingRequests.length;
+            
+            // Render the table
+            tbody.innerHTML = pendingRequests.map(request => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-gray-900">${request.requester_display_name || `${request.first_name} ${request.last_name}`}</div>
+                        <div class="text-xs text-gray-500">${request.email || ''} | ${request.role || ''}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-gray-900">${request.item_requested || ''}</div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                        ${request.request_purpose || ''}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500">
+                        ${new Date(request.request_date).toLocaleDateString()}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                            ${request.request_source === 'event' ? 'bg-purple-100 text-purple-800' : 
+                              request.request_source === 'clinic' ? 'bg-red-100 text-red-800' : 
+                              request.request_source === 'library' ? 'bg-blue-100 text-blue-800' : 
+                              'bg-gray-100 text-gray-800'}">
+                            ${request.request_source || 'unknown'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            ${request.request_status || 'pending'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            // No pending requests, hide the section
+            section.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading pending requests:', error);
+        section.classList.add('hidden');
+    }
+}
+
+// NEW: Refresh pending requests
+function refreshPendingRequests() {
+    const tbody = document.getElementById('pendingRequestsBody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-gray-500">Refreshing pending requests...</td></tr>';
+    }
+    loadPendingRequests();
+}
+
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     populateStorageLocationSelect();
@@ -1324,6 +1440,10 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSupplies();
     setupViewToggle();
     initializeForecastIntegration();
+    loadPendingRequests(); // NEW: Load pending requests on page load
+    
+    // Auto-refresh pending requests every 30 seconds
+    setInterval(loadPendingRequests, 30000);
 });
 
 // Load all supplies

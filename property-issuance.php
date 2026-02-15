@@ -38,6 +38,54 @@ ob_start();
                 </div>
             </div>
 
+            <!-- API Requests Status Summary -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Pending Requests</p>
+                            <p class="text-2xl font-bold text-yellow-600" id="pendingCount">0</p>
+                        </div>
+                        <div class="bg-yellow-100 p-3 rounded-full">
+                            <i class="fas fa-clock text-yellow-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Approved Requests</p>
+                            <p class="text-2xl font-bold text-blue-600" id="approvedCount">0</p>
+                        </div>
+                        <div class="bg-blue-100 p-3 rounded-full">
+                            <i class="fas fa-check-circle text-blue-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Rejected Requests</p>
+                            <p class="text-2xl font-bold text-red-600" id="rejectedCount">0</p>
+                        </div>
+                        <div class="bg-red-100 p-3 rounded-full">
+                            <i class="fas fa-times-circle text-red-600"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Fulfilled Requests</p>
+                            <p class="text-2xl font-bold text-green-600" id="fulfilledCount">0</p>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-full">
+                            <i class="fas fa-box-check text-green-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Property Issuance Interface -->
             <div id="issuanceFormContainer" class="bg-white rounded-lg shadow p-4 sm:p-6 border border-gray-200 hidden">
                 <div class="border-b border-gray-200 pb-4 mb-6 card-head rounded-t-lg">
@@ -132,9 +180,18 @@ ob_start();
             <div class="bg-white rounded-lg shadow p-4 sm:p-6 mt-6 border border-gray-200">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
                     <h3 class="text-base sm:text-lg font-semibold text-gray-900">Recent Property Issuances</h3>
-                    <button id="refreshIssuances" class="w-full sm:w-auto px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition duration-200 shadow-sm">
-                        <i class="fas fa-refresh mr-2"></i>Refresh
-                    </button>
+                    <div class="flex gap-2">
+                        <select id="statusFilter" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">All Status</option>
+                            <option value="issued">Issued</option>
+                            <option value="returned">Returned</option>
+                            <option value="overdue">Overdue</option>
+                            <option value="damaged">Damaged</option>
+                        </select>
+                        <button id="refreshIssuances" class="w-full sm:w-auto px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition duration-200 shadow-sm">
+                            <i class="fas fa-refresh mr-2"></i>Refresh
+                        </button>
+                    </div>
                 </div>
                 <div class="overflow-x-auto -mx-4 sm:mx-0">
                     <div class="inline-block min-w-full align-middle">
@@ -155,6 +212,41 @@ ob_start();
                                 <tr id="loadingRow">
                                     <td colspan="8" class="px-3 sm:px-6 py-4 text-center text-gray-500 text-sm">
                                         <i class="fas fa-spinner fa-spin mr-2"></i>Loading issuances...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fulfilled Requests from API -->
+            <div class="bg-white rounded-lg shadow p-4 sm:p-6 mt-6 border border-gray-200">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-900">Fulfilled Requests</h3>
+                    <button id="refreshFulfilled" class="w-full sm:w-auto px-4 py-2 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded-md transition duration-200 shadow-sm">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh Fulfilled
+                    </button>
+                </div>
+                <div class="overflow-x-auto -mx-4 sm:mx-0">
+                    <div class="inline-block min-w-full align-middle">
+                        <table class="min-w-full divide-y divide-gray-200 table-striped text-sm">
+                            <thead class="bg-green-50 text-xs">
+                                <tr>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requester</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Item Requested</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Request Date</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Fulfillment Date</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fulfilledTableBody" class="bg-white divide-y divide-gray-200">
+                                <tr id="loadingFulfilledRow">
+                                    <td colspan="8" class="px-3 sm:px-6 py-4 text-center text-gray-500 text-sm">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>Loading fulfilled requests...
                                     </td>
                                 </tr>
                             </tbody>
@@ -195,6 +287,45 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    if (typeof API.getFulfilledRequests !== 'function') {
+        console.log('Adding getFulfilledRequests method for API');
+        API.getFulfilledRequests = function() {
+            const url = 'https://dpts.qcprotektado.com/api/requesters.php?action=list&status=fulfilled';
+            return fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            });
+        };
+    }
+
+    if (typeof API.getAllRequestsWithStats !== 'function') {
+        console.log('Adding getAllRequestsWithStats method for API');
+        API.getAllRequestsWithStats = function() {
+            const url = 'https://dpts.qcprotektado.com/api/requesters.php?action=list';
+            return fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            });
+        };
+    }
 
     if (typeof API.createPropertyIssuance !== 'function') {
         console.log('Adding fallback createPropertyIssuance method');
@@ -235,6 +366,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelBtn = document.getElementById('cancelBtn');
     const submitBtn = document.getElementById('submitBtn');
     const refreshBtn = document.getElementById('refreshIssuances');
+    const refreshFulfilledBtn = document.getElementById('refreshFulfilled');
+    const statusFilter = document.getElementById('statusFilter');
+    
     // Initialize form hidden and preset date
     issueDate.value = new Date().toISOString().split('T')[0];
     hideIssuanceForm();
@@ -244,6 +378,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load recent issuances
     loadRecentIssuances();
+
+    // Load fulfilled requests from API
+    loadFulfilledRequests();
+
+    // Load API statistics
+    loadAPIStatistics();
+
+    // Status filter change handler
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            loadRecentIssuances(this.value);
+        });
+    }
 
     // Asset code input handler
     assetCodeInput.addEventListener('input', function() {
@@ -349,9 +496,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Refresh button
     refreshBtn.addEventListener('click', function() {
-        loadRecentIssuances();
+        loadRecentIssuances(statusFilter ? statusFilter.value : 'all');
     });
 
+    // Refresh fulfilled button
+    if (refreshFulfilledBtn) {
+        refreshFulfilledBtn.addEventListener('click', function() {
+            loadFulfilledRequests();
+            loadAPIStatistics();
+        });
+    }
 
     // New Issuance button
     const newIssuanceBtn = document.getElementById('newIssuanceBtn');
@@ -394,6 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formContainer.classList.add('hidden');
         formContainer.classList.remove('ring-2', 'ring-green-500', 'ring-opacity-50');
     }
+
     async function loadAvailableAssets() {
         try {
             const response = await API.getAvailableAssets();
@@ -420,13 +575,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function loadRecentIssuances() {
+    async function loadRecentIssuances(status = 'all') {
         try {
             const tableBody = document.getElementById('issuancesTableBody');
             tableBody.innerHTML = '<tr><td colspan="8" class="px-3 sm:px-6 py-4 text-center text-gray-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading issuances...</td></tr>';
 
             const response = await API.getPropertyIssuances();
-            const issuances = response.issuances || [];
+            let issuances = response.issuances || [];
+
+            // Apply status filter if not 'all'
+            if (status !== 'all') {
+                issuances = issuances.filter(i => i.status === status);
+            }
 
             if (issuances.length === 0) {
                 tableBody.innerHTML = '<tr><td colspan="8" class="px-3 sm:px-6 py-4 text-center text-gray-500 text-sm">No recent issuances</td></tr>';
@@ -443,6 +603,52 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading issuances:', error);
             const tableBody = document.getElementById('issuancesTableBody');
             tableBody.innerHTML = '<tr><td colspan="8" class="px-3 sm:px-6 py-4 text-center text-red-500 text-sm">Failed to load issuances</td></tr>';
+        }
+    }
+
+    async function loadFulfilledRequests() {
+        try {
+            const tableBody = document.getElementById('fulfilledTableBody');
+            tableBody.innerHTML = '<tr><td colspan="8" class="px-3 sm:px-6 py-4 text-center text-gray-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading fulfilled requests from API...</td></tr>';
+
+            const response = await API.getFulfilledRequests();
+            
+            if (!response.success) {
+                throw new Error(response.message || 'Failed to fetch fulfilled requests');
+            }
+
+            const requests = response.requests || [];
+
+            if (requests.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="8" class="px-3 sm:px-6 py-4 text-center text-gray-500 text-sm">No fulfilled requests found</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            requests.forEach(request => {
+                const row = createFulfilledRequestRow(request);
+                tableBody.appendChild(row);
+            });
+
+        } catch (error) {
+            console.error('Error loading fulfilled requests:', error);
+            const tableBody = document.getElementById('fulfilledTableBody');
+            tableBody.innerHTML = '<tr><td colspan="8" class="px-3 sm:px-6 py-4 text-center text-red-500 text-sm">Failed to load fulfilled requests: ' + error.message + '</td></tr>';
+        }
+    }
+
+    async function loadAPIStatistics() {
+        try {
+            const response = await API.getAllRequestsWithStats();
+            
+            if (response.success && response.statistics) {
+                document.getElementById('pendingCount').textContent = response.statistics.pending || 0;
+                document.getElementById('approvedCount').textContent = response.statistics.approved || 0;
+                document.getElementById('rejectedCount').textContent = response.statistics.rejected || 0;
+                document.getElementById('fulfilledCount').textContent = response.statistics.fulfilled || 0;
+            }
+        } catch (error) {
+            console.error('Error loading API statistics:', error);
         }
     }
 
@@ -489,6 +695,39 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="fas fa-trash text-xs sm:text-sm"></i>
                     </button>
                 </div>
+            </td>
+        `;
+
+        return row;
+    }
+
+    function createFulfilledRequestRow(request) {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-green-50';
+
+        const requesterName = request.first_name && request.last_name ? 
+            `${request.first_name} ${request.last_name}` : 
+            request.requester_display_name || 'N/A';
+
+        row.innerHTML = `
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                <div class="font-medium">${requesterName}</div>
+            </td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">${request.email || 'N/A'}</td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden sm:table-cell">${request.item_requested || 'N/A'}</td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">${request.department || request.role || 'N/A'}</td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden md:table-cell">${formatDate(request.request_date)}</td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden lg:table-cell">${formatDate(request.fulfillment_date)}</td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap">
+                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                    Fulfilled
+                </span>
+            </td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button onclick="viewFulfilledRequestDetails(${JSON.stringify(request).replace(/"/g, '&quot;')})" 
+                        class="text-blue-600 hover:text-blue-900 p-1" title="View Details">
+                    <i class="fas fa-eye text-xs sm:text-sm"></i>
+                </button>
             </td>
         `;
 
@@ -639,6 +878,55 @@ async function viewIssuanceDetails(issuanceId) {
         console.error('Error loading issuance details:', error);
         showNotification('Failed to load issuance details', 'error');
     }
+}
+
+// View fulfilled request details
+function viewFulfilledRequestDetails(request) {
+    const content = `
+        ${createDetailSection('Requester Information', [
+            { label: 'Name', value: (request.first_name && request.last_name) ? `${request.first_name} ${request.last_name}` : request.requester_display_name || 'N/A' },
+            { label: 'Email', value: request.email || 'N/A' },
+            { label: 'Role', value: request.role || 'N/A' },
+            { label: 'Department', value: request.department || 'N/A' }
+        ])}
+        
+        ${createDetailSection('Request Details', [
+            { label: 'Item Requested', value: request.item_requested || 'N/A' },
+            { label: 'Purpose', value: request.request_purpose || 'N/A' },
+            { label: 'Request Date', value: formatDate(request.request_date) },
+            { label: 'Approval Date', value: formatDate(request.approval_date) },
+            { label: 'Fulfillment Date', value: formatDate(request.fulfillment_date) },
+            { label: 'Source', value: request.request_source || 'N/A' }
+        ])}
+        
+        ${createDetailSection('Status Information', [
+            { label: 'Request Status', value: createStatusBadge('FULFILLED', 'success') },
+            { label: 'Requester ID', value: request.requester_id || request.id || 'N/A' }
+        ])}
+    `;
+    
+    const footer = `
+        <button onclick="closeDetailModal()" 
+                class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-200">
+            Close
+        </button>
+    `;
+    
+    openDetailModal('Fulfilled Request Details', content, footer);
+}
+
+// Helper function to format date
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 </script>
 
