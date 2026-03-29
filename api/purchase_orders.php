@@ -44,7 +44,8 @@ function getPurchaseOrderStats(PDO $pdo): void
                     COUNT(CASE WHEN status = 'received' THEN 1 END) AS received_count,
                     COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled_count,
                     COALESCE(SUM(total_amount), 0) AS total_order_value
-                FROM purchase_orders";
+                FROM purchase_orders
+                WHERE archived_at IS NULL";
 
         $stmt = $pdo->query($sql);
         $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -157,9 +158,9 @@ try {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 
     try {
-        $colCheck2 = $pdo->query("SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS 
-                                  WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                                  AND TABLE_NAME = 'purchase_order_items' 
+        $colCheck2 = $pdo->query("SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS
+                                  WHERE TABLE_SCHEMA = '" . DB_NAME . "'
+                                  AND TABLE_NAME = 'purchase_order_items'
                                   AND COLUMN_NAME = 'id'")->fetch(PDO::FETCH_ASSOC);
         if ($colCheck2 && stripos($colCheck2['EXTRA'], 'auto_increment') === false) {
             try { $pdo->exec("ALTER TABLE purchase_order_items ADD PRIMARY KEY (id)"); } catch (Throwable $e) {}
@@ -167,6 +168,20 @@ try {
         }
     } catch (Throwable $e) {
         error_log("[PURCHASE_ORDERS] ALTER purchase_order_items.id failed: " . $e->getMessage());
+    }
+
+    // Ensure archived_at column exists for soft-delete support
+    try {
+        $archivedCheck = $pdo->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                                      WHERE TABLE_SCHEMA = '" . DB_NAME . "'
+                                      AND TABLE_NAME = 'purchase_orders'
+                                      AND COLUMN_NAME = 'archived_at'")->fetch(PDO::FETCH_ASSOC);
+        if (!$archivedCheck) {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL");
+            error_log("[PURCHASE_ORDERS] Added archived_at column to purchase_orders");
+        }
+    } catch (Throwable $e) {
+        error_log("[PURCHASE_ORDERS] ALTER purchase_orders.archived_at failed: " . $e->getMessage());
     }
 
 } catch (PDOException $e) {
@@ -213,7 +228,7 @@ function listPurchaseOrders(PDO $pdo): void
         $limit = max(1, (int)($_GET['limit'] ?? ITEMS_PER_PAGE));
         $offset = ($page - 1) * $limit;
 
-        $conditions = [];
+        $conditions = ['po.archived_at IS NULL'];
         $params = [];
 
         if ($status !== '') {
@@ -236,10 +251,7 @@ function listPurchaseOrders(PDO $pdo): void
             $params[':search'] = '%' . $search . '%';
         }
 
-        $whereClause = '';
-        if (!empty($conditions)) {
-            $whereClause = 'WHERE ' . implode(' AND ', $conditions);
-        }
+        $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
         $countSql = "SELECT COUNT(*)
                       FROM purchase_orders po
@@ -579,7 +591,7 @@ function getPurchaseOrderDetails(PDO $pdo): void
                     LEFT JOIN procurement_requests pr ON po.request_id = pr.id
                     LEFT JOIN users creator ON po.created_by = creator.id
                     LEFT JOIN users approver ON po.approved_by = approver.id
-                    WHERE po.id = :id";
+                    WHERE po.id = :id AND po.archived_at IS NULL";
         } else {
             $sql = "SELECT po.*,
                            creator.full_name AS created_by_name,
@@ -587,7 +599,7 @@ function getPurchaseOrderDetails(PDO $pdo): void
                     FROM purchase_orders po
                     LEFT JOIN users creator ON po.created_by = creator.id
                     LEFT JOIN users approver ON po.approved_by = approver.id
-                    WHERE po.id = :id";
+                    WHERE po.id = :id AND po.archived_at IS NULL";
         }
 
         $stmt = $pdo->prepare($sql);
@@ -820,6 +832,14 @@ function updatePurchaseOrder(PDO $pdo): void
 function deletePurchaseOrder(PDO $pdo): void
 {
     try {
+        // Only admin users may delete purchase orders
+        $currentUser = getCurrentUser();
+        if (!$currentUser || ($currentUser['role'] ?? '') !== 'admin') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Access denied. Only administrators can delete purchase orders.']);
+            return;
+        }
+
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         if ($id <= 0) {
             http_response_code(400);
@@ -827,10 +847,21 @@ function deletePurchaseOrder(PDO $pdo): void
             return;
         }
 
+        // Read confirmation_code from JSON body or query string
+        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        $confirmationCode = trim((string)($input['confirmation_code'] ?? $_GET['confirmation_code'] ?? ''));
+
         $po = fetchPurchaseOrder($pdo, $id);
         if (!$po) {
             http_response_code(404);
             echo json_encode(['success' => false, 'error' => 'Purchase order not found']);
+            return;
+        }
+
+        // Require confirmation code to match the PO number exactly
+        if ($confirmationCode === '' || $confirmationCode !== $po['po_number']) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Confirmation code does not match the PO number. Deletion cancelled.']);
             return;
         }
 
@@ -840,38 +871,34 @@ function deletePurchaseOrder(PDO $pdo): void
             return;
         }
 
-        $pdo->beginTransaction();
+        // Soft-delete: stamp archived_at instead of removing the row
+        $archiveSql = 'UPDATE purchase_orders SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = :id';
+        $archiveStmt = $pdo->prepare($archiveSql);
+        $archiveStmt->execute([':id' => $id]);
 
-        $deleteItemsSql = 'DELETE FROM purchase_order_items WHERE purchase_order_id = :id';
-        $deleteItemsStmt = $pdo->prepare($deleteItemsSql);
-        $deleteItemsStmt->execute([':id' => $id]);
-
-        $deletePoSql = 'DELETE FROM purchase_orders WHERE id = :id';
-        $deletePoStmt = $pdo->prepare($deletePoSql);
-        $deletePoStmt->execute([':id' => $id]);
-
-        // Optionally reset procurement request status if no remaining purchase orders exist
-        $remainingSql = 'SELECT COUNT(*) FROM purchase_orders WHERE request_id = :request_id';
+        // Optionally reset procurement request status if no remaining active purchase orders exist
+        $remainingSql = 'SELECT COUNT(*) FROM purchase_orders WHERE request_id = :request_id AND archived_at IS NULL';
         $remainingStmt = $pdo->prepare($remainingSql);
         $remainingStmt->execute([':request_id' => $po['request_id']]);
         $remaining = (int)$remainingStmt->fetchColumn();
 
         if ($remaining === 0) {
-            $resetSql = "UPDATE procurement_requests SET status = 'approved' WHERE id = :id AND status = 'ordered'";
-            $resetStmt = $pdo->prepare($resetSql);
-            $resetStmt->execute([':id' => $po['request_id']]);
+            try {
+                $resetSql = "UPDATE procurement_requests SET status = 'approved' WHERE id = :id AND status = 'ordered'";
+                $resetStmt = $pdo->prepare($resetSql);
+                $resetStmt->execute([':id' => $po['request_id']]);
+            } catch (Throwable $e) {
+                error_log("[PURCHASE_ORDERS] Reset procurement request status failed: " . $e->getMessage());
+            }
         }
 
-        $pdo->commit();
+        error_log("[PURCHASE_ORDERS] Admin (user_id=" . ($currentUser['id'] ?? 'unknown') . ") soft-deleted PO id=$id po_number={$po['po_number']}");
 
         echo json_encode([
             'success' => true,
-            'message' => 'Purchase order deleted successfully'
+            'message' => 'Purchase order archived successfully'
         ]);
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
         http_response_code(500);
         echo json_encode(['error' => 'Failed to delete purchase order: ' . $e->getMessage()]);
     }
@@ -897,7 +924,7 @@ function fetchProcurementRequestItems(PDO $pdo, int $requestId): array
 
 function fetchPurchaseOrder(PDO $pdo, int $id): ?array
 {
-    $sql = 'SELECT * FROM purchase_orders WHERE id = :id';
+    $sql = 'SELECT * FROM purchase_orders WHERE id = :id AND archived_at IS NULL';
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':id' => $id]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);

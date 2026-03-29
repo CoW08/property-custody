@@ -146,6 +146,8 @@ try {
                 getCustodianTransfers($db, $_GET['assignment_id'] ?? null);
             } elseif ($action === 'maintenance_links') {
                 getAssignmentMaintenanceLinks($db, $_GET['assignment_id'] ?? null);
+            } elseif ($action === 'get_departments') {
+                getDepartments($db);
             } else {
                 getAssignments($db);
             }
@@ -207,19 +209,51 @@ try {
 
 function getCustodians($db) {
     try {
+        $department = isset($_GET['department']) && $_GET['department'] !== '' ? trim($_GET['department']) : null;
+
         $query = "SELECT c.*, u.full_name, u.email, u.department as user_department
                   FROM custodians c
                   LEFT JOIN users u ON c.user_id = u.id
-                  WHERE c.status = 'active'
-                  ORDER BY c.employee_id";
+                  WHERE c.status = 'active'";
+
+        if ($department !== null) {
+            $query .= " AND c.department = :department";
+        }
+
+        $query .= " ORDER BY c.employee_id";
 
         $stmt = $db->prepare($query);
+
+        if ($department !== null) {
+            $stmt->bindParam(':department', $department);
+        }
+
         $stmt->execute();
 
         $custodians = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['data' => $custodians]);
     } catch (Throwable $e) {
         error_log("[CUSTODIAN_ASSIGNMENTS] getCustodians error: " . $e->getMessage());
+        echo json_encode(['data' => []]);
+    }
+}
+
+function getDepartments($db) {
+    try {
+        $query = "SELECT DISTINCT department
+                  FROM custodians
+                  WHERE status = 'active'
+                    AND department IS NOT NULL
+                    AND department != ''
+                  ORDER BY department";
+
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+
+        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        echo json_encode(['data' => $rows]);
+    } catch (Throwable $e) {
+        error_log("[CUSTODIAN_ASSIGNMENTS] getDepartments error: " . $e->getMessage());
         echo json_encode(['data' => []]);
     }
 }
@@ -239,6 +273,8 @@ function getAvailableAssets($db) {
 
 function getAssignments($db) {
     try {
+        $department = isset($_GET['department']) && $_GET['department'] !== '' ? trim($_GET['department']) : null;
+
         $query = "SELECT pa.*,
                          c.employee_id, c.department as custodian_department, c.position,
                          u.full_name as custodian_name, u.email as custodian_email,
@@ -254,10 +290,20 @@ function getAssignments($db) {
                   LEFT JOIN users assigned_user ON pa.assigned_by = assigned_user.id
                   LEFT JOIN users approved_user ON pa.approved_by = approved_user.id
                   LEFT JOIN users issued_user ON pa.issued_by = issued_user.id
-                  WHERE pa.status = 'active'
-                  ORDER BY pa.assignment_date DESC";
+                  WHERE pa.status = 'active'";
+
+        if ($department !== null) {
+            $query .= " AND c.department = :department";
+        }
+
+        $query .= " ORDER BY pa.assignment_date DESC";
 
         $stmt = $db->prepare($query);
+
+        if ($department !== null) {
+            $stmt->bindParam(':department', $department);
+        }
+
         $stmt->execute();
 
         $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -599,7 +645,9 @@ function deleteAssignment($db, $id) {
 // Get assignment requests (for custodian approval)
 function getAssignmentRequests($db) {
     try {
-        $query = "SELECT ar.*, 
+        $department = isset($_GET['department']) && $_GET['department'] !== '' ? trim($_GET['department']) : null;
+
+        $query = "SELECT ar.*,
                          u.full_name as requester_name, u.email as requester_email, u.department as requester_department,
                          a.asset_code, a.name as asset_name, a.category,
                          approver.full_name as reviewed_by_name,
@@ -610,15 +658,26 @@ function getAssignmentRequests($db) {
                   LEFT JOIN users approver ON ar.reviewed_by = approver.id
                   LEFT JOIN custodians c ON c.user_id = ar.requester_id
                   LEFT JOIN property_assignments pa ON pa.asset_id = ar.asset_id AND pa.custodian_id = c.id AND pa.status = 'active'
-                  ORDER BY 
-                    CASE ar.status 
-                        WHEN 'pending' THEN 1 
-                        WHEN 'approved' THEN 2 
-                        WHEN 'rejected' THEN 3 
+                  WHERE 1=1";
+
+        if ($department !== null) {
+            $query .= " AND u.department = :department";
+        }
+
+        $query .= " ORDER BY
+                    CASE ar.status
+                        WHEN 'pending' THEN 1
+                        WHEN 'approved' THEN 2
+                        WHEN 'rejected' THEN 3
                     END,
                     ar.created_at DESC";
-        
+
         $stmt = $db->prepare($query);
+
+        if ($department !== null) {
+            $stmt->bindParam(':department', $department);
+        }
+
         $stmt->execute();
         echo json_encode(['data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (Throwable $e) {

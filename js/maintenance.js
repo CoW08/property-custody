@@ -172,7 +172,9 @@ class MaintenanceManager {
                 data.technicians.forEach(technician => {
                     const option = document.createElement('option');
                     option.value = technician.id;
-                    option.textContent = technician.full_name;
+                    const spec = technician.specialization || technician.department || '';
+                    option.textContent = spec ? `${technician.full_name} (${spec})` : technician.full_name;
+                    option.dataset.specialization = spec;
                     technicianSelect.appendChild(option);
                 });
             } else {
@@ -206,6 +208,18 @@ class MaintenanceManager {
             const row = this.createMaintenanceRow(maintenance);
             tbody.appendChild(row);
         });
+    }
+
+    getSpecializationBadgeClass(specialization) {
+        const map = {
+            'Electrical':          'bg-yellow-100 text-yellow-800',
+            'HVAC':                'bg-blue-100 text-blue-800',
+            'IT/Networking':       'bg-purple-100 text-purple-800',
+            'Plumbing':            'bg-cyan-100 text-cyan-800',
+            'Carpentry':           'bg-amber-100 text-amber-800',
+            'General Maintenance': 'bg-gray-100 text-gray-700',
+        };
+        return map[specialization] || 'bg-gray-100 text-gray-700';
     }
 
     createMaintenanceRow(maintenance) {
@@ -242,7 +256,12 @@ class MaintenanceManager {
                 ${this.formatDate(maintenance.scheduled_date)}
             </td>
             <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
-                ${maintenance.assigned_technician || 'Unassigned'}
+                ${maintenance.assigned_technician || '<span class="text-gray-400">Unassigned</span>'}
+            </td>
+            <td class="px-3 sm:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                ${maintenance.assigned_specialization
+                    ? `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${this.getSpecializationBadgeClass(maintenance.assigned_specialization)}">${maintenance.assigned_specialization}</span>`
+                    : '<span class="text-gray-400">—</span>'}
             </td>
             <td class="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${priorityClass}">
@@ -549,7 +568,9 @@ class MaintenanceManager {
                 data.technicians.forEach(technician => {
                     const option = document.createElement('option');
                     option.value = technician.id;
-                    option.textContent = technician.full_name;
+                    const spec = technician.specialization || technician.department || '';
+                    option.textContent = spec ? `${technician.full_name} (${spec})` : technician.full_name;
+                    option.dataset.specialization = spec;
                     technicianSelect.appendChild(option);
                 });
             }

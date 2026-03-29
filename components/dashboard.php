@@ -27,7 +27,7 @@
     <!-- Stats & Status Overview -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
-        <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20">
+        <a href="asset-registry.php" class="block relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20 cursor-pointer no-underline">
             <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-slate-50 to-white"></div>
             <div class="relative flex items-start justify-between gap-4">
                 <div>
@@ -39,9 +39,9 @@
                     <i class="fas fa-boxes text-lg"></i>
                 </span>
             </div>
-        </div>
+        </a>
 
-        <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20">
+        <a href="asset-registry.php" class="block relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20 cursor-pointer no-underline">
             <div class="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-slate-50 to-white"></div>
             <div class="relative flex items-start justify-between gap-4">
                 <div>
@@ -53,9 +53,9 @@
                     <i class="fas fa-check-circle text-lg"></i>
                 </span>
             </div>
-        </div>
+        </a>
 
-        <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-400/20">
+        <a href="maintenance.php" class="block relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-400/20 cursor-pointer no-underline">
             <div class="absolute inset-0 bg-gradient-to-br from-amber-400/10 via-slate-50 to-white"></div>
             <div class="relative flex items-start justify-between gap-4">
                 <div>
@@ -77,9 +77,9 @@
                     <i class="fas fa-exclamation-triangle text-lg"></i>
                 </span>
             </div>
-        </div>
+        </a>
 
-        <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-rose-500/20">
+        <a href="damaged-items.php" class="block relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-rose-500/20 cursor-pointer no-underline">
             <div class="absolute inset-0 bg-gradient-to-br from-rose-500/10 via-slate-50 to-white"></div>
             <div class="relative flex items-start justify-between gap-4">
                 <div>
@@ -91,7 +91,7 @@
                     <i class="fas fa-times-circle text-lg"></i>
                 </span>
             </div>
-        </div>
+        </a>
         </div>
 
         <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">

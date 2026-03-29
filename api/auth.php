@@ -215,11 +215,9 @@ function login($db) {
 
         $hintEmail = $row['email'];
 
-        $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         http_response_code(200);
         echo json_encode(array(
-            "message" => sprintf("A verification code has been sent to your email. It expires in %d minute%s.",
-                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : ''),
+            "message" => "A verification code has been sent to your email. It expires in 1 minute.",
             "status" => "otp_required",
             "otp_token" => $otpData['token'],
             "email_hint" => maskEmail($hintEmail),
@@ -272,12 +270,10 @@ function verifyOtp($db) {
             return;
         }
 
-        $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         if(strtotime($record['expires_at']) < time()) {
             removeOtpByToken($db, $data->otp_token);
             http_response_code(410);
-            echo json_encode(array("message" => sprintf("Verification code has expired. Please sign in again. Codes are valid for %d minute%s.",
-                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : '')));
+            echo json_encode(array("message" => "Verification code has expired. Please sign in again. Codes are valid for 1 minute."));
             return;
         }
 
@@ -365,11 +361,9 @@ function resendOtp($db) {
             return;
         }
 
-        $expirySeconds = defined('OTP_EXPIRY_SECONDS') ? (int)OTP_EXPIRY_SECONDS : 300;
         if(strtotime($record['created_at']) > time() - 60) {
             http_response_code(429);
-            echo json_encode(array("message" => sprintf("Please wait a moment before requesting another code. Codes are valid for %d minute%s.",
-                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : '')));
+            echo json_encode(array("message" => "Please wait a moment before requesting another code. Codes are valid for 1 minute."));
             return;
         }
 
@@ -396,8 +390,7 @@ function resendOtp($db) {
 
         http_response_code(200);
         echo json_encode(array(
-            "message" => sprintf("A new verification code has been sent. It expires in %d minute%s.",
-                max(1, (int)ceil($expirySeconds / 60)), max(1, (int)ceil($expirySeconds / 60)) > 1 ? 's' : ''),
+            "message" => "A new verification code has been sent. It expires in 1 minute.",
             "status" => "otp_required",
             "otp_token" => $otpData['token'],
             "otp_dev_code" => (defined('OTP_DEV_MODE') && OTP_DEV_MODE) ? $otpData['code'] : null
@@ -495,7 +488,7 @@ function sendOtpEmail($toEmail, $recipientName, $otpCode) {
     $textBody = "Hello {$displayName},\n\n" .
         "Use the verification code below to finish signing in:\n\n" .
         $otpCode . "\n\n" .
-        "This code will expire in 5 minutes. If you didn't request this, please let an administrator know." . "\n\n" .
+        "This code will expire in 1 minute. If you didn't request this, please let an administrator know." . "\n\n" .
         $fromName;
 
     $htmlBody = '<!DOCTYPE html>
@@ -519,7 +512,7 @@ function sendOtpEmail($toEmail, $recipientName, $otpCode) {
                     <tr>
                         <td style="padding:32px 40px;color:#1f2937;">
                             <p style="margin:0 0 14px;font-size:16px;">Hello <span style="font-weight:600;">' . htmlspecialchars($displayName) . '</span>,</p>
-                            <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">Use the secure code below to finish signing in. For your protection this code expires in <strong>5 minutes</strong>.</p>
+                            <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">Use the secure code below to finish signing in. For your protection this code expires in <strong>1 minute</strong>.</p>
                             <div style="margin:0 auto 28px;width:100%;max-width:280px;background:#1d4ed8;color:#ffffff;border-radius:16px;padding:18px 24px;text-align:center;font-size:32px;font-weight:700;letter-spacing:10px;">
                                 ' . htmlspecialchars($otpCode) . '
                             </div>

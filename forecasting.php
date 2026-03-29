@@ -69,9 +69,200 @@ $additionalStyles = <<<HTML
         background: linear-gradient(180deg, rgba(236, 252, 203, 0.35), #fff);
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Critical Alerts Banner                                               */
+    /* ------------------------------------------------------------------ */
+    .forecast-critical-banner {
+        border-radius: 18px;
+        border: 1.5px solid #fca5a5;
+        background: linear-gradient(135deg, #fff1f2, #fff5f5);
+        box-shadow: 0 8px 24px -8px rgba(185, 28, 28, 0.18);
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .forecast-critical-banner__header {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.875rem;
+    }
+
+    .forecast-critical-banner__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        background: #fee2e2;
+        color: #dc2626;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .forecast-critical-banner__title {
+        font-size: 0.975rem;
+        font-weight: 700;
+        color: #991b1b;
+    }
+
+    .forecast-critical-banner__subtitle {
+        font-size: 0.825rem;
+        color: #b91c1c;
+        margin-top: 0.2rem;
+    }
+
+    .forecast-critical-banner__items {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .forecast-critical-banner__item {
+        background: #fff;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        padding: 0.875rem 1rem;
+    }
+
+    .forecast-critical-banner__item-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .forecast-critical-banner__severity-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .forecast-critical-banner__severity-dot--critical { background: #dc2626; }
+    .forecast-critical-banner__severity-dot--warning  { background: #d97706; }
+    .forecast-critical-banner__severity-dot--info     { background: #0284c7; }
+
+    .forecast-critical-banner__item-title {
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .forecast-critical-banner__item-message {
+        font-size: 0.825rem;
+        color: #475569;
+    }
+
+    .forecast-critical-banner__action {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        background: #fff7ed;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        color: #92400e;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Data Analytics Section                                               */
+    /* ------------------------------------------------------------------ */
+    .forecast-analytics__grid {
+        display: grid;
+        gap: 1.25rem;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .forecast-analytics__card {
+        background: #fff;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.08);
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .forecast-analytics__card--savings {
+        border-color: #bbf7d0;
+        background: linear-gradient(135deg, #f0fdf4, #fff);
+    }
+
+    .forecast-analytics__card-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .forecast-analytics__top-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .forecast-analytics__top-item:last-child { border-bottom: none; }
+
+    .forecast-analytics__rank {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 0.75rem;
+        font-weight: 800;
+        flex-shrink: 0;
+    }
+
+    .forecast-analytics__metric {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 0.75rem;
+    }
+
+    .forecast-analytics__metric-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .forecast-analytics__metric-value {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .forecast-analytics__saving-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.625rem 0;
+        border-bottom: 1px solid #dcfce7;
+    }
+
+    .forecast-analytics__saving-item:last-child { border-bottom: none; }
+
     @media (max-width: 768px) {
         .forecast-card { padding: 1.1rem; }
         .forecast-table th, .forecast-table td { padding: 0.6rem 0.75rem; }
+        .forecast-analytics__grid { grid-template-columns: 1fr; }
     }
 </style>
 HTML;
@@ -108,7 +299,13 @@ ob_start();
                 </div>
             </header>
 
+            <!-- Critical Alerts Banner: rendered by ForecastingPage.renderCriticalAlertsBanner() -->
+            <div id="forecastCriticalAlertsBanner" class="hidden"></div>
+
             <section id="forecastHighlights" class="forecast-grid"></section>
+
+            <!-- Data Analytics Section: rendered by ForecastingPage.renderAnalyticsSection() -->
+            <section id="forecastAnalyticsSection" class="space-y-5"></section>
 
             <section class="space-y-5">
                 <div class="flex items-center justify-between">

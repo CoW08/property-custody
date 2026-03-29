@@ -54,14 +54,24 @@ function initializeAssignmentRequests() {
 
     // Load appropriate data based on role
     if (currentUserRole === 'admin' || currentUserRole === 'custodian') {
+        loadDepartments();
         loadPendingRequests();
         loadStats();
-        
+
         // Setup refresh button
         const refreshBtn = document.getElementById('refreshBtn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', async () => {
                 await refreshCustodianData(refreshBtn);
+            });
+        }
+
+        // Setup department filter
+        const departmentFilter = document.getElementById('departmentFilter');
+        if (departmentFilter) {
+            departmentFilter.addEventListener('change', () => {
+                loadPendingRequests();
+                loadStats();
             });
         }
     } else {
@@ -73,6 +83,39 @@ function initializeAssignmentRequests() {
     const requestForm = document.getElementById('requestForm');
     if (requestForm) {
         requestForm.addEventListener('submit', handleRequestSubmit);
+    }
+}
+
+// Load department list and populate the filter dropdown
+async function loadDepartments() {
+    try {
+        const response = await fetch('api/custodian_assignments.php?action=get_departments');
+        const result = await response.json();
+
+        const select = document.getElementById('departmentFilter');
+        if (!select) return;
+
+        // Preserve any current selection
+        const currentValue = select.value;
+
+        // Keep the first "All Departments" option and rebuild the rest
+        select.innerHTML = '<option value="">All Departments</option>';
+
+        if (result.data && result.data.length > 0) {
+            result.data.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept;
+                option.textContent = dept;
+                select.appendChild(option);
+            });
+        }
+
+        // Restore selection if it still exists in the new list
+        if (currentValue) {
+            select.value = currentValue;
+        }
+    } catch (error) {
+        console.error('Error loading departments:', error);
     }
 }
 
@@ -95,10 +138,20 @@ async function loadStats() {
     }
 }
 
+// Get the currently selected department filter value
+function getSelectedDepartment() {
+    const departmentFilter = document.getElementById('departmentFilter');
+    return departmentFilter ? departmentFilter.value : '';
+}
+
 // Load pending requests (for custodian)
 async function loadPendingRequests() {
     try {
-        const response = await fetch('api/custodian_assignments.php?action=requests');
+        const department = getSelectedDepartment();
+        const url = department
+            ? `api/custodian_assignments.php?action=requests&department=${encodeURIComponent(department)}`
+            : 'api/custodian_assignments.php?action=requests';
+        const response = await fetch(url);
         const result = await response.json();
         
         const tbody = document.getElementById('requestsTableBody');

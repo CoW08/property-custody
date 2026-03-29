@@ -25,50 +25,58 @@ async function viewAssetDetails(assetId) {
                 { label: 'Asset Code', value: asset.asset_code },
                 { label: 'Asset Name', value: asset.name },
                 { label: 'Category', value: asset.category_name || 'Uncategorized' },
-                { label: 'Status', value: createStatusBadge(asset.status?.toUpperCase() || 'N/A', 
-                    asset.status === 'available' ? 'success' : 
+                { label: 'Status', value: createStatusBadge(asset.status?.toUpperCase() || 'N/A',
+                    asset.status === 'available' ? 'success' :
                     asset.status === 'assigned' ? 'warning' : 'info') },
                 { label: 'Condition', value: asset.condition_status || 'N/A' },
                 { label: 'Location', value: asset.location || 'N/A' }
             ])}
-            
+
             ${createDetailSection('Description & Details', [
                 { label: 'Description', value: asset.description || 'No description' }
             ])}
-            
+
             ${createDetailSection('Financial Information', [
                 { label: 'Purchase Date', value: asset.purchase_date ? formatDate(asset.purchase_date) : 'N/A' },
                 { label: 'Purchase Cost', value: asset.purchase_cost ? '₱ ' + parseFloat(asset.purchase_cost).toLocaleString() : 'N/A' },
                 { label: 'Current Value', value: asset.current_value ? '₱ ' + parseFloat(asset.current_value).toLocaleString() : 'N/A' }
             ])}
-            
+
             <div class="mb-6">
                 <h4 class="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b">Tags</h4>
                 <div>${tagsHtml}</div>
             </div>
-            
+
             ${asset.qr_code ? `
             <div class="mb-6 text-center">
                 <h4 class="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b">QR Code</h4>
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(JSON.stringify({asset_id: asset.id, asset_code: asset.asset_code}))}" 
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(JSON.stringify({asset_id: asset.id, asset_code: asset.asset_code}))}"
                      alt="QR Code" class="mx-auto border p-2 rounded">
                 <p class="text-sm text-gray-500 mt-2">Scan to view asset details</p>
             </div>
             ` : ''}
+
+            <div id="assetConsumablesSection">
+                <div class="flex items-center justify-center py-4">
+                    <i class="fas fa-spinner fa-spin text-blue-600 mr-2"></i>
+                    <span class="text-gray-500 text-sm">Loading consumables...</span>
+                </div>
+            </div>
         `;
-        
+
         const footer = `
-            <button onclick="window.open('generate_asset_label.php?asset_id=${asset.id}', '_blank')" 
+            <button onclick="window.open('generate_asset_label.php?asset_id=${asset.id}', '_blank')"
                     class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
                 <i class="fas fa-download mr-2"></i>Download Label
             </button>
-            <button onclick="closeDetailModal()" 
+            <button onclick="closeDetailModal()"
                     class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-200">
                 Close
             </button>
         `;
-        
+
         openDetailModal('Asset Details: ' + asset.asset_code, content, footer);
+        renderConsumablesSection(asset.id);
         
     } catch (error) {
         console.error('Error loading asset details:', error);
@@ -359,4 +367,204 @@ function formatDate(dateString) {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// ─── Equipment Consumables ───────────────────────────────────────────────────
+
+async function loadAssetConsumables(assetId) {
+    try {
+        const response = await fetch(`api/assets.php?action=get_consumables&asset_id=${assetId}`);
+        const data = await response.json();
+        return data.consumables || [];
+    } catch (error) {
+        console.error('Failed to load consumables:', error);
+        return [];
+    }
+}
+
+async function renderConsumablesSection(assetId) {
+    const container = document.getElementById('assetConsumablesSection');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="flex items-center justify-center py-4">
+            <i class="fas fa-spinner fa-spin text-blue-600 mr-2"></i>
+            <span class="text-gray-500 text-sm">Loading consumables...</span>
+        </div>`;
+
+    const consumables = await loadAssetConsumables(assetId);
+
+    let rowsHtml = '';
+    if (consumables.length === 0) {
+        rowsHtml = `
+            <tr>
+                <td colspan="5" class="px-4 py-4 text-center text-gray-400 text-sm">
+                    No consumables linked to this asset.
+                </td>
+            </tr>`;
+    } else {
+        consumables.forEach(c => {
+            rowsHtml += `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(c.supply_name)}</td>
+                    <td class="px-4 py-2 text-sm text-gray-600">${escapeHtml(c.item_code || '')}</td>
+                    <td class="px-4 py-2 text-sm text-gray-600">${escapeHtml(c.category || '')}</td>
+                    <td class="px-4 py-2 text-sm text-gray-600 text-center">${parseFloat(c.quantity_per_use)} ${escapeHtml(c.unit || '')}</td>
+                    <td class="px-4 py-2 text-center">
+                        <button onclick="removeConsumable(${c.id}, ${assetId})"
+                                class="text-red-500 hover:text-red-700 transition duration-150" title="Remove">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        });
+    }
+
+    container.innerHTML = `
+        <div class="mb-6">
+            <div class="flex items-center justify-between pb-2 border-b mb-3">
+                <h4 class="text-lg font-semibold text-gray-900">Linked Consumables</h4>
+                <button onclick="toggleAddConsumableForm(${assetId})"
+                        class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition duration-150">
+                    <i class="fas fa-plus mr-1"></i>Add Consumable
+                </button>
+            </div>
+
+            <div id="addConsumableForm" class="hidden mb-4 p-4 bg-gray-50 rounded-lg border">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Supply Item</label>
+                        <select id="consumableSupplySelect"
+                                class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Loading supplies... --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Qty per Use</label>
+                        <input id="consumableQty" type="number" min="0.01" step="0.01" value="1"
+                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
+                        <input id="consumableNotes" type="text" placeholder="e.g. replace monthly"
+                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="addConsumable(${assetId})"
+                            class="px-4 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition duration-150">
+                        <i class="fas fa-save mr-1"></i>Save
+                    </button>
+                    <button onclick="document.getElementById('addConsumableForm').classList.add('hidden')"
+                            class="px-4 py-1 bg-gray-400 text-white text-sm rounded hover:bg-gray-500 transition duration-150">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Supply</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Code</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Category</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600 uppercase">Qty / Use</th>
+                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-600 uppercase">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>`;
+
+    // Pre-load supplies into the dropdown
+    loadSuppliesDropdown();
+}
+
+async function toggleAddConsumableForm(assetId) {
+    const form = document.getElementById('addConsumableForm');
+    if (!form) return;
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) {
+        await loadSuppliesDropdown();
+    }
+}
+
+async function loadSuppliesDropdown() {
+    const select = document.getElementById('consumableSupplySelect');
+    if (!select) return;
+
+    // Only reload if not already populated
+    if (select.options.length > 1 && select.options[0].value !== '') return;
+
+    try {
+        const response = await fetch('api/supplies.php');
+        const data = await response.json();
+        const supplies = data.supplies || data || [];
+
+        select.innerHTML = '<option value="">-- Select a supply item --</option>';
+        if (Array.isArray(supplies)) {
+            supplies.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `${s.name} (${s.item_code || 'N/A'}) — Stock: ${s.current_stock ?? 0} ${s.unit || ''}`;
+                select.appendChild(opt);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load supplies for dropdown:', error);
+        const select2 = document.getElementById('consumableSupplySelect');
+        if (select2) select2.innerHTML = '<option value="">-- Failed to load supplies --</option>';
+    }
+}
+
+async function addConsumable(assetId) {
+    const supplyId = document.getElementById('consumableSupplySelect')?.value;
+    const qty = document.getElementById('consumableQty')?.value || 1;
+    const notes = document.getElementById('consumableNotes')?.value || '';
+    if (!supplyId) { showNotification('Please select a supply item', 'error'); return; }
+
+    try {
+        const response = await fetch('api/assets.php?action=add_consumable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ asset_id: assetId, supply_id: supplyId, quantity_per_use: qty, notes: notes })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showNotification('Consumable linked successfully', 'success');
+            renderConsumablesSection(assetId);
+        } else {
+            showNotification(result.error || 'Failed to add consumable', 'error');
+        }
+    } catch (error) {
+        showNotification('Failed to add consumable', 'error');
+    }
+}
+
+async function removeConsumable(id, assetId) {
+    if (!confirm('Remove this consumable link?')) return;
+    try {
+        const response = await fetch(`api/assets.php?action=remove_consumable&id=${id}`, { method: 'DELETE' });
+        const result = await response.json();
+        if (result.success) {
+            showNotification('Consumable removed', 'success');
+            renderConsumablesSection(assetId);
+        } else {
+            showNotification(result.error || 'Failed to remove', 'error');
+        }
+    } catch (error) {
+        showNotification('Failed to remove consumable', 'error');
+    }
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }

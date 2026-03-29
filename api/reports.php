@@ -87,6 +87,12 @@ switch($method) {
                 case 'financial':
                     getFinancialReport($db, $dateFrom, $dateTo, $exportFormat);
                     break;
+                case 'item_verification':
+                    getItemVerificationReport($db);
+                    break;
+                case 'critical_alerts':
+                    getCriticalAlerts($db);
+                    break;
                 default:
                     http_response_code(400);
                     echo json_encode(array("message" => "Invalid action"));
@@ -171,8 +177,8 @@ function getOverviewReport($db, $dateFrom = null, $dateTo = null, $exportFormat 
         }
 
         // Handle export format
-        if ($exportFormat === 'excel') {
-            exportToExcel($report, 'Overview_Report', $dateFrom, $dateTo);
+        if ($exportFormat) {
+            handleExport($exportFormat, $report, 'Overview_Report', $dateFrom, $dateTo);
         } else {
             http_response_code(200);
             echo json_encode($report);
@@ -375,8 +381,8 @@ function getAssetsReport($db, $dateFrom = null, $dateTo = null, $exportFormat = 
         }
 
         // Handle export format
-        if ($exportFormat === 'excel') {
-            exportToExcel($report, 'Assets_Report', $dateFrom, $dateTo);
+        if ($exportFormat) {
+            handleExport($exportFormat, $report, 'Assets_Report', $dateFrom, $dateTo);
         } else {
             http_response_code(200);
             echo json_encode($report);
@@ -427,8 +433,8 @@ function getMaintenanceReport($db, $dateFrom = null, $dateTo = null, $exportForm
         $report['averages'] = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Handle export format
-        if ($exportFormat === 'excel') {
-            exportToExcel($report, 'Maintenance_Report', $dateFrom, $dateTo);
+        if ($exportFormat) {
+            handleExport($exportFormat, $report, 'Maintenance_Report', $dateFrom, $dateTo);
         } else {
             http_response_code(200);
             echo json_encode($report);
@@ -480,8 +486,8 @@ function getProcurementReport($db, $dateFrom = null, $dateTo = null, $exportForm
         $report['top_items'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Handle export format
-        if ($exportFormat === 'excel') {
-            exportToExcel($report, 'Procurement_Report', $dateFrom, $dateTo);
+        if ($exportFormat) {
+            handleExport($exportFormat, $report, 'Procurement_Report', $dateFrom, $dateTo);
         } else {
             http_response_code(200);
             echo json_encode($report);
@@ -529,8 +535,8 @@ function getAuditReport($db, $dateFrom = null, $dateTo = null, $exportFormat = n
         $report['recent_audits'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Handle export format
-        if ($exportFormat === 'excel') {
-            exportToExcel($report, 'Audit_Report', $dateFrom, $dateTo);
+        if ($exportFormat) {
+            handleExport($exportFormat, $report, 'Audit_Report', $dateFrom, $dateTo);
         } else {
             http_response_code(200);
             echo json_encode($report);
@@ -621,8 +627,8 @@ function getFinancialReport($db, $dateFrom = null, $dateTo = null, $exportFormat
         $report['timeline'] = $financial_timeline;
 
         // Handle export format
-        if ($exportFormat === 'excel') {
-            exportToExcel($report, 'Financial_Report', $dateFrom, $dateTo);
+        if ($exportFormat) {
+            handleExport($exportFormat, $report, 'Financial_Report', $dateFrom, $dateTo);
         } else {
             http_response_code(200);
             echo json_encode($report);
@@ -630,5 +636,281 @@ function getFinancialReport($db, $dateFrom = null, $dateTo = null, $exportFormat
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(array("message" => "Error generating financial report", "error" => $e->getMessage()));
+    }
+}
+
+// Unified export handler for excel, csv, and pdf
+function handleExport($format, $data, $filename, $dateFrom = null, $dateTo = null) {
+    switch ($format) {
+        case 'excel':
+            exportToExcel($data, $filename, $dateFrom, $dateTo);
+            break;
+        case 'csv':
+            exportToCsv($data, $filename, $dateFrom, $dateTo);
+            break;
+        case 'pdf':
+            exportToPdf($data, $filename, $dateFrom, $dateTo);
+            break;
+        default:
+            exportToExcel($data, $filename, $dateFrom, $dateTo);
+            break;
+    }
+}
+
+// CSV export function
+function exportToCsv($data, $filename, $dateFrom = null, $dateTo = null) {
+    if (ob_get_level()) ob_end_clean();
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment;filename="' . $filename . '_' . date('Y-m-d_His') . '.csv"');
+    header('Cache-Control: max-age=0');
+    header('Pragma: public');
+
+    $output = fopen('php://output', 'w');
+    // BOM for Excel UTF-8 compatibility
+    fwrite($output, "\xEF\xBB\xBF");
+
+    // Report header
+    fputcsv($output, [$filename]);
+    if ($dateFrom && $dateTo) {
+        fputcsv($output, ['Date Range', $dateFrom . ' to ' . $dateTo]);
+    }
+    fputcsv($output, ['Generated', date('Y-m-d H:i:s')]);
+    fputcsv($output, []);
+
+    renderCsvSection($output, $data);
+
+    fclose($output);
+    exit;
+}
+
+function renderCsvSection($output, $data, $prefix = '') {
+    foreach ($data as $section => $sectionData) {
+        if (!is_array($sectionData)) continue;
+
+        $sectionTitle = ucwords(str_replace('_', ' ', $section));
+        if ($prefix) $sectionTitle = $prefix . ' - ' . $sectionTitle;
+        fputcsv($output, [$sectionTitle]);
+
+        if (isset($sectionData[0]) && is_array($sectionData[0])) {
+            // Table rows
+            fputcsv($output, array_map(function($h) {
+                return ucwords(str_replace('_', ' ', $h));
+            }, array_keys($sectionData[0])));
+            foreach ($sectionData as $row) {
+                fputcsv($output, array_values(array_map(function($v) {
+                    return is_array($v) ? json_encode($v) : ($v ?? 'N/A');
+                }, $row)));
+            }
+        } elseif (is_array($sectionData)) {
+            $hasNested = false;
+            foreach ($sectionData as $v) {
+                if (is_array($v)) { $hasNested = true; break; }
+            }
+            if ($hasNested) {
+                renderCsvSection($output, $sectionData, $sectionTitle);
+            } else {
+                fputcsv($output, ['Metric', 'Value']);
+                foreach ($sectionData as $key => $value) {
+                    $display = is_array($value) ? json_encode($value) : ($value ?? 'N/A');
+                    fputcsv($output, [ucwords(str_replace('_', ' ', $key)), $display]);
+                }
+            }
+        }
+        fputcsv($output, []);
+    }
+}
+
+// PDF export function (generates print-friendly HTML that triggers browser print dialog)
+function exportToPdf($data, $filename, $dateFrom = null, $dateTo = null) {
+    if (ob_get_level()) ob_end_clean();
+
+    header('Content-Type: text/html; charset=utf-8');
+
+    echo '<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>' . htmlspecialchars($filename) . '</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Segoe UI", Arial, sans-serif; padding: 40px; color: #1f2937; font-size: 12px; }
+        .report-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 15px; }
+        .report-header h1 { font-size: 22px; color: #1e40af; margin-bottom: 5px; }
+        .report-header p { color: #6b7280; font-size: 11px; }
+        h3 { font-size: 14px; color: #1e40af; margin: 20px 0 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
+        h4 { font-size: 13px; color: #374151; margin: 15px 0 6px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
+        th { background: #2563eb; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 600; }
+        td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
+        tr:nth-child(even) td { background: #f9fafb; }
+        .no-print { margin: 20px 0; text-align: center; }
+        .no-print button { padding: 10px 30px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; margin: 0 5px; }
+        .no-print button:hover { background: #1d4ed8; }
+        .no-print button.secondary { background: #6b7280; }
+        .no-print button.secondary:hover { background: #4b5563; }
+        @media print { .no-print { display: none; } body { padding: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <h1>' . htmlspecialchars(str_replace('_', ' ', $filename)) . '</h1>';
+    if ($dateFrom && $dateTo) {
+        echo '<p>Date Range: ' . htmlspecialchars($dateFrom) . ' to ' . htmlspecialchars($dateTo) . '</p>';
+    }
+    echo '<p>Generated: ' . date('Y-m-d H:i:s') . '</p>
+    </div>
+    <div class="no-print">
+        <button onclick="window.print()">Print / Save as PDF</button>
+        <button class="secondary" onclick="window.close()">Close</button>
+    </div>';
+
+    renderExcelSection($data);
+
+    echo '<div class="no-print">
+        <button onclick="window.print()">Print / Save as PDF</button>
+    </div>
+</body></html>';
+    exit;
+}
+
+// Item Verification Report
+function getItemVerificationReport($db) {
+    header('Content-Type: application/json');
+    try {
+        $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+        if (empty($search)) {
+            echo json_encode(['results' => [], 'message' => 'Enter an item code or name to search']);
+            return;
+        }
+
+        $results = [];
+        $searchParam = '%' . $search . '%';
+
+        // Search assets
+        $checkAssets = $db->query("SHOW TABLES LIKE 'assets'");
+        if ($checkAssets->rowCount() > 0) {
+            $stmt = $db->prepare("SELECT id, asset_code, name, category, status, location, condition_status,
+                                         purchase_cost, current_value, 'asset' as item_type
+                                  FROM assets
+                                  WHERE asset_code LIKE :s1 OR name LIKE :s2
+                                  LIMIT 20");
+            $stmt->execute([':s1' => $searchParam, ':s2' => $searchParam]);
+            $assets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = array_merge($results, $assets);
+        }
+
+        // Search supplies
+        $checkSupplies = $db->query("SHOW TABLES LIKE 'supplies'");
+        if ($checkSupplies->rowCount() > 0) {
+            $stmt = $db->prepare("SELECT id, item_code, name, category, status, location, '' as condition_status,
+                                         unit_cost as purchase_cost, total_value as current_value, 'supply' as item_type
+                                  FROM supplies
+                                  WHERE item_code LIKE :s1 OR name LIKE :s2
+                                  LIMIT 20");
+            $stmt->execute([':s1' => $searchParam, ':s2' => $searchParam]);
+            $supplies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = array_merge($results, $supplies);
+        }
+
+        $found = count($results) > 0;
+        echo json_encode([
+            'results' => $results,
+            'total' => count($results),
+            'verified' => $found,
+            'message' => $found ? count($results) . ' item(s) found in the system' : 'No items found matching "' . $search . '"'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Verification failed: ' . $e->getMessage()]);
+    }
+}
+
+// Critical Alerts for Report Analytics
+function getCriticalAlerts($db) {
+    header('Content-Type: application/json');
+    try {
+        $alerts = [];
+
+        // Low stock supplies
+        $checkSupplies = $db->query("SHOW TABLES LIKE 'supplies'");
+        if ($checkSupplies->rowCount() > 0) {
+            $stmt = $db->prepare("SELECT name, current_stock, minimum_stock, unit_cost
+                                  FROM supplies
+                                  WHERE current_stock <= minimum_stock AND status = 'active'
+                                  ORDER BY (current_stock - minimum_stock) ASC
+                                  LIMIT 10");
+            $stmt->execute();
+            $lowStock = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($lowStock as $item) {
+                $severity = $item['current_stock'] == 0 ? 'critical' : 'warning';
+                $alerts[] = [
+                    'type' => 'low_stock',
+                    'severity' => $severity,
+                    'title' => 'Low Stock: ' . $item['name'],
+                    'message' => "Current stock: {$item['current_stock']} / Min required: {$item['minimum_stock']}",
+                    'value' => $item['unit_cost']
+                ];
+            }
+        }
+
+        // Overdue maintenance
+        $checkMaintenance = $db->query("SHOW TABLES LIKE 'maintenance_schedules'");
+        if ($checkMaintenance->rowCount() > 0) {
+            $stmt = $db->prepare("SELECT ms.id, ms.maintenance_type, ms.scheduled_date, ms.priority,
+                                         a.name as asset_name, ms.estimated_cost
+                                  FROM maintenance_schedules ms
+                                  LEFT JOIN assets a ON ms.asset_id = a.id
+                                  WHERE ms.scheduled_date < CURDATE()
+                                    AND ms.status IN ('scheduled', 'in_progress')
+                                  ORDER BY ms.scheduled_date ASC
+                                  LIMIT 10");
+            $stmt->execute();
+            $overdue = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($overdue as $item) {
+                $severity = $item['priority'] === 'critical' ? 'critical' : ($item['priority'] === 'high' ? 'warning' : 'info');
+                $alerts[] = [
+                    'type' => 'overdue_maintenance',
+                    'severity' => $severity,
+                    'title' => 'Overdue: ' . ($item['asset_name'] ?: 'Asset #' . $item['id']),
+                    'message' => ucfirst($item['maintenance_type']) . " maintenance overdue since {$item['scheduled_date']}",
+                    'value' => $item['estimated_cost']
+                ];
+            }
+        }
+
+        // Damaged/lost assets
+        $checkAssets = $db->query("SHOW TABLES LIKE 'assets'");
+        if ($checkAssets->rowCount() > 0) {
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM assets WHERE status IN ('damaged', 'lost')");
+            $stmt->execute();
+            $damaged = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($damaged['count'] > 0) {
+                $alerts[] = [
+                    'type' => 'damaged_assets',
+                    'severity' => $damaged['count'] > 5 ? 'critical' : 'warning',
+                    'title' => 'Damaged/Lost Assets',
+                    'message' => "{$damaged['count']} items are currently marked as damaged or lost",
+                    'value' => null
+                ];
+            }
+        }
+
+        // Sort by severity (critical first)
+        usort($alerts, function($a, $b) {
+            $order = ['critical' => 0, 'warning' => 1, 'info' => 2];
+            return ($order[$a['severity']] ?? 3) - ($order[$b['severity']] ?? 3);
+        });
+
+        echo json_encode([
+            'alerts' => $alerts,
+            'total' => count($alerts),
+            'critical_count' => count(array_filter($alerts, fn($a) => $a['severity'] === 'critical')),
+            'warning_count' => count(array_filter($alerts, fn($a) => $a['severity'] === 'warning'))
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to load critical alerts: ' . $e->getMessage()]);
     }
 }

@@ -226,6 +226,8 @@ switch($method) {
     case 'GET':
         if(isset($_GET['action']) && $_GET['action'] === 'export_excel') {
             exportAssetsToExcel($db);
+        } elseif(isset($_GET['action']) && $_GET['action'] === 'get_consumables') {
+            getAssetConsumables($db);
         } elseif(isset($_GET['id'])) {
             getAsset($db, $_GET['id']);
         } else {
@@ -244,6 +246,9 @@ switch($method) {
                 case 'bulk_remove_tag':
                     bulkModifyTags($db, $input_data, 'remove');
                     break;
+                case 'add_consumable':
+                    addAssetConsumable($db, $input_data);
+                    break;
                 default:
                     http_response_code(400);
                     echo json_encode(array("message" => "Unknown bulk action"));
@@ -261,7 +266,9 @@ switch($method) {
         }
         break;
     case 'DELETE':
-        if(isset($_GET['id'])) {
+        if(isset($_GET['action']) && $_GET['action'] === 'remove_consumable') {
+            removeAssetConsumable($db);
+        } elseif(isset($_GET['id'])) {
             $payload = json_decode($input_data, true);
             if (!is_array($payload)) {
                 $payload = [];
@@ -1105,13 +1112,136 @@ function exportAssetsToExcel($db) {
         echo "</Table>\n";
         echo "</Worksheet>\n";
         echo "</Workbook>\n";
-        
+
         exit();
 
     } catch (Exception $e) {
         http_response_code(500);
         header('Content-Type: application/json');
         echo json_encode(array("message" => "Error exporting assets", "error" => $e->getMessage()));
+    }
+}
+
+function ensureConsumablesTable($db) {
+    $db->exec("CREATE TABLE IF NOT EXISTS equipment_consumables (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        asset_id INT NOT NULL,
+        supply_id INT NOT NULL,
+        quantity_per_use DECIMAL(10,2) DEFAULT 1,
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+        FOREIGN KEY (supply_id) REFERENCES supplies(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_asset_supply (asset_id, supply_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function getAssetConsumables($db) {
+    $assetId = isset($_GET['asset_id']) ? intval($_GET['asset_id']) : 0;
+    if ($assetId <= 0) {
+        http_response_code(400);
+        echo json_encode(["message" => "Valid asset_id is required"]);
+        return;
+    }
+
+    try {
+        ensureConsumablesTable($db);
+
+        $stmt = $db->prepare(
+            "SELECT ec.*, s.name as supply_name, s.item_code, s.category, s.unit, s.unit_cost, s.current_stock
+             FROM equipment_consumables ec
+             JOIN supplies s ON ec.supply_id = s.id
+             WHERE ec.asset_id = :asset_id
+             ORDER BY s.name"
+        );
+        $stmt->execute([':asset_id' => $assetId]);
+        $consumables = $stmt->fetchAll();
+
+        echo json_encode(["success" => true, "consumables" => $consumables]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        error_log("[ASSETS] getAssetConsumables: " . $e->getMessage());
+        echo json_encode(["message" => "Failed to load consumables", "error" => $e->getMessage()]);
+    }
+}
+
+function addAssetConsumable($db, $input) {
+    $payload = json_decode($input, true);
+    if (!is_array($payload)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Invalid JSON payload"]);
+        return;
+    }
+
+    $assetId  = isset($payload['asset_id'])  && is_numeric($payload['asset_id'])  ? intval($payload['asset_id'])  : 0;
+    $supplyId = isset($payload['supply_id']) && is_numeric($payload['supply_id']) ? intval($payload['supply_id']) : 0;
+
+    if ($assetId <= 0 || $supplyId <= 0) {
+        http_response_code(400);
+        echo json_encode(["message" => "Valid asset_id and supply_id are required"]);
+        return;
+    }
+
+    $qtyPerUse = isset($payload['quantity_per_use']) && is_numeric($payload['quantity_per_use'])
+        ? floatval($payload['quantity_per_use'])
+        : 1;
+    $notes = isset($payload['notes']) ? trim($payload['notes']) : null;
+    if ($notes === '') { $notes = null; }
+
+    try {
+        ensureConsumablesTable($db);
+
+        $stmt = $db->prepare(
+            "INSERT INTO equipment_consumables (asset_id, supply_id, quantity_per_use, notes)
+             VALUES (:asset_id, :supply_id, :quantity_per_use, :notes)"
+        );
+        $stmt->execute([
+            ':asset_id'        => $assetId,
+            ':supply_id'       => $supplyId,
+            ':quantity_per_use' => $qtyPerUse,
+            ':notes'           => $notes
+        ]);
+
+        $newId = $db->lastInsertId();
+        http_response_code(201);
+        echo json_encode(["success" => true, "message" => "Consumable linked successfully", "id" => $newId]);
+    } catch (PDOException $e) {
+        if ($e->getCode() == 23000) {
+            http_response_code(409);
+            echo json_encode(["success" => false, "error" => "This supply is already linked to the asset"]);
+        } else {
+            http_response_code(500);
+            error_log("[ASSETS] addAssetConsumable: " . $e->getMessage());
+            echo json_encode(["success" => false, "error" => "Failed to add consumable", "message" => $e->getMessage()]);
+        }
+    }
+}
+
+function removeAssetConsumable($db) {
+    $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    if ($id <= 0) {
+        http_response_code(400);
+        echo json_encode(["message" => "Valid id is required"]);
+        return;
+    }
+
+    try {
+        ensureConsumablesTable($db);
+
+        $stmt = $db->prepare("DELETE FROM equipment_consumables WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(["success" => false, "error" => "Consumable record not found"]);
+            return;
+        }
+
+        echo json_encode(["success" => true, "message" => "Consumable removed"]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        error_log("[ASSETS] removeAssetConsumable: " . $e->getMessage());
+        echo json_encode(["success" => false, "error" => "Failed to remove consumable", "message" => $e->getMessage()]);
     }
 }
 ?>

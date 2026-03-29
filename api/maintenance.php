@@ -82,12 +82,18 @@ try {
 // Seed default maintenance technicians if they don't exist
 try {
     $technicianSeeds = [
-        ['Mark Anthony Solis', 'Electrical', 'msolis@school.edu'],
-        ['Renato Castillo', 'Electrical', 'rcastillo@school.edu'],
-        ['John Mendoza', 'HVAC', 'jmendoza@school.edu'],
-        ['Jayson Rivera', 'HVAC', 'jrivera@school.edu'],
-        ['Grace Tolentino', 'IT/Networking', 'gtolentino@school.edu'],
-        ['Marlon Ramos', 'IT/Networking', 'mramos@school.edu'],
+        ['Mark Anthony Solis', 'Electrical',        'msolis@school.edu'],
+        ['Renato Castillo',    'Electrical',        'rcastillo@school.edu'],
+        ['John Mendoza',       'HVAC',              'jmendoza@school.edu'],
+        ['Jayson Rivera',      'HVAC',              'jrivera@school.edu'],
+        ['Grace Tolentino',    'IT/Networking',     'gtolentino@school.edu'],
+        ['Marlon Ramos',       'IT/Networking',     'mramos@school.edu'],
+        ['Ramon Dela Cruz',    'Plumbing',          'rdelacruz@school.edu'],
+        ['Nestor Aquino',      'Plumbing',          'naquino@school.edu'],
+        ['Felix Bautista',     'Carpentry',         'fbautista@school.edu'],
+        ['Rodrigo Villanueva', 'Carpentry',         'rvillanueva@school.edu'],
+        ['Eduardo Pascual',    'General Maintenance', 'epascual@school.edu'],
+        ['Lorna Magtanggol',   'General Maintenance', 'lmagtanggol@school.edu'],
     ];
     $checkStmt = $db->prepare("SELECT id FROM users WHERE full_name = ? AND role = 'maintenance' LIMIT 1");
     $insertStmt = $db->prepare("INSERT INTO users (username, password, full_name, email, role, department, status) VALUES (?, ?, ?, ?, 'maintenance', ?, 'active')");
@@ -152,6 +158,9 @@ function handleGet($db, $action) {
         case 'upcoming':
             getUpcomingMaintenance($db);
             break;
+        case 'get_specializations':
+            getSpecializations($db);
+            break;
         default:
             getMaintenanceList($db);
     }
@@ -207,7 +216,8 @@ function getMaintenanceList($db) {
                 a.name as asset_name,
                 a.asset_code,
                 a.location as asset_location,
-                u.full_name as assigned_technician
+                u.full_name as assigned_technician,
+                u.department AS assigned_specialization
               FROM maintenance_schedules ms
               LEFT JOIN assets a ON ms.asset_id = a.id
               LEFT JOIN users u ON ms.assigned_to = u.id
@@ -302,7 +312,7 @@ function getAssetsForMaintenance($db) {
 function getTechnicians($db) {
     try {
         // Only return users with 'maintenance' role — these are the actual technicians
-        $query = "SELECT id, full_name, department
+        $query = "SELECT id, full_name, department, department AS specialization
                   FROM users
                   WHERE role = 'maintenance' AND status = 'active'
                   ORDER BY full_name ASC";
@@ -315,6 +325,26 @@ function getTechnicians($db) {
     } catch (Exception $e) {
         error_log("[MAINTENANCE] getTechnicians error: " . $e->getMessage());
         echo json_encode(['technicians' => [], 'error' => $e->getMessage()]);
+    }
+}
+
+function getSpecializations($db) {
+    try {
+        $query = "SELECT DISTINCT department AS specialization
+                  FROM users
+                  WHERE role = 'maintenance' AND status = 'active' AND department IS NOT NULL AND department <> ''
+                  ORDER BY department ASC";
+
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $specializations = array_column($rows, 'specialization');
+
+        echo json_encode(['specializations' => $specializations]);
+    } catch (Exception $e) {
+        error_log("[MAINTENANCE] getSpecializations error: " . $e->getMessage());
+        echo json_encode(['specializations' => [], 'error' => $e->getMessage()]);
     }
 }
 

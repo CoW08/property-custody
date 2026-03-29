@@ -74,6 +74,9 @@ switch ($action) {
     case 'seasonality':
         sendJson(getSeasonalUsage($db));
         break;
+    case 'analytics_summary':
+        sendJson(getAnalyticsSummary($db));
+        break;
     default:
         http_response_code(400);
         echo json_encode(['message' => 'Unknown action']);
@@ -105,7 +108,8 @@ function getForecastOverview(PDO $db)
             'generated_at' => date('c'),
             'summary' => [],
             'key_metrics' => [],
-            'highlights' => []
+            'highlights' => [],
+            'analytics' => []
         ];
     }
 
@@ -118,16 +122,46 @@ function getForecastOverview(PDO $db)
     $lowStock = count(array_filter($alerts, fn($alert) => $alert['severity'] === 'critical'));
     $seasonal = getSeasonalUsage($db);
 
+    // --- Trend direction and percentage change ---
+    // Compare the most recent month of seasonal data to the prior month
+    $trendDirection = 'stable';
+    $percentageChange = 0.0;
+    if (count($seasonal) >= 2) {
+        $last  = (float) $seasonal[count($seasonal) - 1]['usage_qty'];
+        $prior = (float) $seasonal[count($seasonal) - 2]['usage_qty'];
+        if ($prior > 0) {
+            $percentageChange = round((($last - $prior) / $prior) * 100, 1);
+        }
+        if ($percentageChange >= 5) {
+            $trendDirection = 'up';
+        } elseif ($percentageChange <= -5) {
+            $trendDirection = 'down';
+        }
+    }
+
+    // --- Confidence score based on data volume ---
+    // Full confidence (100) = 12+ months of seasonal data with all supplies having transactions
+    $seasonalMonths  = count($seasonal);
+    $suppliesWithUsage = count(array_filter($demand, fn($d) => $d['average_daily_usage'] > 0));
+    $dataRatio        = $totalSupplies > 0 ? ($suppliesWithUsage / $totalSupplies) : 0;
+    $monthRatio       = min(1.0, $seasonalMonths / 12);
+    $confidenceScore  = (int) round(($dataRatio * 0.6 + $monthRatio * 0.4) * 100);
+
     return [
         'generated_at' => date('c'),
         'summary' => [
-            'total_supplies' => $totalSupplies,
-            'forecasted_usage' => $totalForecastedUsage,
+            'total_supplies'     => $totalSupplies,
+            'forecasted_usage'   => $totalForecastedUsage,
             'critical_low_stock' => $lowStock,
-            'seasonal_trends' => count($seasonal)
+            'seasonal_trends'    => count($seasonal)
+        ],
+        'analytics' => [
+            'trend_direction'   => $trendDirection,
+            'percentage_change' => $percentageChange,
+            'confidence_score'  => $confidenceScore
         ],
         'key_metrics' => array_slice($reorder, 0, 3),
-        'highlights' => array_slice($alerts, 0, 4)
+        'highlights'  => array_slice($alerts, 0, 4)
     ];
 }
 
@@ -336,37 +370,85 @@ function getForecastAlerts(PDO $db)
 
         if ($item['priority'] === 'overstock') {
             $alerts[] = [
-                'supply_id' => $item['supply_id'],
-                'title' => 'Overstock warning',
-                'message' => sprintf(
+                'supply_id'               => $item['supply_id'],
+                'title'                   => 'Overstock warning',
+                'message'                 => sprintf(
                     '%s stock exceeds projected demand. Consider using or pausing reorders.',
                     $item['name']
                 ),
-                'severity' => 'overstock',
-                'current_stock' => $item['current_stock'],
-                'recommended_reorder_qty' => 0
+                'severity'                => 'overstock',
+                'severity_level'          => 1,
+                'current_stock'           => $item['current_stock'],
+                'recommended_reorder_qty' => 0,
+                'recommended_action'      => 'Suspend new purchase orders for this item until stock levels normalize.',
+                'impact'                  => 'low'
             ];
             continue;
         }
 
+        // Build a context-aware recommended action
+        $runout = $item['projected_runout_days'];
+        $reorderQty = $item['recommended_reorder_qty'];
+
+        $recommendedAction = match ($item['priority']) {
+            'critical' => sprintf(
+                'Place an emergency reorder of %d unit%s immediately. %s',
+                $reorderQty,
+                $reorderQty !== 1 ? 's' : '',
+                $runout !== null && $runout <= 3
+                    ? 'Stock will be depleted within 3 days — expedited delivery required.'
+                    : 'Stock runout is imminent; escalate to procurement.'
+            ),
+            'high' => sprintf(
+                'Initiate a reorder of %d unit%s within the next 2–3 business days to avoid stockout.',
+                $reorderQty,
+                $reorderQty !== 1 ? 's' : ''
+            ),
+            default => sprintf(
+                'Schedule a reorder of %d unit%s in your next procurement cycle.',
+                $reorderQty,
+                $reorderQty !== 1 ? 's' : ''
+            )
+        };
+
+        $severityLevel = match ($item['priority']) {
+            'critical' => 4,
+            'high'     => 3,
+            'medium'   => 2,
+            default    => 1
+        };
+
+        $impact = match ($item['priority']) {
+            'critical' => 'critical',
+            'high'     => 'high',
+            default    => 'medium'
+        };
+
         $alerts[] = [
-            'supply_id' => $item['supply_id'],
-            'title' => match ($item['priority']) {
+            'supply_id'               => $item['supply_id'],
+            'title'                   => match ($item['priority']) {
                 'critical' => 'Out-of-stock risk',
-                'high' => 'Low stock warning',
-                default => 'Stock attention'
+                'high'     => 'Low stock warning',
+                default    => 'Stock attention'
             },
-            'message' => sprintf(
+            'message'                 => sprintf(
                 '%s: reorder %d units. Estimated runout in %s days.',
                 $item['name'],
-                $item['recommended_reorder_qty'],
-                $item['projected_runout_days'] !== null ? $item['projected_runout_days'] : 'unknown'
+                $reorderQty,
+                $runout !== null ? $runout : 'unknown'
             ),
-            'severity' => $item['priority'],
-            'current_stock' => $item['current_stock'],
-            'recommended_reorder_qty' => $item['recommended_reorder_qty']
+            'severity'                => $item['priority'],
+            'severity_level'          => $severityLevel,
+            'current_stock'           => $item['current_stock'],
+            'recommended_reorder_qty' => $reorderQty,
+            'recommended_action'      => $recommendedAction,
+            'impact'                  => $impact,
+            'projected_runout_days'   => $runout
         ];
     }
+
+    // Sort by severity level descending so critical alerts appear first
+    usort($alerts, fn($a, $b) => ($b['severity_level'] ?? 0) <=> ($a['severity_level'] ?? 0));
 
     return $alerts;
 }
@@ -538,6 +620,145 @@ function getFallbackUsageDataset()
     ];
 
     return $cache;
+}
+
+function getAnalyticsSummary(PDO $db)
+{
+    $demand  = getDemandForecast($db);
+    $seasonal = getSeasonalUsage($db);
+
+    // --- Top consuming supplies (by forecast_30_day usage, descending) ---
+    $byUsage = $demand;
+    usort($byUsage, fn($a, $b) => $b['forecast_30_day'] <=> $a['forecast_30_day']);
+    $topConsuming = array_map(fn($item) => [
+        'supply_id'        => $item['supply_id'],
+        'item_code'        => $item['item_code'],
+        'name'             => $item['name'],
+        'forecast_30_day'  => $item['forecast_30_day'],
+        'avg_daily_usage'  => $item['average_daily_usage'],
+        'current_stock'    => $item['current_stock']
+    ], array_slice($byUsage, 0, 5));
+
+    // --- Cost trend analysis ---
+    // Attempt to pull unit_cost from the supplies table for each forecasted item
+    $unitCostByCode = [];
+    if (tablesAvailable($db, ['supplies'])) {
+        try {
+            $costStmt = $db->query("SELECT item_code, COALESCE(unit_cost, 0) AS unit_cost FROM supplies WHERE status = 'active'");
+            while ($row = $costStmt->fetch(PDO::FETCH_ASSOC)) {
+                $unitCostByCode[$row['item_code']] = (float) $row['unit_cost'];
+            }
+        } catch (Throwable $e) {
+            error_log('[FORECASTING] Cost lookup failed: ' . $e->getMessage());
+        }
+    }
+
+    // Build per-month cost estimates using seasonal usage proportions and avg unit cost
+    $avgUnitCost = 0.0;
+    if (!empty($demand)) {
+        $totalUsage = array_sum(array_column($demand, 'forecast_30_day'));
+        if ($totalUsage > 0) {
+            $weightedCost = 0.0;
+            foreach ($demand as $item) {
+                $uc = $unitCostByCode[$item['item_code']] ?? 0.0;
+                $weightedCost += $uc * $item['forecast_30_day'];
+            }
+            $avgUnitCost = $weightedCost / $totalUsage;
+        }
+    }
+
+    $costTrend = [];
+    foreach ($seasonal as $month) {
+        $monthlyCost = round($month['usage_qty'] * $avgUnitCost, 2);
+        $costTrend[] = [
+            'period'        => $month['period'],
+            'usage_qty'     => $month['usage_qty'],
+            'estimated_cost' => $monthlyCost,
+            'classification' => $month['classification']
+        ];
+    }
+
+    // --- Projected savings opportunities ---
+    // Overstock items represent locked-up capital; items approaching runout have emergency-order premium risk
+    $reorder   = getReorderRecommendations($db);
+    $savingsOps = [];
+
+    foreach ($reorder as $item) {
+        $uc = $unitCostByCode[$item['item_code']] ?? 0.0;
+
+        if ($item['priority'] === 'overstock' && $uc > 0) {
+            // Excess stock beyond 2× 30-day forecast
+            $forecast30 = 0.0;
+            foreach ($demand as $d) {
+                if ($d['supply_id'] === $item['supply_id']) {
+                    $forecast30 = $d['forecast_30_day'];
+                    break;
+                }
+            }
+            $excessUnits = max(0, $item['current_stock'] - (int) round($forecast30 * 2));
+            if ($excessUnits > 0) {
+                $savingsOps[] = [
+                    'type'            => 'overstock_reduction',
+                    'supply_id'       => $item['supply_id'],
+                    'name'            => $item['name'],
+                    'item_code'       => $item['item_code'],
+                    'description'     => sprintf('Reduce overstock of %s by %d units to free up tied capital.', $item['name'], $excessUnits),
+                    'potential_saving' => round($excessUnits * $uc, 2),
+                    'units'           => $excessUnits
+                ];
+            }
+        }
+
+        if (in_array($item['priority'], ['critical', 'high'], true) && $item['projected_runout_days'] !== null && $item['projected_runout_days'] <= 7 && $uc > 0) {
+            // Emergency reorders typically cost 15–25 % more; model at 20 % premium
+            $premiumSaving = round($item['recommended_reorder_qty'] * $uc * 0.20, 2);
+            if ($premiumSaving > 0) {
+                $savingsOps[] = [
+                    'type'            => 'early_reorder',
+                    'supply_id'       => $item['supply_id'],
+                    'name'            => $item['name'],
+                    'item_code'       => $item['item_code'],
+                    'description'     => sprintf('Reorder %s now to avoid ~20%% emergency procurement premium.', $item['name']),
+                    'potential_saving' => $premiumSaving,
+                    'units'           => $item['recommended_reorder_qty']
+                ];
+            }
+        }
+    }
+
+    // Sort savings opportunities by potential saving descending
+    usort($savingsOps, fn($a, $b) => $b['potential_saving'] <=> $a['potential_saving']);
+
+    // --- Supply turnover rates ---
+    // Turnover = annual usage / average stock on hand (proxy: forecast_30_day * 12 / current_stock)
+    $turnoverRates = [];
+    foreach ($demand as $item) {
+        if ($item['current_stock'] <= 0) {
+            continue;
+        }
+        $annualForecast = $item['forecast_30_day'] * 12;
+        $turnover       = round($annualForecast / max(1, $item['current_stock']), 2);
+        $classification = $turnover >= 12 ? 'fast_moving' : ($turnover >= 4 ? 'normal' : 'slow_moving');
+
+        $turnoverRates[] = [
+            'supply_id'      => $item['supply_id'],
+            'item_code'      => $item['item_code'],
+            'name'           => $item['name'],
+            'turnover_rate'  => $turnover,
+            'classification' => $classification,
+            'current_stock'  => $item['current_stock'],
+            'annual_forecast' => round($annualForecast, 1)
+        ];
+    }
+    usort($turnoverRates, fn($a, $b) => $b['turnover_rate'] <=> $a['turnover_rate']);
+
+    return [
+        'generated_at'       => date('c'),
+        'top_consuming'      => $topConsuming,
+        'cost_trend'         => $costTrend,
+        'savings_opportunities' => array_slice($savingsOps, 0, 5),
+        'turnover_rates'     => $turnoverRates
+    ];
 }
 
 /**

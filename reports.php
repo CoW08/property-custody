@@ -56,6 +56,9 @@ ob_start();
                     <button class="report-btn bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded-full font-medium whitespace-nowrap flex-shrink-0" data-report="financial">
                         <i class="fas fa-chart-line mr-2"></i>Financial
                     </button>
+                    <button class="report-btn bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded-full font-medium whitespace-nowrap flex-shrink-0" data-report="item_verification">
+                        <i class="fas fa-check-double mr-2"></i>Item Verification
+                    </button>
                 </div>
             </div>
 

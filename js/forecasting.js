@@ -10,11 +10,16 @@ class ForecastingPage {
         this.exportButton = document.getElementById('forecastExportBtn');
         this.seasonalityToggle = document.getElementById('seasonalityToggle');
 
+        // Analytics & critical alerts containers (injected by forecasting.php)
+        this.criticalAlertsBanner = document.getElementById('forecastCriticalAlertsBanner');
+        this.analyticsSection = document.getElementById('forecastAnalyticsSection');
+
         this.chart = null;
         this.lastOverview = null;
         this.lastReorders = [];
         this.lastAlerts = [];
         this.lastSeasonality = [];
+        this.lastAnalytics = null;
         this.init();
     }
 
@@ -105,11 +110,12 @@ class ForecastingPage {
     async loadAllData(force = false) {
         this.setLoadingState(true);
         try {
-            const [overviewResult, reorderResult, alertsResult, seasonalityResult] = await Promise.allSettled([
+            const [overviewResult, reorderResult, alertsResult, seasonalityResult, analyticsResult] = await Promise.allSettled([
                 API.getForecastOverview(),
                 API.getForecastReorders(),
                 API.getForecastAlerts(),
-                API.getForecastSeasonality()
+                API.getForecastSeasonality(),
+                API.getForecastAnalytics()
             ]);
 
             const overviewData = overviewResult.status === 'fulfilled'
@@ -128,6 +134,9 @@ class ForecastingPage {
                         ? seasonalityResult.value
                         : [])
                 : [];
+            const analyticsData = analyticsResult.status === 'fulfilled'
+                ? (analyticsResult.value?.data ?? analyticsResult.value)
+                : null;
 
             if (overviewData) {
                 this.renderHighlights(overviewData);
@@ -138,11 +147,14 @@ class ForecastingPage {
             this.renderReorders(reorderData);
             this.renderAlerts(alertsData, overviewData);
             this.renderSeasonality(seasonalityData, seasonalityResult.status === 'rejected');
+            this.renderCriticalAlertsBanner(alertsData);
+            this.renderAnalyticsSection(analyticsData, overviewData);
 
             this.lastOverview = overviewData;
             this.lastReorders = reorderData;
             this.lastAlerts = alertsData;
             this.lastSeasonality = seasonalityData;
+            this.lastAnalytics = analyticsData;
 
             if (overviewResult.status === 'rejected' || reorderResult.status === 'rejected' || alertsResult.status === 'rejected') {
                 console.warn('Some forecasting sections failed to load', {
@@ -737,6 +749,275 @@ class ForecastingPage {
                 </div>
             `).join('');
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Critical Alerts Banner
+    // ---------------------------------------------------------------
+
+    renderCriticalAlertsBanner(alerts) {
+        if (!this.criticalAlertsBanner) return;
+
+        const criticalAlerts = Array.isArray(alerts)
+            ? alerts.filter(a => a.severity === 'critical')
+            : [];
+
+        if (criticalAlerts.length === 0) {
+            this.criticalAlertsBanner.innerHTML = '';
+            this.criticalAlertsBanner.classList.add('hidden');
+            return;
+        }
+
+        this.criticalAlertsBanner.classList.remove('hidden');
+        this.criticalAlertsBanner.innerHTML = `
+            <div class="forecast-critical-banner">
+                <div class="forecast-critical-banner__header">
+                    <span class="forecast-critical-banner__icon">
+                        <i class="fas fa-circle-exclamation"></i>
+                    </span>
+                    <div>
+                        <p class="forecast-critical-banner__title">
+                            ${criticalAlerts.length} Critical Stock Alert${criticalAlerts.length !== 1 ? 's' : ''} Require Immediate Attention
+                        </p>
+                        <p class="forecast-critical-banner__subtitle">
+                            The following supplies are at imminent risk of stockout. Immediate procurement action is required.
+                        </p>
+                    </div>
+                </div>
+                <div class="forecast-critical-banner__items">
+                    ${criticalAlerts.map(alert => `
+                        <div class="forecast-critical-banner__item">
+                            <div class="forecast-critical-banner__item-header">
+                                <span class="forecast-critical-banner__severity-dot forecast-critical-banner__severity-dot--critical"></span>
+                                <p class="forecast-critical-banner__item-title">${this.escapeHtml(alert.title)}</p>
+                                <span class="forecast-chip chip-critical ml-auto">Critical</span>
+                            </div>
+                            <p class="forecast-critical-banner__item-message">${this.escapeHtml(alert.message)}</p>
+                            ${alert.recommended_action ? `
+                            <div class="forecast-critical-banner__action">
+                                <i class="fas fa-bolt text-rose-500 shrink-0"></i>
+                                <p><span class="font-semibold">Action:</span> ${this.escapeHtml(alert.recommended_action)}</p>
+                            </div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // ---------------------------------------------------------------
+    // Data Analytics Section
+    // ---------------------------------------------------------------
+
+    renderAnalyticsSection(analytics, overview) {
+        if (!this.analyticsSection) return;
+
+        const trendInfo   = overview?.analytics ?? null;
+        const topItems    = analytics?.top_consuming ?? [];
+        const costTrend   = analytics?.cost_trend ?? [];
+        const savings     = analytics?.savings_opportunities ?? [];
+        const turnover    = analytics?.turnover_rates ?? [];
+
+        const hasData = topItems.length > 0 || costTrend.length > 0;
+
+        if (!hasData) {
+            this.analyticsSection.innerHTML = `
+                <div class="forecast-empty">
+                    <h3 class="text-lg font-semibold text-slate-700">Analytics data not available</h3>
+                    <p class="text-slate-500 text-sm mt-2 max-w-md mx-auto">
+                        Record supply transactions to unlock data analytics insights.
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        // Trend indicator
+        const trendHtml = trendInfo ? this.renderTrendIndicator(trendInfo) : '';
+
+        // Top consuming supplies list
+        const topConsumingHtml = topItems.length > 0 ? `
+            <div class="forecast-analytics__card">
+                <h3 class="forecast-analytics__card-title">
+                    <i class="fas fa-fire-flame-curved text-orange-500"></i>
+                    Top Consuming Supplies
+                </h3>
+                <div class="space-y-3">
+                    ${topItems.map((item, idx) => `
+                        <div class="forecast-analytics__top-item">
+                            <span class="forecast-analytics__rank">${idx + 1}</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-slate-800 truncate">${this.escapeHtml(item.name)}</p>
+                                <p class="text-xs text-slate-500">${this.escapeHtml(item.item_code)}</p>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <p class="text-sm font-bold text-slate-900">${new Intl.NumberFormat().format(item.forecast_30_day)} units</p>
+                                <p class="text-xs text-slate-500">30-day forecast</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+
+        // Cost projections
+        const costProjectionHtml = costTrend.length > 0 ? (() => {
+            const totalCost = costTrend.reduce((sum, m) => sum + (m.estimated_cost ?? 0), 0);
+            const lastThree = costTrend.slice(-3);
+            const recentAvg = lastThree.length > 0
+                ? lastThree.reduce((s, m) => s + (m.estimated_cost ?? 0), 0) / lastThree.length
+                : 0;
+
+            return `
+                <div class="forecast-analytics__card">
+                    <h3 class="forecast-analytics__card-title">
+                        <i class="fas fa-peso-sign text-emerald-600"></i>
+                        Cost Trend Analysis
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="forecast-analytics__metric">
+                            <p class="forecast-analytics__metric-label">Total period cost</p>
+                            <p class="forecast-analytics__metric-value">&#8369;${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalCost)}</p>
+                        </div>
+                        <div class="forecast-analytics__metric">
+                            <p class="forecast-analytics__metric-label">Recent monthly avg</p>
+                            <p class="forecast-analytics__metric-value">&#8369;${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(recentAvg)}</p>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        ${costTrend.slice(-6).map(month => {
+                            const maxCost = Math.max(...costTrend.map(m => m.estimated_cost ?? 0), 1);
+                            const barWidth = maxCost > 0 ? Math.round(((month.estimated_cost ?? 0) / maxCost) * 100) : 0;
+                            const barColor = month.classification === 'peak' ? 'bg-rose-400' :
+                                             month.classification === 'low'  ? 'bg-sky-400' : 'bg-emerald-400';
+                            return `
+                                <div class="flex items-center gap-2 text-xs">
+                                    <span class="w-16 shrink-0 text-slate-500 font-medium">${this.escapeHtml(month.period)}</span>
+                                    <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                        <div class="${barColor} h-2 rounded-full transition-all" style="width:${barWidth}%"></div>
+                                    </div>
+                                    <span class="w-20 shrink-0 text-right font-semibold text-slate-700">
+                                        &#8369;${new Intl.NumberFormat('en-PH', { maximumFractionDigits: 0 }).format(month.estimated_cost ?? 0)}
+                                    </span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        })() : '';
+
+        // Savings opportunities
+        const savingsHtml = savings.length > 0 ? `
+            <div class="forecast-analytics__card forecast-analytics__card--savings">
+                <h3 class="forecast-analytics__card-title">
+                    <i class="fas fa-piggy-bank text-emerald-600"></i>
+                    Projected Savings Opportunities
+                </h3>
+                <div class="space-y-3">
+                    ${savings.map(op => {
+                        const isEarlyReorder = op.type === 'early_reorder';
+                        const iconClass = isEarlyReorder ? 'fa-clock text-amber-500' : 'fa-arrow-trend-down text-emerald-500';
+                        return `
+                            <div class="forecast-analytics__saving-item">
+                                <i class="fas ${iconClass} shrink-0 mt-0.5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-slate-800">${this.escapeHtml(op.name)}</p>
+                                    <p class="text-xs text-slate-500 mt-0.5">${this.escapeHtml(op.description)}</p>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    <p class="text-sm font-bold text-emerald-700">
+                                        <i class="fas fa-arrow-up text-emerald-500 text-xs"></i>
+                                        &#8369;${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(op.potential_saving)}
+                                    </p>
+                                    <p class="text-xs text-slate-400">potential saving</p>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        ` : '';
+
+        // Supply turnover rates
+        const turnoverHtml = turnover.length > 0 ? `
+            <div class="forecast-analytics__card">
+                <h3 class="forecast-analytics__card-title">
+                    <i class="fas fa-arrows-rotate text-indigo-600"></i>
+                    Supply Turnover Rates
+                </h3>
+                <div class="space-y-2">
+                    ${turnover.slice(0, 6).map(item => {
+                        const chipClass = item.classification === 'fast_moving' ? 'chip-normal' :
+                                          item.classification === 'slow_moving' ? 'chip-warning' : 'chip-info';
+                        const chipLabel = item.classification === 'fast_moving' ? 'Fast' :
+                                          item.classification === 'slow_moving' ? 'Slow' : 'Normal';
+                        const trendIcon = item.classification === 'fast_moving'
+                            ? '<i class="fas fa-arrow-trend-up text-emerald-500"></i>'
+                            : item.classification === 'slow_moving'
+                                ? '<i class="fas fa-arrow-trend-down text-rose-500"></i>'
+                                : '<i class="fas fa-minus text-slate-400"></i>';
+                        return `
+                            <div class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-slate-800 truncate">${this.escapeHtml(item.name)}</p>
+                                    <p class="text-xs text-slate-500">Annual forecast: ${new Intl.NumberFormat().format(item.annual_forecast)} units</p>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    ${trendIcon}
+                                    <span class="text-sm font-bold text-slate-700">${item.turnover_rate}x</span>
+                                    <span class="forecast-chip ${chipClass}">${chipLabel}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        ` : '';
+
+        this.analyticsSection.innerHTML = `
+            <div class="space-y-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-semibold text-slate-900">Data Analytics</h2>
+                    ${trendHtml}
+                </div>
+                <div class="forecast-analytics__grid">
+                    ${topConsumingHtml}
+                    ${costProjectionHtml}
+                    ${savingsHtml}
+                    ${turnoverHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    renderTrendIndicator(trendInfo) {
+        const dir     = trendInfo.trend_direction ?? 'stable';
+        const pct     = trendInfo.percentage_change ?? 0;
+        const conf    = trendInfo.confidence_score ?? 0;
+
+        const dirConfig = {
+            up:     { icon: 'fa-arrow-trend-up',   color: 'text-rose-600',    bg: 'bg-rose-50',    label: 'Increasing demand' },
+            down:   { icon: 'fa-arrow-trend-down',  color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Decreasing demand' },
+            stable: { icon: 'fa-minus',              color: 'text-slate-600',   bg: 'bg-slate-50',   label: 'Stable demand' }
+        };
+
+        const cfg = dirConfig[dir] ?? dirConfig.stable;
+        const pctLabel = pct > 0 ? `+${pct}%` : `${pct}%`;
+
+        return `
+            <div class="flex items-center gap-3 flex-wrap">
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl ${cfg.bg} border border-slate-200">
+                    <i class="fas ${cfg.icon} ${cfg.color} text-sm"></i>
+                    <span class="text-sm font-semibold ${cfg.color}">${cfg.label}</span>
+                    <span class="text-xs font-bold ${cfg.color}">(${pctLabel})</span>
+                </div>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100">
+                    <i class="fas fa-brain text-indigo-500 text-xs"></i>
+                    <span class="text-xs font-semibold text-indigo-600">Confidence: ${conf}%</span>
+                </div>
+            </div>
+        `;
     }
 
     formatValue(value, type) {

@@ -40,11 +40,40 @@ class ReportsManager {
             });
         });
 
-        // Export button
+        // Export button with dropdown
         const exportBtn = document.getElementById('exportBtn');
         if (exportBtn) {
-            exportBtn.addEventListener('click', () => {
-                this.exportCurrentReport();
+            // Replace single button with dropdown
+            const parent = exportBtn.parentElement;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative inline-block';
+            wrapper.innerHTML = `
+                <button id="exportDropdownBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 inline-flex items-center gap-2">
+                    <i class="fas fa-download"></i> Export <i class="fas fa-caret-down"></i>
+                </button>
+                <div id="exportDropdownMenu" class="hidden absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <button onclick="reportsManager.exportAs('pdf')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg flex items-center gap-2">
+                        <i class="fas fa-file-pdf text-red-500"></i> Export as PDF
+                    </button>
+                    <button onclick="reportsManager.exportAs('csv')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                        <i class="fas fa-file-csv text-green-500"></i> Export as CSV
+                    </button>
+                    <button onclick="reportsManager.exportAs('excel')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-lg flex items-center gap-2">
+                        <i class="fas fa-file-excel text-emerald-500"></i> Export as Excel
+                    </button>
+                </div>
+            `;
+            exportBtn.replaceWith(wrapper);
+
+            const dropdownBtn = document.getElementById('exportDropdownBtn');
+            const dropdownMenu = document.getElementById('exportDropdownMenu');
+            dropdownBtn.addEventListener('click', () => {
+                dropdownMenu.classList.toggle('hidden');
+            });
+            document.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) {
+                    dropdownMenu.classList.add('hidden');
+                }
             });
         }
 
@@ -76,14 +105,20 @@ class ReportsManager {
 
     async loadReport(reportType) {
         try {
+            // Item verification doesn't need initial data load
+            if (reportType === 'item_verification') {
+                this.renderReport(reportType, {});
+                return;
+            }
+
             showLoading();
-            
+
             // Build URL with date range parameters
             let url = `reports.php?action=${reportType}`;
             if (this.dateFrom && this.dateTo) {
                 url += `&date_from=${this.dateFrom}&date_to=${this.dateTo}`;
             }
-            
+
             const response = await API.request(url);
             this.renderReport(reportType, response);
         } catch (error) {
@@ -95,28 +130,33 @@ class ReportsManager {
     }
 
     async exportCurrentReport() {
+        this.exportAs('excel');
+    }
+
+    async exportAs(format) {
         try {
             showLoading();
-            
-            // Build export URL with proper path (no leading slash for relative path)
+
             const baseUrl = window.location.origin + window.location.pathname.replace('reports.php', '');
-            let url = `${baseUrl}api/reports.php?action=${this.currentReport}&export=excel`;
+            let url = `${baseUrl}api/reports.php?action=${this.currentReport}&export=${format}`;
             if (this.dateFrom && this.dateTo) {
                 url += `&date_from=${this.dateFrom}&date_to=${this.dateTo}`;
             }
-            
-            console.log('Export URL:', url); // Debug log
-            
-            // Open in new window to trigger download
+
             window.open(url, '_blank');
-            
-            showNotification('Report export started. File will download shortly.', 'success');
+
+            const formatLabel = format.toUpperCase();
+            showNotification(`${formatLabel} export started. ${format === 'pdf' ? 'Use Print > Save as PDF in the new window.' : 'File will download shortly.'}`, 'success');
         } catch (error) {
             console.error('Error exporting report:', error);
             showError('Failed to export report');
         } finally {
             hideLoading();
         }
+
+        // Close dropdown
+        const menu = document.getElementById('exportDropdownMenu');
+        if (menu) menu.classList.add('hidden');
     }
 
     refreshCurrentReport() {
@@ -150,13 +190,18 @@ class ReportsManager {
             case 'financial':
                 this.renderFinancialReport(container, data);
                 break;
+            case 'item_verification':
+                this.renderItemVerificationReport(container, data);
+                break;
             default:
                 container.innerHTML = '<p class="text-gray-500">Report type not found.</p>';
         }
     }
 
-    renderOverviewReport(container, data) {
+    async renderOverviewReport(container, data) {
+        const alertsHtml = await this.loadCriticalAlerts(container);
         container.innerHTML = `
+            ${alertsHtml}
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
                 ${data.assets ? `
                 <div class="bg-white rounded-lg shadow-md p-6">
@@ -697,6 +742,157 @@ class ReportsManager {
                 </div>
             </div>
         `;
+    }
+
+    renderItemVerificationReport(container, data) {
+        container.innerHTML = `
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Item Verification</h3>
+                <p class="text-sm text-gray-500 mb-4">Search by item code or name to verify existence in the system.</p>
+                <div class="flex gap-3 mb-6">
+                    <input type="text" id="verificationSearch" placeholder="Enter item code or name..."
+                        class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <button onclick="reportsManager.searchItemVerification()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-search mr-2"></i>Verify
+                    </button>
+                </div>
+                <div id="verificationResults"></div>
+            </div>
+        `;
+        const input = document.getElementById('verificationSearch');
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.searchItemVerification();
+            });
+        }
+    }
+
+    async searchItemVerification() {
+        const search = document.getElementById('verificationSearch')?.value?.trim();
+        const container = document.getElementById('verificationResults');
+        if (!container) return;
+
+        if (!search) {
+            container.innerHTML = '<p class="text-gray-500 text-sm">Please enter a search term.</p>';
+            return;
+        }
+
+        try {
+            container.innerHTML = '<p class="text-gray-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Searching...</p>';
+            const response = await API.request(`reports.php?action=item_verification&search=${encodeURIComponent(search)}`);
+
+            if (!response.results || response.results.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-times-circle text-red-500 text-xl"></i>
+                            <div>
+                                <p class="font-semibold text-red-700">Item Not Found</p>
+                                <p class="text-sm text-red-600">No items matching "${search}" exist in the system.</p>
+                            </div>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                        <div>
+                            <p class="font-semibold text-green-700">Verified</p>
+                            <p class="text-sm text-green-600">${response.message}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${response.results.map(item => `
+                                <tr>
+                                    <td class="px-4 py-3 text-sm">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${item.item_type === 'asset' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}">
+                                            ${item.item_type === 'asset' ? 'Asset' : 'Supply'}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-mono text-gray-900">${item.asset_code || item.item_code || 'N/A'}</td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${item.name}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">${item.category || 'N/A'}</td>
+                                    <td class="px-4 py-3 text-sm">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                                            item.status === 'available' || item.status === 'active' ? 'bg-green-100 text-green-700' :
+                                            item.status === 'assigned' ? 'bg-blue-100 text-blue-700' :
+                                            item.status === 'damaged' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                        }">${item.status || 'N/A'}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">${item.location || 'N/A'}</td>
+                                    <td class="px-4 py-3 text-sm font-semibold text-green-600">${item.current_value ? formatCurrency(item.current_value) : (item.purchase_cost ? formatCurrency(item.purchase_cost) : 'N/A')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+        } catch (error) {
+            console.error('Verification error:', error);
+            container.innerHTML = '<p class="text-red-500 text-sm">Failed to verify item. Please try again.</p>';
+        }
+    }
+
+    async loadCriticalAlerts(container) {
+        try {
+            const response = await API.request('reports.php?action=critical_alerts');
+            if (!response.alerts || response.alerts.length === 0) return '';
+
+            const severityStyles = {
+                critical: 'bg-red-50 border-red-200 text-red-700',
+                warning: 'bg-amber-50 border-amber-200 text-amber-700',
+                info: 'bg-blue-50 border-blue-200 text-blue-700'
+            };
+            const severityIcons = {
+                critical: 'fas fa-exclamation-circle text-red-500',
+                warning: 'fas fa-exclamation-triangle text-amber-500',
+                info: 'fas fa-info-circle text-blue-500'
+            };
+
+            return `
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <i class="fas fa-bell text-red-500"></i> Critical Alerts
+                            ${response.critical_count > 0 ? `<span class="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">${response.critical_count}</span>` : ''}
+                        </h3>
+                        <span class="text-xs text-gray-500">${response.total} alert(s)</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${response.alerts.map(alert => `
+                            <div class="border rounded-lg p-3 ${severityStyles[alert.severity] || severityStyles.info}">
+                                <div class="flex items-start gap-3">
+                                    <i class="${severityIcons[alert.severity] || severityIcons.info} mt-0.5"></i>
+                                    <div class="flex-1">
+                                        <p class="font-semibold text-sm">${alert.title}</p>
+                                        <p class="text-xs mt-0.5">${alert.message}</p>
+                                    </div>
+                                    ${alert.value ? `<span class="text-xs font-semibold whitespace-nowrap">${formatCurrency(alert.value)}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+        } catch (error) {
+            console.warn('Failed to load critical alerts:', error);
+            return '';
+        }
     }
 
     async exportReport() {

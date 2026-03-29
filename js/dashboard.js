@@ -198,6 +198,7 @@ class Dashboard {
         }
 
         const ctx = canvas.getContext('2d');
+        canvas.style.cursor = 'pointer';
         const chart = new Chart(ctx, {
             type: 'doughnut',
             data: {
@@ -218,12 +219,18 @@ class Dashboard {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: () => { window.location.href = 'asset-registry.php'; },
                 plugins: {
                     legend: {
                         position: 'right',
                         labels: {
                             boxWidth: 12,
                             usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: () => 'Click to view Asset Registry'
                         }
                     }
                 },
@@ -457,6 +464,7 @@ class Dashboard {
             const stock = response.items.map(i => Number(i.current_stock));
             const minStock = response.items.map(i => Number(i.minimum_stock));
 
+            canvas.style.cursor = 'pointer';
             canvas.__chart = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
                 data: {
@@ -468,7 +476,11 @@ class Dashboard {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } } },
+                    onClick: () => { window.location.href = 'supplies-inventory.php'; },
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
+                        tooltip: { callbacks: { afterLabel: () => 'Click to view Supplies Inventory' } }
+                    },
                     scales: { x: { ticks: { maxRotation: 45 } }, y: { beginAtZero: true } }
                 }
             });
@@ -487,6 +499,7 @@ class Dashboard {
             const values = response.categories.map(c => Number(c.count));
             const colors = ['#3b82f6','#22c55e','#f97316','#ef4444','#8b5cf6','#06b6d4','#f43f5e','#84cc16','#eab308','#6366f1'];
 
+            canvas.style.cursor = 'pointer';
             canvas.__chart = new Chart(canvas.getContext('2d'), {
                 type: 'pie',
                 data: {
@@ -495,7 +508,11 @@ class Dashboard {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, usePointStyle: true } } }
+                    onClick: () => { window.location.href = 'supplies-inventory.php'; },
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, usePointStyle: true } },
+                        tooltip: { callbacks: { afterLabel: () => 'Click to view Supplies Inventory' } }
+                    }
                 }
             });
         } catch (e) { console.warn('Supply category chart:', e); }
@@ -517,6 +534,7 @@ class Dashboard {
                 '#84CC16', '#D946EF'
             ];
 
+            canvas.style.cursor = 'pointer';
             canvas.__chart = new Chart(canvas.getContext('2d'), {
                 type: 'pie',
                 data: {
@@ -531,11 +549,13 @@ class Dashboard {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: () => { window.location.href = 'asset-registry.php'; },
                     plugins: {
                         legend: {
                             position: 'right',
                             labels: { boxWidth: 12, usePointStyle: true }
-                        }
+                        },
+                        tooltip: { callbacks: { afterLabel: () => 'Click to view Asset Registry' } }
                     }
                 }
             });
@@ -556,6 +576,7 @@ class Dashboard {
             const stockOut = months.map(m => response.months[m].out || 0);
             const labels = months.map(m => { const d = new Date(m + '-01'); return d.toLocaleString('default', { month: 'short', year: '2-digit' }); });
 
+            canvas.style.cursor = 'pointer';
             canvas.__chart = new Chart(canvas.getContext('2d'), {
                 type: 'line',
                 data: {
@@ -567,7 +588,11 @@ class Dashboard {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } } },
+                    onClick: () => { window.location.href = 'supplies-inventory.php'; },
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
+                        tooltip: { callbacks: { afterLabel: () => 'Click to view Supplies Inventory' } }
+                    },
                     scales: { y: { beginAtZero: true } }
                 }
             });

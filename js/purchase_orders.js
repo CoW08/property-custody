@@ -22,6 +22,7 @@ const SHIPPING_RATES = {
 };
 
 window.addEventListener('DOMContentLoaded', () => {
+    injectDeletePOModal();
     bindPurchaseOrderEvents();
     loadPurchaseOrderStats();
     loadApprovedRequests();
@@ -434,7 +435,7 @@ function renderPurchaseOrdersTable(tbody, purchaseOrders) {
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                 <button class="text-blue-600 hover:text-blue-900" title="View" onclick="viewPurchaseOrder(${po.id})"><i class="fas fa-eye"></i></button>
                 <button class="text-yellow-600 hover:text-yellow-900" title="Edit" onclick="editPurchaseOrder(${po.id})"><i class="fas fa-edit"></i></button>
-                <button class="text-red-600 hover:text-red-900" title="Delete" onclick="deletePurchaseOrder(${po.id})"><i class="fas fa-trash"></i></button>
+                ${(window.currentUser?.role === 'admin') ? `<button class="text-red-600 hover:text-red-900" title="Delete (Admin only)" onclick="confirmDeletePO(${po.id}, '${po.po_number}')"><i class="fas fa-trash"></i></button>` : ''}
             </td>
         </tr>
     `).join('');
@@ -468,7 +469,7 @@ function renderPurchaseOrdersMobile(container, purchaseOrders) {
             <div class="flex items-center justify-end mt-3 space-x-3 text-sm">
                 <button class="text-blue-600 hover:text-blue-900" onclick="viewPurchaseOrder(${po.id})"><i class="fas fa-eye mr-1"></i>View</button>
                 <button class="text-yellow-600 hover:text-yellow-900" onclick="editPurchaseOrder(${po.id})"><i class="fas fa-edit mr-1"></i>Edit</button>
-                <button class="text-red-600 hover:text-red-900" onclick="deletePurchaseOrder(${po.id})"><i class="fas fa-trash mr-1"></i>Delete</button>
+                ${(window.currentUser?.role === 'admin') ? `<button class="text-red-600 hover:text-red-900" onclick="confirmDeletePO(${po.id}, '${po.po_number}')"><i class="fas fa-trash mr-1"></i>Delete</button>` : ''}
             </div>
         </div>
     `).join('');
@@ -797,25 +798,127 @@ async function editPurchaseOrder(id) {
     }
 }
 
-async function deletePurchaseOrder(id) {
-    if (!confirm('Are you sure you want to delete this purchase order?')) {
+function confirmDeletePO(id, poNumber) {
+    if (window.currentUser?.role !== 'admin') {
+        showNotification('Access denied. Only administrators can delete purchase orders.', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('deletePurchaseOrderModal');
+    if (!modal) return;
+
+    const poNumberDisplay = modal.querySelector('#deletePONumberDisplay');
+    const confirmInput = modal.querySelector('#deletePOConfirmInput');
+    const confirmBtn = modal.querySelector('#deletePOConfirmBtn');
+    const errorMsg = modal.querySelector('#deletePOError');
+
+    if (poNumberDisplay) poNumberDisplay.textContent = poNumber;
+    if (confirmInput) confirmInput.value = '';
+    if (errorMsg) { errorMsg.textContent = ''; errorMsg.classList.add('hidden'); }
+    if (confirmBtn) {
+        confirmBtn.onclick = () => executePODelete(id, poNumber);
+    }
+
+    showModal(modal);
+}
+
+async function executePODelete(id, poNumber) {
+    const modal = document.getElementById('deletePurchaseOrderModal');
+    const confirmInput = modal ? modal.querySelector('#deletePOConfirmInput') : null;
+    const errorMsg = modal ? modal.querySelector('#deletePOError') : null;
+
+    const typedCode = confirmInput ? confirmInput.value.trim() : '';
+
+    if (typedCode !== poNumber) {
+        if (errorMsg) {
+            errorMsg.textContent = `The code you entered does not match. Please type "${poNumber}" exactly.`;
+            errorMsg.classList.remove('hidden');
+        }
         return;
     }
 
     try {
-        const response = await fetch(`api/purchase_orders.php?action=delete&id=${id}`, { method: 'DELETE' });
+        const response = await fetch(`api/purchase_orders.php?action=delete&id=${id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirmation_code: typedCode })
+        });
         const result = await response.json();
         if (!result.success) {
             throw new Error(result.error || 'Failed to delete purchase order');
         }
 
-        showNotification('Purchase order deleted successfully', 'success');
+        hideModal(modal);
+        showNotification('Purchase order archived successfully', 'success');
         loadPurchaseOrderStats();
         loadPurchaseOrders();
     } catch (error) {
         console.error('Failed to delete purchase order:', error);
-        showNotification(error.message || 'Failed to delete purchase order', 'error');
+        if (errorMsg) {
+            errorMsg.textContent = error.message || 'Failed to delete purchase order';
+            errorMsg.classList.remove('hidden');
+        }
     }
+}
+
+function injectDeletePOModal() {
+    if (document.getElementById('deletePurchaseOrderModal')) return;
+
+    const modalHtml = `
+<div id="deletePurchaseOrderModal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-overlay" aria-labelledby="deletePOModalTitle" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="hideModal(document.getElementById('deletePurchaseOrderModal'))"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="px-6 pt-6 pb-4 bg-white">
+                <div class="flex items-start">
+                    <div class="flex items-center justify-center flex-shrink-0 w-10 h-10 mx-0 rounded-full bg-red-100">
+                        <i class="fas fa-exclamation-triangle text-red-600"></i>
+                    </div>
+                    <div class="mt-0 ml-4 text-left">
+                        <h3 class="text-lg font-semibold leading-6 text-gray-900" id="deletePOModalTitle">Delete Purchase Order</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-600">
+                                This action is <strong>permanent and irreversible</strong>. The purchase order record will be archived and removed from all listings.
+                            </p>
+                            <p class="mt-2 text-sm text-gray-600">
+                                To confirm, type the PO number
+                                <span class="font-mono font-semibold text-gray-900" id="deletePONumberDisplay"></span>
+                                in the field below:
+                            </p>
+                            <input
+                                type="text"
+                                id="deletePOConfirmInput"
+                                class="mt-3 w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                placeholder="Type PO number to confirm"
+                                autocomplete="off"
+                            />
+                            <p id="deletePOError" class="hidden mt-2 text-sm text-red-600"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 flex flex-row-reverse gap-3">
+                <button
+                    id="deletePOConfirmBtn"
+                    type="button"
+                    class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                    Delete Permanently
+                </button>
+                <button
+                    type="button"
+                    class="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    onclick="hideModal(document.getElementById('deletePurchaseOrderModal'))"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
 function getPurchaseOrderStatusColor(status) {

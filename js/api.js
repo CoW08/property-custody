@@ -113,6 +113,10 @@ class API {
         return this.request('forecasting.php?action=seasonality');
     }
 
+    static async getForecastAnalytics() {
+        return this.request('forecasting.php?action=analytics_summary');
+    }
+
     // Assets
     static async getAssets() {
         return this.request('assets.php');

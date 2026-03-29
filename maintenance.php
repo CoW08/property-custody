@@ -192,6 +192,7 @@ ob_start();
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Maintenance Type</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled Date</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Assigned To</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Specialization</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Priority</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -199,7 +200,7 @@ ob_start();
                         </thead>
                         <tbody id="maintenance-table-body" class="bg-white divide-y divide-gray-200 text-sm">
                             <tr id="no-maintenance-row">
-                                <td colspan="7" class="px-3 sm:px-6 py-6 text-center text-gray-500">No scheduled maintenance found</td>
+                                <td colspan="8" class="px-3 sm:px-6 py-6 text-center text-gray-500">No scheduled maintenance found</td>
                             </tr>
                         </tbody>
                     </table>
